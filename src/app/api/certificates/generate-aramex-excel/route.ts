@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
         ARAMEX_CITY_MAP.get(normalizeCityKey(r.selectedCityGov || "")) ||
         DEFAULT_ARAMEX_CITY;
 
-      const nameVal = r.studentNameAr || r.studentNameEn || "";
+      // "Name" column = recipient name (اسم المستلم), never the student name.
+      const nameVal = r.recipient || r.studentNameAr || r.studentNameEn || "";
       const attentionNum =
         r.serialNumber !== undefined && r.serialNumber !== ""
           ? Number(r.serialNumber) || r.serialNumber

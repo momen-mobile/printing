@@ -350,6 +350,7 @@ export function AramexExcelGenerator({
         (r) =>
           r.studentNameEn.toLowerCase().includes(q) ||
           (r.studentNameAr && r.studentNameAr.includes(q)) ||
+          (r.recipient && r.recipient.toLowerCase().includes(q)) ||
           (r.phone && r.phone.includes(q)) ||
           (r.phone2 && r.phone2.includes(q)) ||
           (r.fullAddress && r.fullAddress.toLowerCase().includes(q)) ||
@@ -827,39 +828,31 @@ export function AramexExcelGenerator({
                         {r.serialNumber || actualIndex + 1}
                       </td>
 
-                      {/* Name (Arabic candidate name preferred) */}
+                      {/* Name = RECIPIENT name (اسم المستلم), not the student name */}
                       <td className="p-2.5">
                         {isEditing ? (
                           <div className="space-y-1">
                             <input
                               type="text"
-                              value={r.studentNameAr || ""}
-                              onChange={(e) => handleUpdateRowField(r.id, "studentNameAr", e.target.value)}
-                              placeholder="الاسم بالعربي..."
+                              value={r.recipient || ""}
+                              onChange={(e) => handleUpdateRowField(r.id, "recipient", e.target.value)}
+                              placeholder="اسم المستلم..."
                               className="w-full h-7 px-2 text-xs font-bold rounded border border-border bg-surface text-foreground"
                               dir="rtl"
                             />
-                            <input
-                              type="text"
-                              value={r.studentNameEn || ""}
-                              onChange={(e) => handleUpdateRowField(r.id, "studentNameEn", e.target.value)}
-                              placeholder="Name in English..."
-                              className="w-full h-6 px-2 text-[11px] rounded border border-border bg-surface text-muted"
-                            />
+                            <div className="text-[10px] text-muted" title="Student name (for reference only)">
+                              {locale === "ar" ? "اسم الطالب (للعلم فقط):" : "Student (reference only):"}{" "}
+                              {r.studentNameAr || r.studentNameEn}
+                            </div>
                           </div>
                         ) : (
                           <div>
                             <div className="font-bold text-foreground text-xs leading-tight" dir="rtl">
-                              {r.studentNameAr || r.studentNameEn}
+                              {r.recipient || r.studentNameAr || r.studentNameEn}
                             </div>
-                            {r.studentNameAr && (
-                              <div className="text-[11px] text-muted font-medium mt-0.5">
-                                {r.studentNameEn}
-                              </div>
-                            )}
-                            {r.recipient && r.recipient !== r.studentNameAr && r.recipient !== r.studentNameEn && (
-                              <div className="text-[10px] text-red-600 dark:text-red-400 mt-0.5">
-                                <span className="font-semibold">Recipient:</span> {r.recipient}
+                            {(r.studentNameAr || r.studentNameEn) && (
+                              <div className="text-[10px] text-muted font-medium mt-0.5">
+                                {locale === "ar" ? "الطالب:" : "Student:"} {r.studentNameAr || r.studentNameEn}
                               </div>
                             )}
                           </div>

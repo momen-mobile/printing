@@ -395,13 +395,15 @@ export function generateAramexWorkbook(rows: AramexRowItem[], sheetTitle = "Shee
     const r = rows[idx];
     const cityOpt = r.cityOption || ARAMEX_CITY_MAP.get(r.selectedCityGov.toLowerCase()) || DEFAULT_ARAMEX_CITY;
     const attentionNum = r.serialNumber !== undefined && r.serialNumber !== "" ? r.serialNumber : idx + 1;
-    const nameVal = r.studentNameAr || r.studentNameEn || "";
+    // The official Aramex "Name" column must contain the RECIPIENT name (اسم المستلم),
+    // not the student name. Fall back to student name only when no recipient exists.
+    const nameVal = r.recipient || r.studentNameAr || r.studentNameEn || "";
     const totalReports = r.totalReports !== undefined && r.totalReports !== "" ? r.totalReports : 1;
     const remarksText = `تم تسليم عدد * ${totalReports}   * شهادة برجاء التوقيع +رقم البطاقة  على البوليصة  وارسالها مرة اخرى`;
 
     excelRows.push([
       "", // HAWB
-      nameVal, // Name (Arabic candidate name preferred)
+      nameVal, // Name (recipient / اسم المستلم — not the student)
       attentionNum, // Attention
       r.fullAddress, // Full Address
       cityOpt.cityGov, // City - Governorate (Please select from the list)
