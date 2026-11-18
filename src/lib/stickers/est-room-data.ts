@@ -1,5 +1,3 @@
-import { EST_REFERENCE_DATA, type EstReferenceRow } from "./est-reference-data";
-
 export type EstSubjectKey =
   | "LIT"
   | "MATH"
@@ -314,21 +312,9 @@ export function formatEst2FileName(
 }
 
 /**
- * Normalizes room/building/center strings for fuzzy matching across reference data.
- */
-function normalizeString(value?: string | null): string {
-  return (value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .replace(/^(room|قاعة|لجنة|حجرة)\s*/i, "");
-}
-
-/**
- * Resolves room exam counts dynamically from:
- * 1. Existing folder file matching the EST naming pattern (EST 1 or EST 2)
- * 2. Official EST_REFERENCE_DATA (with matching room, building, center, governorate)
- * 3. Reasonable room defaults
+ * Resolves room exam counts dynamically from the real files inside the room
+ * folder only. No reference/demo data and no fabricated counts: if the drive
+ * folder has no register file yet, zero students are returned.
  */
 export function getRoomExamCounts(params: {
   room: string;
@@ -389,57 +375,9 @@ export function getRoomExamCounts(params: {
     }
   }
 
-  // 2. Lookup in EST_REFERENCE_DATA (primarily for EST 1 reference data)
+  // 2. Clean fallback: when no register file exists in the room yet,
+  // return 0 students and empty subjects (NO hardcoded/demo counts).
   const isEst2Context = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(examName || "");
-  const targetRoom = normalizeString(room);
-
-  const matchedRow =
-    EST_REFERENCE_DATA.find((r) => {
-      const rRoom = normalizeString(r.room);
-      if (rRoom !== targetRoom) return false;
-      if (building && normalizeString(r.building) !== normalizeString(building)) return false;
-      if (center && normalizeString(r.testCenter) !== normalizeString(center)) return false;
-      if (governorate && normalizeString(r.governorate) !== normalizeString(governorate)) return false;
-      return true;
-    }) ||
-    EST_REFERENCE_DATA.find((r) => normalizeString(r.room) === targetRoom);
-
-  if (matchedRow && !isEst2Context) {
-    const litCount = matchedRow.studentsEst1;
-    const mathCount = matchedRow.studentsEst1;
-    const essayCount = matchedRow.studentsWithEssay;
-    const hasEssay = essayCount > 0;
-    const subjects: RoomSubjectCount[] = [
-      { code: "LIT", name: "Literacy", displayName: "EST I – Literacy", count: litCount, copies: 2 },
-      { code: "MATH", name: "Math", displayName: "EST I – Math", count: mathCount, copies: 2 },
-    ];
-    if (hasEssay) {
-      subjects.push({
-        code: "ESSAY",
-        name: "Essay",
-        displayName: "EST I – Essay",
-        count: essayCount,
-        copies: 2,
-      });
-    }
-
-    return {
-      room: params.room,
-      examType: "EST 1",
-      totalStudents: matchedRow.studentsEst1,
-      subjects,
-      breakdownText: subjects.map((s) => `${s.code}: ${s.count}`).join("  |  "),
-      litCount,
-      mathCount,
-      essayCount,
-      essayStatus: hasEssay ? "YES" : "NO",
-      hasEssay,
-      source: "reference",
-    };
-  }
-
-  // 3. Clean default fallback: when no files are uploaded to the room yet,
-  // return 0 students and empty subjects (NO hardcoded fake counts).
   if (isEst2Context) {
     return {
       room: params.room,

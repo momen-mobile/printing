@@ -1,5 +1,4 @@
 import type { DriveItem, Breadcrumb } from "@/lib/types";
-import { OFFICIAL_ROOMS_SET, OFFICIAL_EST_SCHOOLS } from "./est-reference-data";
 
 export type RegisterCategory = "building_excel" | "student" | "control" | "proctor" | null;
 
@@ -262,14 +261,9 @@ export function isFloorFolderName(name?: string | null): boolean {
 /**
  * Helper to check whether a folder name matches a room pattern.
  */
-export function isRoomFolderName(name?: string | null): boolean {
+export function isRoomFolderName(name?: string | null, parentName?: string | null): boolean {
   if (!name) return false;
   const folderName = name.trim();
-
-  // 0. Match official EST reference rooms immediately (e.g. Nebraska, California, MathsClass, Senior1, G5-C)
-  if (OFFICIAL_ROOMS_SET.has(folderName.toLowerCase())) {
-    return true;
-  }
 
   // 1. Exclude exam roots, months/dates, governorates, drive roots
   if (
@@ -314,6 +308,17 @@ export function isRoomFolderName(name?: string | null): boolean {
   ) {
     return true;
   }
+
+  // Structural detection: any plain word-named child of a floor folder is a
+  // room (e.g. "Nebraska", "New Jersey"). No hard-coded name list is used.
+  if (
+    parentName &&
+    isFloorFolderName(parentName) &&
+    /^[\p{L}][\p{L}\s.\-']*$/u.test(folderName)
+  ) {
+    return true;
+  }
+
   return false;
 }
 
@@ -380,19 +385,8 @@ export function getFolderRegisterCategory(params: {
     /center|سنتر|مركز|campus|aast|academy|أكاديمية|جامعة|مجمع/i.test(n) &&
     !/building|مبنى|faculty|كلية|management|pharmacy|engineering|قسم/i.test(n);
 
-  // 5. Official EST Schools or College / Building detection by name -> Building Excel!
-  // Note: Individual schools (e.g. "Taymour English School (Alexandria)") qualify,
-  // but the parent container "Schools" was already intercepted in step 2.
-  const isOfficialEstSchool = OFFICIAL_EST_SCHOOLS.some(
-    (s) =>
-      s.fullFolderName.toLowerCase() === folderName.toLowerCase() ||
-      s.schoolName.toLowerCase() === folderName.toLowerCase() ||
-      folderName.toLowerCase().includes(s.schoolName.toLowerCase()) ||
-      folderName.toLowerCase().includes("integrated thebes"),
-  );
-  if (isOfficialEstSchool) {
-    return "building_excel";
-  }
+  // 5. College / Building detection by name -> Building Excel!
+  // Note: the parent container "Schools" was already intercepted in step 2.
 
   // Guard: if folder is literally "Schools" or "المدارس", it is the container folder, NEVER a single building!
   if (/^(schools|المدارس|مدارس)$/i.test(folderName)) {

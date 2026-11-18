@@ -36,10 +36,11 @@ describe("Official EST 1 & EST 2 Schools Architecture", () => {
 
   it("recognizes all special and named rooms across all schools", () => {
     // US States / Cities in Pioneers International School
-    expect(isRoomFolderName("Nebraska")).toBe(true);
-    expect(isRoomFolderName("California")).toBe(true);
-    expect(isRoomFolderName("Chicago")).toBe(true);
-    expect(isRoomFolderName("Colimbia")).toBe(true);
+    // Word-named rooms are detected structurally from their floor parent.
+    expect(isRoomFolderName("Nebraska", "3rd Floor")).toBe(true);
+    expect(isRoomFolderName("California", "3rd Floor")).toBe(true);
+    expect(isRoomFolderName("Chicago", "3rd Floor")).toBe(true);
+    expect(isRoomFolderName("Colimbia", "3rd Floor")).toBe(true);
 
     // Seniors in Hotep International School
     expect(isRoomFolderName("Senior1")).toBe(true);
@@ -94,7 +95,12 @@ describe("Official EST 1 & EST 2 Schools Architecture", () => {
       "Pioneers International School (Alexandria)",
     ];
 
-    const content = buildStickerContent(chain);
+    const content = buildStickerContent(chain, {
+      childLabel: "Floors",
+      childNames: ["3rd Floor"],
+      childCount: 1,
+      totalRooms: 12,
+    });
     expect(content.level).toBe("building");
     expect(content.building).toBe("Pioneers International School");
     expect(content.governorate).toBe("Alexandria");

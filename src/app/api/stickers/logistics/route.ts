@@ -3,13 +3,9 @@ import { requireSession, enforceRateLimit, jsonError } from "@/lib/api-utils";
 import { getConnection, getDriveContextWithRoot } from "@/lib/auth";
 import { buildBreadcrumbs, getFileMeta } from "@/lib/drive";
 import { getDemoBreadcrumbs, getDemoDescendants, isDemoEnabled } from "@/lib/demo";
-import {
-  getReferenceSubfolderInfo,
-  EST_REFERENCE_DATA,
-  OFFICIAL_EST_SCHOOLS,
-  getFloorSortWeight,
-} from "@/lib/stickers/est-reference-data";
+import { getFloorSortWeight } from "@/lib/stickers/est-reference-data";
 import { parseEstRoomFileName } from "@/lib/stickers/est-room-data";
+import { listStickerChildren } from "@/lib/stickers/drive-hierarchy";
 import { isRoomFolderName } from "@/lib/stickers/register-utils";
 import {
   generateBuildingCartonStickerPdf,
@@ -326,7 +322,7 @@ export async function GET(request: Request) {
           if (rel[3]) building = rel[3];
         }
 
-        // Search counterpart exam in Live Google Drive
+        // Search counterpart exam in Live Google Drive (shortcut folders included)
         const counterpartMap = new Map<string, { studentCount: number; subjectsText: string }>();
         try {
           const estIdx = crumbs.findIndex((c) => /^EST(\s*[-_]?\s*([0-9]+|[IVXLCDM]+))?$/i.test(c.name || ""));
@@ -338,214 +334,148 @@ export async function GET(request: Request) {
             const subPath = crumbs.slice(estIdx + 1).map((c) => (c.name || "").trim());
 
             if (cycleId) {
-              const cpExamRes = await drive.files.list({
-                q: `'${cycleId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false and name = '${cpExamName}'`,
-                fields: "files(id, name)",
-                pageSize: 10,
-                supportsAllDrives: true,
-                includeItemsFromAllDrives: true,
-              });
-              let curParentId = cpExamRes.data.files?.[0]?.id;
-              if (curParentId && subPath.length > 0) {
+              const cycleChildren = await listStickerChildren(drive, cycleId);
+              let curParentId: string | undefined = cycleChildren.folders.find(
+                (f) => f.name.toLowerCase() === cpExamName.toLowerCase(),
+              )?.id;
+
+              if (curParentId) {
                 for (const seg of subPath) {
-                  const segRes: any = await drive.files.list({
-                    q: `'${curParentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false and name = '${seg}'`,
-                    fields: "files(id, name)",
-                    pageSize: 10,
-                    supportsAllDrives: true,
-                    includeItemsFromAllDrives: true,
-                  });
-                  curParentId = segRes.data.files?.[0]?.id;
+                  const children = await listStickerChildren(drive, curParentId);
+                  curParentId = children.folders.find(
+                    (f) => f.name.trim().toLowerCase() === seg.toLowerCase(),
+                  )?.id;
                   if (!curParentId) break;
                 }
               }
 
               if (curParentId) {
-                const cpSubsRes = await drive.files.list({
-                  q: `'${curParentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-                  fields: "files(id, name)",
-                  pageSize: 100,
-                  supportsAllDrives: true,
-                  includeItemsFromAllDrives: true,
-                });
-                const cpFloors = (cpSubsRes.data.files || []).filter((f) => isFloorFolderName(f.name));
-                for (const fl of cpFloors) {
-                  const cpRoomsRes = await drive.files.list({
-                    q: `'${fl.id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-                    fields: "files(id, name)",
-                    pageSize: 100,
-                    supportsAllDrives: true,
-                    includeItemsFromAllDrives: true,
-                  });
-                  for (const rm of cpRoomsRes.data.files || []) {
-                    const rKey = (rm.name || "").trim().toLowerCase();
-                    if (!counterpartMap.has(rKey)) {
-                      let sCount = 0;
-                      let sText = "";
-                      try {
-                        const fRes = await drive.files.list({
-                          q: `'${rm.id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-                          fields: "files(id, name)",
-                          pageSize: 10,
-                          supportsAllDrives: true,
-                          includeItemsFromAllDrives: true,
-                        });
-                        for (const f of fRes.data.files || []) {
-                          const parsed = parseEstRoomFileName(f.name || "");
-                          if (parsed) {
-                            sCount = parsed.totalStudents;
-                            sText = parsed.breakdownText;
-                            break;
-                          }
-                        }
-                      } catch {}
-                      counterpartMap.set(rKey, { studentCount: sCount, subjectsText: sText });
+                const cpChildren = await listStickerChildren(drive, curParentId);
+                const cpFloors = cpChildren.folders.filter((f) => isFloorFolderName(f.name));
+                const cpRooms = cpFloors.length > 0
+                  ? (await Promise.all(cpFloors.map((fl) => listStickerChildren(drive, fl.id))))
+                      .flatMap((c) => c.folders)
+                  : cpChildren.folders;
+
+                await Promise.all(cpRooms.map(async (rm) => {
+                  const rKey = rm.name.trim().toLowerCase();
+                  if (counterpartMap.has(rKey)) return;
+                  let sCount = 0;
+                  let sText = "";
+                  try {
+                    const rmChildren = await listStickerChildren(drive, rm.id);
+                    for (const f of rmChildren.files) {
+                      const parsed = parseEstRoomFileName(f.name);
+                      if (parsed) {
+                        sCount = parsed.totalStudents;
+                        sText = parsed.breakdownText;
+                        break;
+                      }
                     }
-                  }
-                }
+                  } catch {}
+                  counterpartMap.set(rKey, { studentCount: sCount, subjectsText: sText });
+                }));
               }
             }
           }
         } catch {}
 
-        // Query floor subfolders under building
+        // Discover the real floor/room hierarchy under the selected folder.
         try {
-          const subRes = await drive.files.list({
-            q: `'${resolvedFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-            fields: "files(id, name)",
-            pageSize: 100,
-            supportsAllDrives: true,
-            includeItemsFromAllDrives: true,
-          });
-          const subs = subRes.data.files || [];
-          const floorSubs = subs.filter((f) => isFloorFolderName(f.name));
-          const directRooms = subs.filter(
+          const children = await listStickerChildren(drive, folderId);
+          const floorSubs = children.folders.filter((f) => isFloorFolderName(f.name));
+          const directRooms = children.folders.filter(
             (f) =>
               isRoomFolderName(f.name) ||
               /^(\d{1,4}[A-Za-z]?|[A-Za-z]\d{1,4}|room\s*\d+|قاعة\s*\d+)$/i.test(f.name || ""),
           );
 
+          interface LiveRoom {
+            room: string;
+            studentCount?: number;
+            subjectsText?: string;
+            est1Count?: number;
+            est1Subjects?: string;
+            est2Count?: number;
+            est2Subjects?: string;
+          }
+
+          const makeRoom = async (rm: { id: string; name: string }): Promise<LiveRoom> => {
+            const rName = rm.name.trim();
+            const rKey = rName.toLowerCase();
+            let stdCount: number | undefined;
+            let subjText: string | undefined;
+            try {
+              const rmChildren = await listStickerChildren(drive, rm.id);
+              for (const f of rmChildren.files) {
+                const parsed = parseEstRoomFileName(f.name);
+                if (parsed) {
+                  stdCount = parsed.totalStudents;
+                  subjText = parsed.breakdownText;
+                  break;
+                }
+              }
+            } catch {}
+            const cp = counterpartMap.get(rKey);
+            const isCurEst1 = !/EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(examName);
+            return {
+              room: rName,
+              studentCount: stdCount,
+              subjectsText: subjText,
+              est1Count: isCurEst1 ? stdCount : cp?.studentCount,
+              est1Subjects: isCurEst1 ? subjText : cp?.subjectsText,
+              est2Count: isCurEst1 ? cp?.studentCount : stdCount,
+              est2Subjects: isCurEst1 ? cp?.subjectsText : subjText,
+            };
+          };
+
           if (floorSubs.length > 0) {
-            // Group duplicate floor folders by name to merge Drive folders
-            const floorGroups = new Map<string, Array<{ id: string; name: string }>>();
+            // Merge duplicate floor folders by name.
+            const floorGroups = new Map<string, { displayName: string; folders: Array<{ id: string; name: string }> }>();
             for (const fl of floorSubs) {
-              const k = (fl.name || "").trim().toLowerCase();
-              const grp = floorGroups.get(k) || [];
-              grp.push({ id: fl.id!, name: fl.name!.trim() });
-              floorGroups.set(k, grp);
+              const key = fl.name.trim().toLowerCase();
+              const group = floorGroups.get(key) || { displayName: fl.name.trim(), folders: [] };
+              group.folders.push(fl);
+              floorGroups.set(key, group);
             }
 
-            for (const [_, flList] of floorGroups.entries()) {
-              const displayFloorName = flList[0].name;
-              const roomsMap = new Map<
-                string,
-                {
-                  room: string;
-                  studentCount?: number;
-                  subjectsText?: string;
-                  est1Count?: number;
-                  est1Subjects?: string;
-                  est2Count?: number;
-                  est2Subjects?: string;
-                }
-              >();
+            for (const group of floorGroups.values()) {
+              const roomsMap = new Map<string, LiveRoom>();
 
-              for (const fl of flList) {
-                const roomRes = await drive.files.list({
-                  q: `'${fl.id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-                  fields: "files(id, name)",
-                  pageSize: 100,
-                  supportsAllDrives: true,
-                  includeItemsFromAllDrives: true,
-                });
-                const floorRooms = roomRes.data.files || [];
-
-                for (const rm of floorRooms) {
-                  const rName = (rm.name || "").trim();
-                  if (!rName) continue;
-                  const rKey = rName.toLowerCase();
-                  if (!roomsMap.has(rKey)) {
-                    let stdCount: number | undefined;
-                    let subjText: string | undefined;
-                    try {
-                      const fileRes = await drive.files.list({
-                        q: `'${rm.id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-                        fields: "files(id, name)",
-                        pageSize: 20,
-                        supportsAllDrives: true,
-                        includeItemsFromAllDrives: true,
-                      });
-                      for (const f of fileRes.data.files || []) {
-                        const parsed = parseEstRoomFileName(f.name || "");
-                        if (parsed) {
-                          stdCount = parsed.totalStudents;
-                          subjText = parsed.breakdownText;
-                          break;
-                        }
-                      }
-                    } catch {}
-                    const cp = counterpartMap.get(rKey);
-                    const isCurEst1 = !/EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(examName);
-                    let est1Count = isCurEst1 ? stdCount : cp?.studentCount;
-                    let est1Subjects = isCurEst1 ? subjText : cp?.subjectsText;
-                    let est2Count = !isCurEst1 ? stdCount : cp?.studentCount;
-                    let est2Subjects = !isCurEst1 ? subjText : cp?.subjectsText;
-
-                    roomsMap.set(rKey, {
-                      room: rName,
-                      studentCount: stdCount,
-                      subjectsText: subjText,
-                      est1Count,
-                      est1Subjects,
-                      est2Count,
-                      est2Subjects,
-                    });
-                  }
+              for (const fl of group.folders) {
+                const flChildren = await listStickerChildren(drive, fl.id);
+                for (const rm of flChildren.folders) {
+                  const key = rm.name.trim().toLowerCase();
+                  if (!key || roomsMap.has(key)) continue;
+                  roomsMap.set(key, await makeRoom(rm));
                 }
 
-                // Also inspect direct files inside the floor folder
-                try {
-                  const directFloorFiles = await drive.files.list({
-                    q: `'${fl.id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-                    fields: "files(id, name)",
-                    pageSize: 50,
-                    supportsAllDrives: true,
-                    includeItemsFromAllDrives: true,
+                // Registers stored directly inside a floor folder.
+                for (const f of flChildren.files) {
+                  const parsed = parseEstRoomFileName(f.name);
+                  const roomName = (parsed?.room || f.name.replace(/\.[^/.]+$/, "")).trim();
+                  const key = roomName.toLowerCase();
+                  if (!key || roomsMap.has(key)) continue;
+                  const cp = counterpartMap.get(key);
+                  const isCurEst1 = !/EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(examName);
+                  roomsMap.set(key, {
+                    room: roomName,
+                    studentCount: parsed?.totalStudents,
+                    subjectsText: parsed?.breakdownText,
+                    est1Count: isCurEst1 ? parsed?.totalStudents : cp?.studentCount,
+                    est1Subjects: isCurEst1 ? parsed?.breakdownText : cp?.subjectsText,
+                    est2Count: isCurEst1 ? cp?.studentCount : parsed?.totalStudents,
+                    est2Subjects: isCurEst1 ? cp?.subjectsText : parsed?.breakdownText,
                   });
-                  for (const f of directFloorFiles.data.files || []) {
-                    const parsed = parseEstRoomFileName(f.name || "");
-                    const roomName = parsed?.room || (f.name || "").replace(/\.[^/.]+$/, "").trim();
-                    if (!roomName) continue;
-                    const rKey = roomName.toLowerCase();
-                    if (!roomsMap.has(rKey)) {
-                      const cp = counterpartMap.get(rKey);
-                      const isCurEst1 = !/EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(examName);
-                      let est1Count = isCurEst1 ? parsed?.totalStudents : cp?.studentCount;
-                      let est1Subjects = isCurEst1 ? parsed?.breakdownText : cp?.subjectsText;
-                      let est2Count = !isCurEst1 ? parsed?.totalStudents : cp?.studentCount;
-                      let est2Subjects = !isCurEst1 ? parsed?.breakdownText : cp?.subjectsText;
-
-                      roomsMap.set(rKey, {
-                        room: roomName,
-                        studentCount: parsed?.totalStudents,
-                        subjectsText: parsed?.breakdownText,
-                        est1Count,
-                        est1Subjects,
-                        est2Count,
-                        est2Subjects,
-                      });
-                    }
-                  }
-                } catch {}
+                }
               }
 
               const sortedRooms = Array.from(roomsMap.values()).sort((a, b) =>
                 a.room.localeCompare(b.room, undefined, { numeric: true }),
               );
-
               if (sortedRooms.length > 0) {
                 floors.push({
-                  floor: displayFloorName,
+                  floor: group.displayName,
                   rooms: sortedRooms,
                   totalStudents: sortedRooms.reduce((s, r) => s + (r.studentCount || 0), 0),
                   est1Students: sortedRooms.reduce((s, r) => s + (r.est1Count || 0), 0),
@@ -553,150 +483,22 @@ export async function GET(request: Request) {
                 });
               }
             }
-
             floors.sort((a, b) => getFloorSortWeight(a.floor) - getFloorSortWeight(b.floor));
           } else if (directRooms.length > 0) {
-            const roomsMap = new Map<string, {
-              room: string;
-              studentCount?: number;
-              subjectsText?: string;
-              est1Count?: number;
-              est1Subjects?: string;
-              est2Count?: number;
-              est2Subjects?: string;
-            }>();
-            for (const rm of directRooms) {
-              const rName = (rm.name || "").trim();
-              if (!rName) continue;
-              const rKey = rName.toLowerCase();
-              if (!roomsMap.has(rKey)) {
-                let stdCount: number | undefined;
-                let subjText: string | undefined;
-                try {
-                  const fileRes = await drive.files.list({
-                    q: `'${rm.id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-                    fields: "files(id, name)",
-                    pageSize: 20,
-                    supportsAllDrives: true,
-                    includeItemsFromAllDrives: true,
-                  });
-                  for (const f of fileRes.data.files || []) {
-                    const parsed = parseEstRoomFileName(f.name || "");
-                    if (parsed) {
-                      stdCount = parsed.totalStudents;
-                      subjText = parsed.breakdownText;
-                      break;
-                    }
-                  }
-                } catch {}
-                const cp = counterpartMap.get(rKey);
-                const isCurEst1 = !/EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(examName);
-                let est1Count = isCurEst1 ? stdCount : cp?.studentCount;
-                let est1Subjects = isCurEst1 ? subjText : cp?.subjectsText;
-                let est2Count = !isCurEst1 ? stdCount : cp?.studentCount;
-                let est2Subjects = !isCurEst1 ? subjText : cp?.subjectsText;
-
-                roomsMap.set(rKey, {
-                  room: rName,
-                  studentCount: stdCount,
-                  subjectsText: subjText,
-                  est1Count,
-                  est1Subjects,
-                  est2Count,
-                  est2Subjects,
-                });
-              }
-            }
-            const sortedRooms = Array.from(roomsMap.values()).sort((a, b) =>
-              a.room.localeCompare(b.room, undefined, { numeric: true }),
-            );
+            const rooms = await Promise.all(directRooms.map(makeRoom));
             floors.push({
               floor: "General Floor",
-              rooms: sortedRooms,
-              totalStudents: sortedRooms.reduce((s, r) => s + (r.studentCount || 0), 0),
-              est1Students: sortedRooms.reduce((s, r) => s + (r.est1Count || 0), 0),
-              est2Students: sortedRooms.reduce((s, r) => s + (r.est2Count || 0), 0),
+              rooms,
+              totalStudents: rooms.reduce((s, r) => s + (r.studentCount || 0), 0),
+              est1Students: rooms.reduce((s, r) => s + (r.est1Count || 0), 0),
+              est2Students: rooms.reduce((s, r) => s + (r.est2Count || 0), 0),
             });
           }
         } catch {}
       }
     }
 
-    // Fallback: Check official EST schools first for canonical definition
-    if (floors.length === 0 && building) {
-      const cleanB = building.toLowerCase().trim();
-      const official = OFFICIAL_EST_SCHOOLS.find(
-        (s) =>
-          s.schoolName.toLowerCase() === cleanB ||
-          s.fullFolderName.toLowerCase() === cleanB ||
-          cleanB.includes(s.schoolName.toLowerCase()) ||
-          s.schoolName.toLowerCase().includes(cleanB),
-      );
-      if (official) {
-        floors = official.floors.map((fl) => ({
-          floor: fl.floorName,
-          rooms: fl.rooms.map((rm) => ({
-            room: rm,
-            studentCount: 0,
-            est1Count: undefined,
-            est1Subjects: undefined,
-            est2Count: undefined,
-            est2Subjects: undefined,
-          })),
-          totalStudents: 0,
-          est1Students: 0,
-          est2Students: 0,
-        }));
-      }
-    }
-
-    // Fallback room names and floors from reference data if not yet populated
-    if (floors.length === 0 && building) {
-      const cleanB = building.toLowerCase().trim();
-      const refRows = EST_REFERENCE_DATA.filter((r) => {
-        const rb = r.building.toLowerCase().trim();
-        return (
-          (!governorate || r.governorate === governorate) &&
-          (!center || r.testCenter === center) &&
-          (rb === cleanB || cleanB.includes(rb) || rb.includes(cleanB))
-        );
-      });
-
-      if (refRows.length > 0) {
-        const floorMap = new Map<
-          string,
-          { rooms: { room: string; studentCount: number }[]; totalStudents: number }
-        >();
-        for (const r of refRows) {
-          const fl = r.floor || "General Floor";
-          const entry = floorMap.get(fl) || { rooms: [], totalStudents: 0 };
-          if (r.room && !entry.rooms.some((rm) => rm.room.toLowerCase() === r.room.toLowerCase())) {
-            entry.rooms.push({ room: r.room, studentCount: r.studentsEst1 || 0 });
-            entry.totalStudents += r.studentsEst1 || 0;
-          }
-          floorMap.set(fl, entry);
-        }
-        floors = Array.from(floorMap.entries()).map(([floorName, data]) => ({
-          floor: floorName,
-          rooms: data.rooms.sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true })),
-          totalStudents: data.totalStudents,
-        }));
-        floors.sort((a, b) => getFloorSortWeight(a.floor) - getFloorSortWeight(b.floor));
-      }
-    }
-
-    // Fallback room names if still empty
-    if (roomNames.length === 0 && building) {
-      const refInfo = getReferenceSubfolderInfo({
-        level: "building",
-        governorate,
-        center,
-        building,
-      });
-      if (refInfo.childNames && refInfo.childNames.length > 0) {
-        roomNames = refInfo.childNames;
-      }
-    }
+    // No hard-coded/demo fallback: empty drive data stays empty.
 
     if (floors.length > 0) {
       totalRooms = floors.reduce((sum, f) => sum + f.rooms.length, 0);
@@ -709,9 +511,9 @@ export async function GET(request: Request) {
 
     const options: LogisticsStickerOptions = {
       examName,
-      governorate: governorate || "Alexandria",
-      center: center || "Abu Qir",
-      building: building || "Building HQ",
+      governorate,
+      center,
+      building,
       date,
       totalRooms,
       totalStudents,

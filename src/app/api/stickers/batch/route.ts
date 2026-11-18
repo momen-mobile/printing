@@ -3,6 +3,12 @@ import { z } from "zod";
 import { requireSession, enforceRateLimit, jsonError, parseJson } from "@/lib/api-utils";
 import { getConnection, getDriveContextWithRoot } from "@/lib/auth";
 import { buildBreadcrumbs, getFileMeta, getFolderDescendants } from "@/lib/drive";
+import {
+  classifyChildLabel,
+  countRoomFolders,
+  inferSecondLevelIsSchool,
+  listStickerChildren,
+} from "@/lib/stickers/drive-hierarchy";
 import { getDemoBreadcrumbs, getDemoDescendants, isDemoEnabled } from "@/lib/demo";
 import { getSettings } from "@/lib/settings";
 import { buildStickerContent, type StickerContent, type StickerSubfolderInfo } from "@/lib/stickers/sticker-content";
@@ -102,36 +108,27 @@ export async function POST(request: Request) {
           breadcrumbs = [data.currentFolder];
         }
 
-        // Query direct subfolder count (floors or rooms)
+        // Read the real hierarchy (shortcut folders included) from Drive.
         try {
-          const subRes = await drive.files.list({
-            q: `'${resolvedFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-            fields: "files(id, name)",
-            pageSize: 100,
-            supportsAllDrives: true,
-            includeItemsFromAllDrives: true,
-          });
-          const subs = subRes.data.files || [];
-          if (subs.length > 0) {
-            driveSubfolderInfo = {
-              childCount: subs.length,
-              childNames: subs.map((s) => s.name || "").filter(Boolean),
-            };
+          const children = await listStickerChildren(drive, folderId);
+          const childNames = children.folders.map((folder) => folder.name);
+          const childLabel = classifyChildLabel(childNames);
+          let totalRooms = childLabel === "Rooms" ? children.folders.length : 0;
+          if (childLabel !== "Rooms") {
+            try {
+              const desc = await getFolderDescendants(drive, [resolvedFolderId]);
+              totalRooms = countRoomFolders(desc.folders, desc.folderTree);
+            } catch { }
           }
-        } catch { }
-
-        // Query direct files to check for EST I room file naming patterns
-        try {
-          const filesRes = await drive.files.list({
-            q: `'${resolvedFolderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-            fields: "files(id, name)",
-            pageSize: 50,
-            supportsAllDrives: true,
-            includeItemsFromAllDrives: true,
-          });
-          folderFiles = (filesRes.data.files || []).map((f) => ({ name: f.name || "" }));
+          driveSubfolderInfo = {
+            childCount: children.folders.length,
+            childNames,
+            childLabel,
+            totalRooms,
+          };
+          folderFiles = children.files;
         } catch (err) {
-          console.warn("[stickers/batch] Error querying direct files:", err);
+          console.warn("[stickers/batch] Error reading live folder children:", err);
         }
       }
 
@@ -145,10 +142,17 @@ export async function POST(request: Request) {
 
       if (breadcrumbs.length > 0) {
         try {
-          const content = buildStickerContent(breadcrumbs, {
-            ...driveSubfolderInfo,
-            childFiles: folderFiles,
-          });
+          const isSchool = isDemo
+            ? undefined
+            : (await inferSecondLevelIsSchool((await getDriveContextWithRoot()).drive, breadcrumbs));
+          const content = buildStickerContent(
+            breadcrumbs,
+            {
+              ...driveSubfolderInfo,
+              childFiles: folderFiles,
+            },
+            { isSchool },
+          );
 
           const targetName = breadcrumbs[breadcrumbs.length - 1]?.name || "";
           const targetRoom = content.room || (content.level === "room" ? targetName : undefined);

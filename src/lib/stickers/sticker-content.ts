@@ -1,7 +1,5 @@
 import {
-  getReferenceSubfolderInfo,
   parseSchoolFolderName,
-  isOfficialSchoolName,
   stripGovernorateFromName,
 } from "./est-reference-data";
 import { isFloorFolderName } from "./register-utils";
@@ -77,6 +75,7 @@ export interface StickerContent {
 export function buildStickerContent(
   rawChain: Array<{ name?: string | null } | string>,
   subfolderInfo?: StickerSubfolderInfo,
+  hints?: { isSchool?: boolean },
 ): StickerContent {
   let chain = (rawChain || [])
     .map((item) => (typeof item === "string" ? item : item?.name ?? ""))
@@ -170,7 +169,7 @@ export function buildStickerContent(
 
     // Check if secondLevel is a school (or if thirdLevel is a Floor, meaning secondLevel is the Building/School)
     const isSchool =
-      isOfficialSchoolName(secondLevel) ||
+      hints?.isSchool === true ||
       (thirdLevel ? isFloorFolderName(thirdLevel) : false) ||
       /school|college|division|academy|مدرسة/i.test(secondLevel);
 
@@ -237,15 +236,12 @@ export function buildStickerContent(
   const lines = ["EST", ...fields.map((f) => `${f.label} : ${f.value}`)];
   const rawLines = ["EST", ...locationChain];
 
-  const refInfo =
-    subfolderInfo && typeof subfolderInfo.childCount === "number" && subfolderInfo.childCount > 0
-      ? subfolderInfo
-      : getReferenceSubfolderInfo({ level, governorate, center, building, floor });
-
-  const childCount = subfolderInfo?.childCount ?? refInfo.childCount;
-  const childLabel = subfolderInfo?.childLabel ?? refInfo.childLabel;
-  const childNames = subfolderInfo?.childNames ?? refInfo.childNames;
-  const totalRooms = subfolderInfo?.totalRooms ?? refInfo.totalRooms;
+  // All structural counts come from the live folder listing supplied by the
+  // caller. Never fall back to hard-coded reference/demo data.
+  const childCount = subfolderInfo?.childCount ?? 0;
+  const childLabel = subfolderInfo?.childLabel ?? "";
+  const childNames = subfolderInfo?.childNames ?? [];
+  const totalRooms = subfolderInfo?.totalRooms ?? 0;
 
   let totalStudents = subfolderInfo?.totalStudents;
   let litCount = subfolderInfo?.litCount;

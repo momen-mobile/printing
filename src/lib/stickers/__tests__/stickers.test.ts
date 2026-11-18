@@ -270,8 +270,13 @@ describe("generateStickerPdf", () => {
     }
   });
 
-  it("Computes subfolder buildings count for Center sticker (Abu Qir)", () => {
-    const sticker = buildStickerContent(["EST 1", "Alexandria", "Abu Qir"]);
+  it("Uses live subfolder data for Center sticker child counts", () => {
+    const sticker = buildStickerContent(["EST 1", "Alexandria", "Abu Qir"], {
+      childLabel: "Buildings",
+      childCount: 1,
+      childNames: ["Pharmacy"],
+      totalRooms: 13,
+    });
     expect(sticker.level).toBe("center");
     expect(sticker.childLabel).toBe("Buildings");
     expect(sticker.childCount).toBe(1);
@@ -279,16 +284,26 @@ describe("generateStickerPdf", () => {
     expect(sticker.totalRooms).toBe(13);
   });
 
-  it("Computes subfolder floors count for Building sticker", () => {
-    const sticker = buildStickerContent(["EST 1", "Alexandria", "Abu Qir", "Pharmacy"]);
+  it("Uses live subfolder data for Building sticker child counts", () => {
+    const sticker = buildStickerContent(["EST 1", "Alexandria", "Abu Qir", "Pharmacy"], {
+      childLabel: "Floors",
+      childCount: 4,
+      childNames: ["2nd Floor", "3rd Floor", "4th Floor", "5th Floor"],
+      totalRooms: 13,
+    });
     expect(sticker.level).toBe("building");
     expect(sticker.childLabel).toBe("Floors");
     expect(sticker.childCount).toBe(4);
     expect(sticker.childNames).toEqual(["2nd Floor", "3rd Floor", "4th Floor", "5th Floor"]);
   });
 
-  it("Computes subfolder rooms count for Floor sticker", () => {
-    const sticker = buildStickerContent(["EST 1", "Alexandria", "Abu Qir", "Pharmacy", "2nd Floor"]);
+  it("Uses live subfolder data for Floor sticker child counts", () => {
+    const sticker = buildStickerContent(["EST 1", "Alexandria", "Abu Qir", "Pharmacy", "2nd Floor"], {
+      childLabel: "Rooms",
+      childCount: 3,
+      childNames: ["204", "205", "219"],
+      totalRooms: 3,
+    });
     expect(sticker.level).toBe("floor");
     expect(sticker.childLabel).toBe("Rooms");
     expect(sticker.childCount).toBe(3);
@@ -934,12 +949,14 @@ describe("generateStickerPdf", () => {
         expect(counts.totalStudents).toBe(33);
       });
 
-      it("falls back to EST reference data when no matching child file exists", () => {
-        // Room 201 exists in EST_REFERENCE_DATA
+      it("returns zero counts when no real register file exists (no hard-coded data)", () => {
         const counts = getRoomExamCounts({ room: "201" });
         expect(counts.room).toBe("201");
-        expect(counts.litCount).toBeGreaterThan(0);
-        expect(counts.mathCount).toBeGreaterThan(0);
+        expect(counts.totalStudents).toBe(0);
+        expect(counts.litCount).toBe(0);
+        expect(counts.mathCount).toBe(0);
+        expect(counts.subjects).toEqual([]);
+        expect(counts.source).toBe("empty");
       });
     });
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSession, enforceRateLimit, jsonError } from "@/lib/api-utils";
 import { getConnection, getDriveContextWithRoot } from "@/lib/auth";
-import { buildBreadcrumbs, getFileMeta } from "@/lib/drive";
+import { buildBreadcrumbs, getFileMeta, getFolderDescendants } from "@/lib/drive";
 import { getDemoBreadcrumbs, getDemoDescendants, isDemoEnabled } from "@/lib/demo";
 import { getSettings } from "@/lib/settings";
 import { buildStickerContent, type StickerSubfolderInfo } from "@/lib/stickers/sticker-content";
@@ -9,6 +9,12 @@ import { generateStickerPdf, generateExamStickersPdf } from "@/lib/stickers/stic
 import { generateFloorExamStickersPdf, resolveFloorSubjectsData } from "@/lib/stickers/floor-exam-stickers-pdf";
 import { isFloorFolderName, isRoomFolderName } from "@/lib/stickers/register-utils";
 import { getRoomExamCounts } from "@/lib/stickers/est-room-data";
+import {
+  classifyChildLabel,
+  countRoomFolders,
+  inferSecondLevelIsSchool,
+  listStickerChildren,
+} from "@/lib/stickers/drive-hierarchy";
 import { AppError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +22,49 @@ export const dynamic = "force-dynamic";
 type Context = {
   params: Promise<{ folderId: string }>;
 };
+
+function subfolderInfoFromDemo(
+  desc: ReturnType<typeof getDemoDescendants>,
+  folderId: string,
+): StickerSubfolderInfo {
+  const folders = (desc.folderTree[folderId] || []).filter((item) => item.isFolder);
+  const childNames = folders.map((folder) => folder.name);
+  const childLabel = classifyChildLabel(childNames);
+  const totalRooms =
+    childLabel === "Rooms"
+      ? folders.length
+      : countRoomFolders(desc.folders, desc.folderTree);
+  return {
+    childCount: folders.length,
+    childNames,
+    childLabel,
+    totalRooms,
+  };
+}
+
+async function subfolderInfoFromDrive(
+  drive: any,
+  folderId: string,
+  children: Awaited<ReturnType<typeof listStickerChildren>>,
+): Promise<StickerSubfolderInfo> {
+  const childNames = children.folders.map((folder) => folder.name);
+  const childLabel = classifyChildLabel(childNames);
+  let totalRooms = childLabel === "Rooms" ? children.folders.length : 0;
+  if (childLabel !== "Rooms") {
+    try {
+      const desc = await getFolderDescendants(drive, [folderId]);
+      totalRooms = countRoomFolders(desc.folders, desc.folderTree);
+    } catch {
+      totalRooms = 0;
+    }
+  }
+  return {
+    childCount: children.folders.length,
+    childNames,
+    childLabel,
+    totalRooms,
+  };
+}
 
 export async function GET(request: Request, context: Context) {
   try {
@@ -80,6 +129,7 @@ export async function GET(request: Request, context: Context) {
         try {
           const desc = getDemoDescendants([folderId]);
           folderFiles = desc.files.map((f) => ({ name: f.name }));
+          driveSubfolderInfo = subfolderInfoFromDemo(desc, folderId);
         } catch { }
       } else {
         const { drive, rootFolderId } = await getDriveContextWithRoot();
@@ -101,39 +151,14 @@ export async function GET(request: Request, context: Context) {
           breadcrumbs = [data.currentFolder];
         }
 
-        // Query direct subfolders to provide live count of floors or rooms
+        // Read the real hierarchy (shortcut folders included) from Drive.
+        let liveChildren: Awaited<ReturnType<typeof listStickerChildren>> | null = null;
         try {
-          const subRes = await drive.files.list({
-            q: `'${resolvedFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-            fields: "files(id, name)",
-            pageSize: 100,
-            supportsAllDrives: true,
-            includeItemsFromAllDrives: true,
-          });
-          const subs = subRes.data.files || [];
-          if (subs.length > 0) {
-            driveSubfolderInfo = {
-              childCount: subs.length,
-              childNames: subs.map((s) => s.name || "").filter(Boolean),
-            };
-          }
+          liveChildren = await listStickerChildren(drive, folderId);
+          driveSubfolderInfo = await subfolderInfoFromDrive(drive, resolvedFolderId, liveChildren);
+          folderFiles = liveChildren.files;
         } catch (err) {
-          console.warn("[sticker] Error querying direct subfolders:", err);
-        }
-
-        // Query direct files to check for EST I room file naming patterns
-        try {
-          const filesRes = await drive.files.list({
-            q: `'${resolvedFolderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-            fields: "files(id, name, createdTime, modifiedTime)",
-            orderBy: "createdTime desc, modifiedTime desc",
-            pageSize: 50,
-            supportsAllDrives: true,
-            includeItemsFromAllDrives: true,
-          });
-          folderFiles = (filesRes.data.files || []).map((f) => ({ name: f.name || "" }));
-        } catch (err) {
-          console.warn("[sticker] Error querying direct files:", err);
+          console.warn("[sticker] Error reading live folder children:", err);
         }
       }
     }
@@ -159,7 +184,10 @@ export async function GET(request: Request, context: Context) {
       });
     }
 
-    const stickerContent = buildStickerContent(breadcrumbs, driveSubfolderInfo);
+    const isSchool = activeDrive
+      ? await inferSecondLevelIsSchool(activeDrive, breadcrumbs)
+      : undefined;
+    const stickerContent = buildStickerContent(breadcrumbs, driveSubfolderInfo, { isSchool });
     const targetName = breadcrumbs[breadcrumbs.length - 1]?.name || "EST";
     const targetRoom = stickerContent.room || (stickerContent.level === "room" ? targetName : undefined);
 

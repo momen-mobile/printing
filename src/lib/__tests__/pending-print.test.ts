@@ -20,13 +20,13 @@ describe("pending-print hierarchy & classification", () => {
     expect(classifyFolderLevel("Some City", 1)).toBe("governorate");
 
     // Test Center
-    expect(classifyFolderLevel("Abu Qir")).toBe("center");
+    expect(classifyFolderLevel("Abu Qir", 2)).toBe("center");
     expect(classifyFolderLevel("Abu Qir Center")).toBe("center");
     expect(classifyFolderLevel("Alexandria Center")).toBe("center");
     expect(classifyFolderLevel("Any Center", 2)).toBe("center");
 
     // Building
-    expect(classifyFolderLevel("Pharmacy")).toBe("building");
+    expect(classifyFolderLevel("Pharmacy", 3)).toBe("building");
     expect(classifyFolderLevel("Building 1")).toBe("building");
     expect(classifyFolderLevel("مبنى صيدلة")).toBe("building");
     expect(classifyFolderLevel("Any Building", 3)).toBe("building");

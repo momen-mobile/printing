@@ -4,8 +4,8 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { EST_LOGO_BASE64 } from "./est-logo-base64";
 import { getDemoDescendants } from "../demo";
-import { OFFICIAL_EST_SCHOOLS } from "./est-reference-data";
 import { getRoomExamCounts, parseEstRoomFileName } from "./est-room-data";
+import { listStickerChildren } from "./drive-hierarchy";
 import type { StickerContent } from "./sticker-content";
 
 export interface FloorRoomSubjectData {
@@ -651,31 +651,18 @@ export async function resolveFloorSubjectsData(params: {
     }
   } else if (drive) {
     try {
-      const subRes = await drive.files.list({
-        q: `'${resolvedFolderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-        fields: "files(id, name)",
-        pageSize: 100,
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-      });
-      const directRooms = subRes.data.files || [];
+      const children = await listStickerChildren(drive, resolvedFolderId);
       await Promise.all(
-        directRooms.map(async (r: any) => {
+        children.folders.map(async (room) => {
           try {
-            const fRes = await drive.files.list({
-              q: `'${r.id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`,
-              fields: "files(id, name)",
-              pageSize: 50,
-              supportsAllDrives: true,
-              includeItemsFromAllDrives: true,
-            });
+            const roomChildren = await listStickerChildren(drive, room.id);
             roomsList.push({
-              id: r.id,
-              name: r.name,
-              files: (fRes.data.files || []).map((f: any) => ({ name: f.name || "" })),
+              id: room.id,
+              name: room.name,
+              files: roomChildren.files,
             });
           } catch {
-            roomsList.push({ id: r.id, name: r.name, files: [] });
+            roomsList.push({ id: room.id, name: room.name, files: [] });
           }
         }),
       );
@@ -684,25 +671,7 @@ export async function resolveFloorSubjectsData(params: {
     }
   }
 
-  // If no room folders found on drive, look up in OFFICIAL_EST_SCHOOLS
-  if (roomsList.length === 0) {
-    const centerOrBuilding = (stickerContent.center || stickerContent.building || "").toLowerCase();
-    const school = OFFICIAL_EST_SCHOOLS.find(
-      (s) =>
-        s.schoolName.toLowerCase() === centerOrBuilding ||
-        centerOrBuilding.includes(s.schoolName.toLowerCase()) ||
-        s.fullFolderName.toLowerCase().includes(centerOrBuilding),
-    );
-    const cleanFloor = floorName.toLowerCase().replace(/^(floor|دور|الدور)\s*/i, "").trim();
-    const matchedFloor = school?.floors.find(
-      (fl) => fl.floorName.toLowerCase().includes(cleanFloor) || cleanFloor.includes(fl.floorName.toLowerCase()),
-    );
-    if (matchedFloor && matchedFloor.rooms.length > 0) {
-      for (const rm of matchedFloor.rooms) {
-        roomsList.push({ id: rm, name: rm, files: [] });
-      }
-    }
-  }
+  // No hard-coded/demo room list: only rooms that actually exist in Drive are used.
 
   // Sort rooms naturally (e.g. 101, 102, or AD3A, AD4A)
   roomsList.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
@@ -732,9 +701,9 @@ export async function resolveFloorSubjectsData(params: {
       }
     }
 
-    // 2. Fall back to getRoomExamCounts (which checks EST_REFERENCE_DATA)
+    // 2. Fall back to the real-files-only resolver (no reference data involved).
     if (!parsedRoomData) {
-      const refCounts = getRoomExamCounts({
+      const counts = getRoomExamCounts({
         room: r.name,
         building: stickerContent.building,
         center: stickerContent.center,
@@ -743,32 +712,19 @@ export async function resolveFloorSubjectsData(params: {
         folderFiles: r.files,
         examName: stickerContent.examName,
       });
-      if (refCounts && refCounts.subjects && refCounts.subjects.length > 0) {
-        parsedRoomData = refCounts;
+      if (counts && counts.subjects && counts.subjects.length > 0) {
+        parsedRoomData = counts;
       }
     }
 
-    // 3. Fall back to standard defaults if nothing was specified
+    // 3. No register file in this room -> skip it. Never fabricate student counts.
     if (!parsedRoomData || !parsedRoomData.subjects || parsedRoomData.subjects.length === 0) {
-      parsedRoomData = {
-        room: r.name,
-        examType: isEst2Context ? ("EST 2" as const) : ("EST 1" as const),
-        totalStudents: 25,
-        subjects: isEst2Context
-          ? [
-              { code: "MATH1", name: "Math 1", displayName: "EST II – Math 1", count: 25, copies: 2 },
-              { code: "BIO", name: "Biology", displayName: "EST II – Biology", count: 25, copies: 2 },
-            ]
-          : [
-              { code: "LIT", name: "Literacy", displayName: "EST I – Literacy", count: 25, copies: 2 },
-              { code: "MATH", name: "Math", displayName: "EST I – Math", count: 25, copies: 2 },
-            ],
-      };
+      continue;
     }
 
     // Accumulate each subject for this room
     for (const subj of parsedRoomData.subjects) {
-      const count = typeof subj.count === "number" && subj.count > 0 ? subj.count : 25;
+      const count = typeof subj.count === "number" && subj.count > 0 ? subj.count : 0;
       let sEntry = subjectMap.get(subj.code);
       if (!sEntry) {
         sEntry = {

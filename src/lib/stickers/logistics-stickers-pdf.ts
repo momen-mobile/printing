@@ -3,7 +3,7 @@ import path from "path";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { EST_LOGO_BASE64 } from "./est-logo-base64";
-import { EST_REFERENCE_DATA, OFFICIAL_EST_SCHOOLS, getFloorSortWeight } from "./est-reference-data";
+import { getFloorSortWeight } from "./est-reference-data";
 
 export interface RoomDetail {
   room: string;
@@ -218,64 +218,7 @@ export function normalizeFloorsData(options: LogisticsStickerOptions): Normalize
     if (cleaned.length > 0) return cleaned;
   }
 
-  // 2. If building matches an official EST school, return canonical official school floors
-  if (options.building) {
-    const cleanB = options.building.trim().toLowerCase();
-    const official = OFFICIAL_EST_SCHOOLS.find(
-      (s) =>
-        s.schoolName.toLowerCase() === cleanB ||
-        s.fullFolderName.toLowerCase() === cleanB ||
-        cleanB.includes(s.schoolName.toLowerCase()) ||
-        s.schoolName.toLowerCase().includes(cleanB),
-    );
-    if (official) {
-      return cleanAndSortFloors(
-        official.floors.map((fl) => ({
-          floor: fl.floorName,
-          rooms: fl.rooms.map((rm) => ({
-            room: rm,
-            studentCount: 0,
-            est1Count: undefined,
-            est1Subjects: undefined,
-            est2Count: undefined,
-            est2Subjects: undefined,
-          })),
-          totalStudents: 0,
-          est1Students: 0,
-          est2Students: 0,
-        })),
-      );
-    }
-  }
-
-  // 3. If building matches EST_REFERENCE_DATA, group by floor from reference rows
-  if (options.building) {
-    const cleanB = options.building.trim().toLowerCase();
-    const refRows = EST_REFERENCE_DATA.filter((r) => {
-      const b = r.building.trim().toLowerCase();
-      return b === cleanB || cleanB.includes(b) || b.includes(cleanB);
-    });
-    if (refRows.length > 0) {
-      const floorMap = new Map<string, { rooms: { room: string; studentCount: number }[]; totalStudents: number }>();
-      for (const row of refRows) {
-        const fl = row.floor || "General Floor";
-        const entry = floorMap.get(fl) || { rooms: [], totalStudents: 0 };
-        if (row.room && !entry.rooms.some((rm) => rm.room.toLowerCase() === row.room.toLowerCase())) {
-          entry.rooms.push({ room: row.room, studentCount: row.studentsEst1 || 0 });
-          entry.totalStudents += (row.studentsEst1 || 0);
-        }
-        floorMap.set(fl, entry);
-      }
-      const raw = Array.from(floorMap.entries()).map(([floor, data]) => ({
-        floor,
-        rooms: data.rooms,
-        totalStudents: data.totalStudents,
-      }));
-      return cleanAndSortFloors(raw);
-    }
-  }
-
-  // 4. If roomNames provided, infer floors
+  // 2. If roomNames provided, infer floors
   if (options.roomNames && options.roomNames.length > 0) {
     const floorMap = new Map<string, { rooms: { room: string; studentCount?: number }[]; totalStudents: number }>();
     for (const rName of options.roomNames) {

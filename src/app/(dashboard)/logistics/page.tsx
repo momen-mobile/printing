@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useI18n } from "@/components/locale-provider";
-import { parseSchoolFolderName, OFFICIAL_EST_SCHOOLS, getFloorSortWeight } from "@/lib/stickers/est-reference-data";
+import { parseSchoolFolderName, getFloorSortWeight } from "@/lib/stickers/est-reference-data";
 import { parseEstRoomFileName } from "@/lib/stickers/est-room-data";
 import { isFloorFolderName } from "@/lib/stickers/register-utils";
 import { StickerPreviewModal } from "@/components/sticker-preview-modal";
@@ -379,24 +379,6 @@ export default function LogisticsHubPage() {
                 }
               }
 
-              // School fallback if rooms are still empty in Drive for an official school
-              if (roomsMap.size === 0 && targetType === "school") {
-                const official = OFFICIAL_EST_SCHOOLS.find(
-                  (s) =>
-                    s.schoolName.toLowerCase() === (buildingName || "").toLowerCase() ||
-                    s.fullFolderName.toLowerCase() === (buildingName || "").toLowerCase() ||
-                    (buildingName || "").toLowerCase().includes(s.schoolName.toLowerCase()),
-                );
-                const officialFloor = official?.floors.find(
-                  (ofl) => ofl.floorName.toLowerCase() === fe.floorName.toLowerCase(),
-                );
-                if (officialFloor) {
-                  for (const rm of officialFloor.rooms) {
-                    roomsMap.set(rm.toLowerCase(), { room: rm, studentCount: 0 });
-                  }
-                }
-              }
-
               const sortedRooms = Array.from(roomsMap.values()).sort((a, b) =>
                 a.room.localeCompare(b.room, undefined, { numeric: true }),
               );
@@ -412,28 +394,8 @@ export default function LogisticsHubPage() {
             const validFloors = computedFloors.filter((f) => f.rooms.length > 0);
             setLiveFloors(validFloors.length > 0 ? validFloors : computedFloors);
           } else {
-            // Full fallback to official schools definitions if no folders in Drive yet
-            if (targetType === "school") {
-              const official = OFFICIAL_EST_SCHOOLS.find(
-                (s) =>
-                  s.schoolName.toLowerCase() === (buildingName || "").toLowerCase() ||
-                  s.fullFolderName.toLowerCase() === (buildingName || "").toLowerCase() ||
-                  (buildingName || "").toLowerCase().includes(s.schoolName.toLowerCase()),
-              );
-              if (official) {
-                setLiveFloors(
-                  official.floors.map((fl) => ({
-                    floor: fl.floorName,
-                    rooms: fl.rooms.map((rm) => ({ room: rm, studentCount: 0 })),
-                    totalStudents: 0,
-                  })),
-                );
-              } else {
-                setLiveFloors([]);
-              }
-            } else {
-              setLiveFloors([]);
-            }
+            // No hard-coded fallback: real drive data is the only source.
+            setLiveFloors([]);
           }
         }
       } catch (err) {
@@ -697,16 +659,7 @@ export default function LogisticsHubPage() {
           }
         }
 
-        // If no school folders found in drive folder yet, populate with official schools definitions
-        if (loadedSchools.length === 0) {
-          loadedSchools = OFFICIAL_EST_SCHOOLS.map((s) => ({
-            id: s.fullFolderName,
-            name: s.schoolName,
-            fullFolderName: s.fullFolderName,
-            governorate: s.governorate,
-          }));
-        }
-
+        // No hard-coded school list: only folders found in Drive are offered.
         setSchools(loadedSchools);
         if (loadedSchools.length > 0) {
           const targetSchool = urlFolderId
@@ -834,16 +787,7 @@ export default function LogisticsHubPage() {
               if (matchedGov) selected = matchedGov;
             }
           } else if (urlBuilding) {
-            const parsedSchool = parseSchoolFolderName(urlBuilding);
-            const isSchoolFromUrl = Boolean(
-              parsedSchool?.isOfficialSchool ||
-              OFFICIAL_EST_SCHOOLS.some(
-                (s) =>
-                  s.schoolName.toLowerCase() === urlBuilding.toLowerCase() ||
-                  s.fullFolderName.toLowerCase() === urlBuilding.toLowerCase() ||
-                  urlBuilding.toLowerCase().includes(s.schoolName.toLowerCase()),
-              ),
-            );
+            const isSchoolFromUrl = /school|college|academy|مدرسة/i.test(urlBuilding);
             if (isSchoolFromUrl) {
               selected = destList.find((d) => d.isSchools) || destList[0];
             } else {

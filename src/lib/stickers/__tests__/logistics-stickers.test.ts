@@ -95,19 +95,15 @@ describe("Logistics Stickers PDF Generator", () => {
     expect(totalStudents).toBe(0);
   });
 
-  it("canonical resolution for official school Tiba Modern from building name alone (0 candidates until files uploaded)", () => {
+  it("never invents floors/rooms from a hard-coded school list", () => {
     const normalized = normalizeFloorsData({
       ...baseData,
       building: "Tiba Modern International Schools (Dakahlia)",
     });
 
-    expect(normalized).toHaveLength(2);
-    expect(normalized[0].floor).toBe("3rd Floor");
-    expect(normalized[1].floor).toBe("4th Floor");
-    expect(normalized[0].rooms).toHaveLength(7);
-    expect(normalized[1].rooms).toHaveLength(8);
-    expect(normalized.reduce((s, f) => s + f.rooms.length, 0)).toBe(15);
-    // Zero candidates when folders are empty
+    // Only the live room names supplied in the request are used.
+    expect(normalized.reduce((s, f) => s + f.rooms.length, 0)).toBe(4);
+    // Zero candidates until real register files are uploaded.
     expect(normalized.reduce((s, f) => s + f.totalStudents, 0)).toBe(0);
   });
 

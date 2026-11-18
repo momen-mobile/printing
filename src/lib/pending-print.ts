@@ -1,5 +1,4 @@
 import type { Breadcrumb, DriveItem } from "./types";
-import { EST_REFERENCE_DATA } from "./stickers/est-reference-data";
 
 export type HierarchyLevel = "root" | "governorate" | "center" | "building" | "floor" | "room" | "folder";
 
@@ -42,16 +41,6 @@ export interface PendingPrintResult {
   flatFiles: PendingFileItem[];
 }
 
-const KNOWN_GOVS = new Set(
-  EST_REFERENCE_DATA.map((r) => r.governorate.trim().toLowerCase())
-);
-const KNOWN_CENTERS = new Set(
-  EST_REFERENCE_DATA.map((r) => r.testCenter.trim().toLowerCase())
-);
-const KNOWN_BUILDINGS = new Set(
-  EST_REFERENCE_DATA.map((r) => r.building.trim().toLowerCase())
-);
-
 /**
  * Classifies a folder's level in the EST hierarchy:
  * - root: Exam root (EST 1, EST 2, December 2026, Demo Drive, My Drive)
@@ -88,16 +77,13 @@ export function classifyFolderLevel(folderName: string, depthFromEst: number = -
   if (/floor|دور|طابق|\b\d+(st|nd|rd|th)\s*floor\b/i.test(norm)) {
     return "floor";
   }
-  if (
-    KNOWN_BUILDINGS.has(norm) ||
-    /building|مبنى|قسم|faculty|كلية|pharmacy|dentistry|engineering/i.test(norm)
-  ) {
+  if (/building|مبنى|قسم|faculty|كلية|pharmacy|dentistry|engineering/i.test(norm)) {
     return "building";
   }
-  if (KNOWN_CENTERS.has(norm) || /center|سنتر|school|مدرسة/i.test(norm)) {
+  if (/center|سنتر|school|مدرسة/i.test(norm)) {
     return "center";
   }
-  if (KNOWN_GOVS.has(norm) || /^(alexandria|cairo|giza|mansoura|ismailia|tanta|portsaid|suez|assiut)$/i.test(norm)) {
+  if (/^(alexandria|cairo|giza|mansoura|ismailia|tanta|portsaid|suez|assiut)$/i.test(norm)) {
     return "governorate";
   }
 
