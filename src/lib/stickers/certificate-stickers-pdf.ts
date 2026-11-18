@@ -369,12 +369,14 @@ function drawSimpleBwCertificateSticker(params: {
   const serialLabel = "SERIAL NO:";
   const serialLabelSize = isPortrait ? 9.5 : 8.5;
   const serialNumSize = isPortrait ? 18 : 16;
-  const labelW = font.widthOfTextAtSize(serialLabel + "  ", serialLabelSize);
+  const labelW = font.widthOfTextAtSize(serialLabel, serialLabelSize);
   const numW = font.widthOfTextAtSize(serialStr, serialNumSize);
-  const totalSerialW = labelW + numW;
+  const textGap = 6;
+  const contentW = labelW + textGap + numW;
 
   const placardH = isPortrait ? 26 : 22;
-  const placardW = Math.max(130, totalSerialW + 24);
+  const placardPaddingX = 12;
+  const placardW = Math.max(120, contentW + placardPaddingX * 2);
   const placardX = x + (width - placardW) / 2;
   const placardY = headerDividerY - (isPortrait ? 14 : 10) - placardH;
 
@@ -389,19 +391,19 @@ function drawSimpleBwCertificateSticker(params: {
     color: COLOR_WHITE,
   });
 
-  const serialTextY = placardY + (placardH - serialNumSize) / 2 + 1;
-  const serialStartX = placardX + (placardW - totalSerialW) / 2;
+  const placardCenterY = placardY + placardH / 2;
+  const serialStartX = placardX + (placardW - contentW) / 2;
 
   page.drawText(serialLabel, {
     x: serialStartX,
-    y: serialTextY + 1.5,
+    y: placardCenterY - serialLabelSize * 0.35,
     size: serialLabelSize,
     font,
     color: COLOR_DARK_GRAY,
   });
   page.drawText(serialStr, {
-    x: serialStartX + labelW,
-    y: serialTextY,
+    x: serialStartX + labelW + textGap,
+    y: placardCenterY - serialNumSize * 0.35,
     size: serialNumSize,
     font,
     color: COLOR_BLACK,
