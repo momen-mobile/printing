@@ -47,6 +47,7 @@ export function buildConsentUrl(state: string): string {
     include_granted_scopes: true,
     scope: DRIVE_SCOPES,
     state,
+    login_hint: getGoogleConfig().accountEmail || undefined,
   });
 }
 
