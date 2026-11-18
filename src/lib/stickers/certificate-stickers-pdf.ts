@@ -166,43 +166,55 @@ export function parseReportsList(raw: string): string[] {
   return parts;
 }
 
-function wrapTextToMaxLines(
+function wrapTextToFit(
   rawText: string,
   font: any,
-  fontSize: number,
+  startSize: number,
   maxWidth: number,
   maxLines: number = 2,
-): string[] {
+  minSize: number = 8.5,
+): { lines: string[]; fontSize: number } {
   const trimmed = rawText.trim();
-  if (!trimmed) return [];
+  if (!trimmed) return { lines: [], fontSize: startSize };
   const isArabic = /[\u0600-\u06FF]/.test(trimmed);
-  const shapedFull = isArabic ? formatArabicForPdf(trimmed) : trimmed;
-  if (font.widthOfTextAtSize(shapedFull, fontSize) <= maxWidth) {
-    return [shapedFull];
-  }
-  const words = trimmed.split(/\s+/);
-  if (words.length <= 1) {
-    return [shapedFull];
-  }
-  const lines: string[] = [];
-  let currentWords: string[] = [];
-  for (const w of words) {
-    const testWords = [...currentWords, w];
-    const testStr = isArabic ? formatArabicForPdf(testWords.join(" ")) : testWords.join(" ");
-    if (font.widthOfTextAtSize(testStr, fontSize) <= maxWidth || currentWords.length === 0) {
-      currentWords.push(w);
-    } else {
-      lines.push(isArabic ? formatArabicForPdf(currentWords.join(" ")) : currentWords.join(" "));
-      currentWords = [w];
-      if (lines.length === maxLines - 1) {
-        break;
+  const shape = (value: string) => (isArabic ? formatArabicForPdf(value) : value);
+
+  const wrapAtSize = (size: number): string[] => {
+    if (font.widthOfTextAtSize(shape(trimmed), size) <= maxWidth) return [trimmed];
+    const words = trimmed.split(/\s+/);
+    if (words.length <= 1) return [trimmed];
+    const lines: string[] = [];
+    let currentWords: string[] = [];
+    for (const word of words) {
+      const candidate = [...currentWords, word];
+      if (
+        currentWords.length === 0 ||
+        font.widthOfTextAtSize(shape(candidate.join(" ")), size) <= maxWidth
+      ) {
+        currentWords = candidate;
+      } else {
+        lines.push(currentWords.join(" "));
+        currentWords = [word];
       }
     }
+    if (currentWords.length > 0) lines.push(currentWords.join(" "));
+    return lines;
+  };
+
+  for (let size = startSize; size >= minSize; size -= 0.5) {
+    const lines = wrapAtSize(size);
+    if (lines.length <= maxLines) {
+      return { lines: lines.map(shape), fontSize: size };
+    }
   }
-  if (currentWords.length > 0 && lines.length < maxLines) {
-    lines.push(isArabic ? formatArabicForPdf(currentWords.join(" ")) : currentWords.join(" "));
+
+  const lines = wrapAtSize(minSize);
+  if (lines.length > maxLines) {
+    const merged = lines.slice(0, maxLines - 1);
+    merged.push(lines.slice(maxLines - 1).join(" "));
+    return { lines: merged.map(shape), fontSize: minSize };
   }
-  return lines;
+  return { lines: lines.map(shape), fontSize: minSize };
 }
 
 /**
@@ -654,10 +666,10 @@ function drawAramexCertificateSticker(params: {
   });
 
   // 2. Serial Number Row: Centered Placard (e.g. (205))
-  const serialRowY = headerDividerY - 14;
+  const serialRowY = headerDividerY - 16;
   const serialLabel = "SERIAL NO:";
-  const serialLabelSize = 8.5;
-  const serialNumSize = 15;
+  const serialLabelSize = 10;
+  const serialNumSize = 18;
   const labelW = font.widthOfTextAtSize(serialLabel + "  ", serialLabelSize);
   const numW = font.widthOfTextAtSize(serialStr, serialNumSize);
   const totalSerialW = labelW + numW;
@@ -679,7 +691,7 @@ function drawAramexCertificateSticker(params: {
   });
 
   // Divider Line below Serial Number
-  const serialDividerY = serialRowY - 7;
+  const serialDividerY = serialRowY - 9;
   page.drawLine({
     start: { x: x + 8, y: serialDividerY },
     end: { x: x + width - 8, y: serialDividerY },
@@ -690,36 +702,42 @@ function drawAramexCertificateSticker(params: {
   // 3. Shipping & Delivery Details
   const leftX = x + 10;
   const maxContentW = width - 20;
-  let curY = serialDividerY - 11;
+  let curY = serialDividerY - 13;
 
-  // Helper to draw a key-value row with automatic RTL/Arabic shaping
+  // Helper to draw a key-value row with automatic RTL/Arabic shaping.
+  // Short values stay inline with their label; long values wrap onto
+  // additional lines and slightly auto-shrink so nothing ever gets clipped.
   const drawFieldRow = (
     label: string,
     rawVal?: string | number,
-    opts?: { fontSize?: number; labelWidth?: number },
+    opts?: { fontSize?: number; maxLines?: number },
   ) => {
     if (!rawVal && rawVal !== 0) return;
     const valStr = String(rawVal).trim();
     if (!valStr) return;
 
-    const fSize = opts?.fontSize || 8;
+    const fSize = opts?.fontSize || 11.5;
+    const maxLines = opts?.maxLines ?? 2;
+    const labelSize = Math.max(9, fSize - 1);
+    const hasLabel = Boolean(label.trim());
     const lText = label.endsWith(":") ? label : `${label}:`;
-    const lW = opts?.labelWidth || font.widthOfTextAtSize(`${lText} `, fSize);
-
-    page.drawText(lText, {
-      x: leftX,
-      y: curY,
-      size: fSize,
-      font,
-      color: COLOR_DARK_GRAY,
-    });
+    const lW = hasLabel ? font.widthOfTextAtSize(`${lText} `, labelSize) : 0;
 
     const isArabic = /[\u0600-\u06FF]/.test(valStr);
     const shapedVal = isArabic ? formatArabicForPdf(valStr) : valStr;
-
-    // Check if value fits on same line
     const availValW = maxContentW - lW;
+
+    // Fits on the same line as its label
     if (font.widthOfTextAtSize(shapedVal, fSize) <= availValW) {
+      if (hasLabel) {
+        page.drawText(lText, {
+          x: leftX,
+          y: curY,
+          size: labelSize,
+          font,
+          color: COLOR_DARK_GRAY,
+        });
+      }
       page.drawText(shapedVal, {
         x: leftX + lW,
         y: curY,
@@ -727,88 +745,81 @@ function drawAramexCertificateSticker(params: {
         font,
         color: COLOR_BLACK,
       });
-      curY -= (fSize + 3);
-    } else {
-      // Multi-line wrap
-      const lines = wrapTextToMaxLines(valStr, font, fSize, maxContentW, 2);
-      if (lines.length === 1) {
-        page.drawText(lines[0], {
-          x: leftX + lW,
-          y: curY,
-          size: fSize,
-          font,
-          color: COLOR_BLACK,
-        });
-        curY -= (fSize + 3);
-      } else {
-        curY -= (fSize + 2);
-        for (const line of lines) {
-          page.drawText(line, {
-            x: leftX + 8,
-            y: curY,
-            size: fSize,
-            font,
-            color: COLOR_BLACK,
-          });
-          curY -= (fSize + 2);
-        }
-      }
+      curY -= fSize + 4.5;
+      return;
     }
+
+    // Long value: label on its own line, value wraps underneath at full width
+    if (hasLabel) {
+      page.drawText(lText, {
+        x: leftX,
+        y: curY,
+        size: labelSize,
+        font,
+        color: COLOR_DARK_GRAY,
+      });
+      curY -= labelSize + 2;
+    }
+
+    const fit = wrapTextToFit(valStr, font, fSize, maxContentW, maxLines);
+    for (const line of fit.lines) {
+      page.drawText(line, {
+        x: leftX + (hasLabel ? 2 : 0),
+        y: curY,
+        size: fit.fontSize,
+        font,
+        color: COLOR_BLACK,
+      });
+      curY -= fit.fontSize + 3.5;
+    }
+    curY -= 1;
   };
 
   // 1. Recipient (e.g. عماد عدلي عبده / مصطفى مهدي...)
   const recipientVal = student.recipient || student.studentNameAr || student.studentName;
-  drawFieldRow("Recipient", recipientVal, { fontSize: 8.5 });
+  drawFieldRow("Recipient", recipientVal, { fontSize: 12, maxLines: 2 });
 
   // 2. Student name
   const studentNameVal = student.studentNameAr || student.studentName;
-  drawFieldRow("Student name", studentNameVal, { fontSize: 8.5 });
+  drawFieldRow("Student name", studentNameVal, { fontSize: 12, maxLines: 2 });
 
   // 3. Governorate & City
   const govVal = student.governorate || "—";
   const cityVal = student.city || "—";
-  page.drawText(`Governorate: ${govVal}   •   City: ${cityVal}`, {
-    x: leftX,
-    y: curY,
-    size: 8,
-    font,
-    color: COLOR_BLACK,
+  drawFieldRow("", `Governorate: ${govVal}   •   City: ${cityVal}`, {
+    fontSize: 11.5,
+    maxLines: 2,
   });
-  curY -= 11;
 
   // 4. Area
   if (student.area) {
-    drawFieldRow("Area", student.area, { fontSize: 8 });
+    drawFieldRow("Area", student.area, { fontSize: 11.5, maxLines: 2 });
   }
 
   // 5. Street
   if (student.street) {
-    drawFieldRow("Street", student.street, { fontSize: 7.5 });
+    drawFieldRow("Street", student.street, { fontSize: 11.5, maxLines: 3 });
   }
 
   // 6. Apartment & Floor
   const aptVal = student.apartment ? String(student.apartment) : "—";
   const floorVal = student.floor ? String(student.floor) : "—";
-  page.drawText(`Apartment: ${aptVal}        Floor: ${floorVal}`, {
-    x: leftX,
-    y: curY,
-    size: 8,
-    font,
-    color: COLOR_BLACK,
+  drawFieldRow("", `Apartment: ${aptVal}        Floor: ${floorVal}`, {
+    fontSize: 11.5,
+    maxLines: 2,
   });
-  curY -= 11;
 
   // 7. Landmark
   if (student.landmark) {
-    drawFieldRow("Landmark", student.landmark, { fontSize: 7.5 });
+    drawFieldRow("Landmark", student.landmark, { fontSize: 11.5, maxLines: 2 });
   }
 
   // 8. Phone Numbers
   if (student.phone) {
-    drawFieldRow("Phone", student.phone, { fontSize: 8 });
+    drawFieldRow("Phone", student.phone, { fontSize: 11.5 });
   }
   if (student.phone2 && student.phone2 !== student.phone) {
-    drawFieldRow("Phone", student.phone2, { fontSize: 8 });
+    drawFieldRow("Phone", student.phone2, { fontSize: 11.5 });
   }
 
   // Divider Line before Reports
@@ -819,48 +830,53 @@ function drawAramexCertificateSticker(params: {
     thickness: 0.8,
     color: COLOR_BLACK,
   });
-  curY -= 11;
+  curY -= 13;
 
   // 9. Total Reports
   const totalReportsNum = student.totalReports || 1;
   const repCountText = Number(totalReportsNum) === 1 ? "1 Report" : `${totalReportsNum} Reports`;
   const repLabel = "TOTAL REPORTS:";
+  const repLabelSize = 10;
+  const repValueSize = 12.5;
   page.drawText(repLabel, {
     x: leftX,
     y: curY,
-    size: 8.5,
+    size: repLabelSize,
     font,
     color: COLOR_DARK_GRAY,
   });
-  const repLabelW = font.widthOfTextAtSize(`${repLabel}  `, 8.5);
+  const repLabelW = font.widthOfTextAtSize(`${repLabel}  `, repLabelSize);
   page.drawText(repCountText, {
     x: leftX + repLabelW,
     y: curY,
-    size: 9.5,
+    size: repValueSize,
     font,
     color: COLOR_BLACK,
   });
-  curY -= 12;
+  curY -= 15;
 
   // 10. MoE Report List
   page.drawText("MoE Report List:", {
     x: leftX,
     y: curY,
-    size: 8,
+    size: 10,
     font,
     color: COLOR_DARK_GRAY,
   });
-  curY -= 10;
+  curY -= 13;
 
   const displayReports = reportsParts.length > 0 ? reportsParts.slice(0, 3) : ["Official EST Score Report"];
   for (const item of displayReports) {
-    page.drawText(`• ${item}`, {
-      x: leftX + 4,
-      y: curY,
-      size: 7.5,
-      font,
-      color: COLOR_BLACK,
-    });
-    curY -= 9.5;
+    const fit = wrapTextToFit(`• ${item}`, font, 10.5, maxContentW - 8, 2, 9);
+    for (const line of fit.lines) {
+      page.drawText(line, {
+        x: leftX + 4,
+        y: curY,
+        size: fit.fontSize,
+        font,
+        color: COLOR_BLACK,
+      });
+      curY -= fit.fontSize + 3;
+    }
   }
 }
