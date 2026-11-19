@@ -6,6 +6,7 @@ import { requireSession, enforceRateLimit, jsonError, parseJson } from "@/lib/ap
 import { prisma } from "@/lib/prisma";
 import { ensureCertificateBatchTable } from "@/lib/certificates-drive";
 import { parseCertificateWorkbook } from "@/lib/certificates-parser";
+import { SANITIZABLE_STUDENT_FIELDS, sanitizeText } from "@/lib/text-sanitizer";
 import { getDriveContextWithRoot } from "@/lib/auth";
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
@@ -98,23 +99,31 @@ export async function GET(request: Request, { params }: { params: Promise<{ batc
           const freshParsed = parseCertificateWorkbook(wb, batch.name);
           if (freshParsed && freshParsed.length > 0) {
             const freshById = new Map<string, any>();
+            const freshByEmail = new Map<string, any>();
             const freshByName = new Map<string, any>();
 
             for (const fp of freshParsed) {
               if (fp.nationalId) freshById.set(String(fp.nationalId).trim(), fp);
-              if (fp.studentName) freshByName.set(String(fp.studentName).trim().toLowerCase(), fp);
+              if (fp.email) freshByEmail.set(String(fp.email).trim().toLowerCase(), fp);
+              for (const name of [fp.studentName, fp.studentNameAr]) {
+                if (name) freshByName.set(String(name).trim().toLowerCase(), fp);
+              }
             }
 
             let updated = false;
             for (let i = 0; i < students.length; i++) {
               const s = students[i];
               const cleanId = s.nationalId ? String(s.nationalId).trim() : "";
+              const cleanEmail = s.email ? String(s.email).trim().toLowerCase() : "";
               const cleanEn = s.studentName ? String(s.studentName).trim().toLowerCase() : "";
+              const cleanAr = s.studentNameAr ? String(s.studentNameAr).trim().toLowerCase() : "";
 
               const match =
                 (cleanId && freshById.get(cleanId)) ||
+                (cleanEmail && freshByEmail.get(cleanEmail)) ||
                 (cleanEn && freshByName.get(cleanEn)) ||
-                freshParsed[i];
+                (cleanAr && freshByName.get(cleanAr)) ||
+                null;
 
               if (match) {
                 if (!s.studentNameAr && match.studentNameAr) {
@@ -183,6 +192,32 @@ export async function GET(request: Request, { params }: { params: Promise<{ batc
         }
       } catch (enrichErr) {
         console.warn("[certificates:batches:get] auto-enrichment failed", enrichErr);
+      }
+    }
+
+    let sanitized = false;
+    for (const student of students) {
+      if (!student || typeof student !== "object") continue;
+      for (const field of SANITIZABLE_STUDENT_FIELDS) {
+        const current = student[field];
+        if (typeof current !== "string") continue;
+        const cleaned = sanitizeText(current);
+        if (cleaned !== current) {
+          student[field] = cleaned;
+          sanitized = true;
+        }
+      }
+    }
+
+    if (sanitized) {
+      batch.studentsData = students;
+      try {
+        await prisma.certificateStickerBatch.update({
+          where: { id: batch.id },
+          data: { studentsData: students as any },
+        });
+      } catch (saveErr) {
+        console.warn("[certificates:batches:get] failed to persist cleaned student data", saveErr);
       }
     }
 

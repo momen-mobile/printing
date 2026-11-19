@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import type { StudentWithReceipt } from "./certificates-parser";
+import { sanitizeText } from "./text-sanitizer";
 import {
   ARAMEX_CITIES_LIST,
   ARAMEX_MATCH_RULES,
@@ -201,13 +202,13 @@ export function buildFullAddress(item: {
   floor?: string | number;
   landmark?: string;
 }): string {
-  const gov = (item.governorate || "").trim();
-  const city = (item.city || "").trim();
-  const area = (item.area || "").trim();
-  const street = (item.street || "").trim();
-  const apt = translateApartmentToArabic(item.apartment);
-  const floor = translateFloorToArabic(item.floor);
-  const landmark = (item.landmark || "").trim();
+  const gov = sanitizeText(item.governorate);
+  const city = sanitizeText(item.city);
+  const area = sanitizeText(item.area);
+  const street = sanitizeText(item.street);
+  const apt = translateApartmentToArabic(sanitizeText(item.apartment));
+  const floor = translateFloorToArabic(sanitizeText(item.floor));
+  const landmark = sanitizeText(item.landmark);
 
   // Exactly in this order:
   // Governorate، City، Area، Street، Apartment (translated)، Floor (translated)، Landmark
@@ -320,26 +321,29 @@ export function convertStudentsToAramexRows(students: StudentWithReceipt[]): Ara
     return {
       id: s.id || String(s.serialNumber || idx + 1),
       serialNumber: s.serialNumber || idx + 1,
-      newRequestId: s.certificateCode || "",
-      studentNameEn: s.studentName,
-      studentNameAr: s.studentNameAr,
-      nationalId: s.nationalId,
-      phone: mobile,
-      phone2: tel,
-      recipient: s.recipient || s.studentNameAr || s.studentName,
+      newRequestId: sanitizeText(s.certificateCode),
+      studentNameEn: sanitizeText(s.studentName),
+      studentNameAr: sanitizeText(s.studentNameAr),
+      nationalId: sanitizeText(s.nationalId),
+      phone: sanitizeText(mobile),
+      phone2: sanitizeText(tel),
+      recipient:
+        sanitizeText(s.recipient) ||
+        sanitizeText(s.studentNameAr) ||
+        sanitizeText(s.studentName),
       totalReports: s.totalReports || 1,
-      reportList: s.reportsList || "",
-      governorate: s.governorate || "",
-      originalCity: s.city || "",
-      area: s.area || "",
-      street: s.street || "",
-      apartment: s.apartment || "",
-      floor: s.floor || "",
-      landmark: s.landmark || "",
+      reportList: sanitizeText(s.reportsList),
+      governorate: sanitizeText(s.governorate),
+      originalCity: sanitizeText(s.city),
+      area: sanitizeText(s.area),
+      street: sanitizeText(s.street),
+      apartment: sanitizeText(s.apartment),
+      floor: sanitizeText(s.floor),
+      landmark: sanitizeText(s.landmark),
       fullAddress,
       selectedCityGov: detectedCityOption.cityGov,
       cityOption: detectedCityOption,
-      awb: s.awb || "",
+      awb: sanitizeText(s.awb),
     };
   });
 }

@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import type { CertificateStudentData } from "./stickers/certificate-stickers-pdf";
+import { sanitizeOptionalText, sanitizeText } from "./text-sanitizer";
 
 export type StudentWithReceipt = CertificateStudentData & {
   received?: boolean;
@@ -8,6 +9,13 @@ export type StudentWithReceipt = CertificateStudentData & {
 
 function normalizeHeader(h: string): string {
   return h.trim().toLowerCase().replace(/[\s_\-#:()]+/g, "");
+}
+
+function sanitizedCell(row: any[], colIdx: number): string | undefined {
+  if (colIdx < 0) return undefined;
+  const value = row[colIdx];
+  if (value === undefined || value === null || String(value).trim() === "") return undefined;
+  return sanitizeOptionalText(value);
 }
 
 /**
@@ -88,19 +96,19 @@ export function buildCrossSheetArabicMap(workbook: XLSX.WorkBook): {
 
       const rawAr = row[arIdx];
       if (!rawAr || typeof rawAr !== "string" && typeof rawAr !== "number") continue;
-      const arName = String(rawAr).trim();
+      const arName = sanitizeText(String(rawAr));
       if (!arName || !/[\u0600-\u06FF]/.test(arName)) continue;
 
       if (idIdx >= 0 && row[idIdx]) {
-        const id = String(row[idIdx]).trim();
+        const id = sanitizeText(String(row[idIdx]));
         if (id) byId.set(id, arName);
       }
       if (emailIdx >= 0 && row[emailIdx]) {
-        const email = String(row[emailIdx]).trim().toLowerCase();
+        const email = sanitizeText(String(row[emailIdx])).toLowerCase();
         if (email) byEmail.set(email, arName);
       }
       if (enIdx >= 0 && row[enIdx]) {
-        const en = String(row[enIdx]).trim().toLowerCase();
+        const en = sanitizeText(String(row[enIdx])).toLowerCase();
         if (en) byName.set(en, arName);
       }
     }
@@ -193,25 +201,25 @@ export function buildCrossSheetAddressMap(workbook: XLSX.WorkBook): {
       if (!row || row.length === 0) continue;
 
       const record: CrossSheetAddressRecord = {
-        governorate: govIdx >= 0 && row[govIdx] ? String(row[govIdx]).trim() : undefined,
-        city: cityIdx >= 0 && row[cityIdx] ? String(row[cityIdx]).trim() : undefined,
-        area: areaIdx >= 0 && row[areaIdx] ? String(row[areaIdx]).trim() : undefined,
-        street: streetIdx >= 0 && row[streetIdx] ? String(row[streetIdx]).trim() : undefined,
-        apartment: aptIdx >= 0 && row[aptIdx] ? String(row[aptIdx]).trim() : undefined,
-        floor: floorIdx >= 0 && row[floorIdx] ? String(row[floorIdx]).trim() : undefined,
-        landmark: landmarkIdx >= 0 && row[landmarkIdx] ? String(row[landmarkIdx]).trim() : undefined,
-        recipient: recipientIdx >= 0 && row[recipientIdx] ? String(row[recipientIdx]).trim() : undefined,
-        phone: phoneIdx >= 0 && row[phoneIdx] ? String(row[phoneIdx]).trim() : undefined,
-        phone2: phoneNumIdx >= 0 && row[phoneNumIdx] ? String(row[phoneNumIdx]).trim() : undefined,
-        awb: awbIdx >= 0 && row[awbIdx] ? String(row[awbIdx]).trim() : undefined,
+        governorate: sanitizedCell(row, govIdx),
+        city: sanitizedCell(row, cityIdx),
+        area: sanitizedCell(row, areaIdx),
+        street: sanitizedCell(row, streetIdx),
+        apartment: sanitizedCell(row, aptIdx),
+        floor: sanitizedCell(row, floorIdx),
+        landmark: sanitizedCell(row, landmarkIdx),
+        recipient: sanitizedCell(row, recipientIdx),
+        phone: sanitizedCell(row, phoneIdx),
+        phone2: sanitizedCell(row, phoneNumIdx),
+        awb: sanitizedCell(row, awbIdx),
       };
 
       const hasAddress = Boolean(record.governorate || record.city || record.street || record.area);
       if (!hasAddress) continue;
 
-      if (idIdx >= 0 && row[idIdx]) byId.set(String(row[idIdx]).trim(), record);
-      if (emailIdx >= 0 && row[emailIdx]) byEmail.set(String(row[emailIdx]).trim().toLowerCase(), record);
-      if (nameIdx >= 0 && row[nameIdx]) byName.set(String(row[nameIdx]).trim().toLowerCase(), record);
+      if (idIdx >= 0 && row[idIdx]) byId.set(sanitizeText(String(row[idIdx])), record);
+      if (emailIdx >= 0 && row[emailIdx]) byEmail.set(sanitizeText(String(row[emailIdx])).toLowerCase(), record);
+      if (nameIdx >= 0 && row[nameIdx]) byName.set(sanitizeText(String(row[nameIdx])).toLowerCase(), record);
     }
   }
 
@@ -320,8 +328,9 @@ export function parseCertificateWorkbook(
     let awb = "";
 
     row.forEach((val: any, colIdx: number) => {
-      if (val === undefined || val === null || String(val).trim() === "") return;
-      const v = String(val).trim();
+      if (val === undefined || val === null) return;
+      const v = sanitizeText(String(val));
+      if (!v) return;
       const h = headers[colIdx] || "";
 
       if (h === "sn" || h === "serial" || h === "no" || (colIdx === 0 && !isNaN(Number(v)))) {
@@ -480,6 +489,7 @@ export function parseCertificateWorkbook(
       studentNameAr: nameAr || undefined,
       seatNumber: "",
       nationalId,
+      email: cleanEmail || undefined,
       schoolName: school,
       governorate: gov,
       city: city || undefined,

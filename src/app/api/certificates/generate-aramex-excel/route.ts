@@ -4,6 +4,7 @@ import path from "path";
 import JSZip from "jszip";
 import type { AramexRowItem } from "@/lib/aramex-utils";
 import { ARAMEX_CITY_MAP, DEFAULT_ARAMEX_CITY, buildFullAddress, normalizeCityKey } from "@/lib/aramex-utils";
+import { sanitizeText } from "@/lib/text-sanitizer";
 
 function escapeXml(unsafe: any): string {
   if (unsafe === undefined || unsafe === null) return "";
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
         DEFAULT_ARAMEX_CITY;
 
       // "Name" column = recipient name (اسم المستلم), never the student name.
-      const nameVal = r.recipient || r.studentNameAr || r.studentNameEn || "";
+      const nameVal = sanitizeText(r.recipient || r.studentNameAr || r.studentNameEn || "");
       const attentionNum =
         r.serialNumber !== undefined && r.serialNumber !== ""
           ? Number(r.serialNumber) || r.serialNumber
@@ -70,10 +71,10 @@ export async function POST(req: NextRequest) {
         r.totalReports !== undefined && r.totalReports !== "" ? r.totalReports : 1;
       const remarksText = `تم تسليم عدد * ${totalReports}   * شهادة برجاء التوقيع +رقم البطاقة  على البوليصة  وارسالها مرة اخرى`;
 
-      const refUnique = r.originalCity || r.area || "";
-      const mobileVal = r.phone || "";
-      const telVal = r.phone2 || r.phone || "";
-      const fullAddressVal =
+      const refUnique = sanitizeText(r.originalCity || r.area || "");
+      const mobileVal = sanitizeText(r.phone);
+      const telVal = sanitizeText(r.phone2 || r.phone);
+      const fullAddressVal = sanitizeText(
         r.fullAddress && r.fullAddress.includes("،")
           ? r.fullAddress
           : buildFullAddress({
@@ -84,7 +85,8 @@ export async function POST(req: NextRequest) {
               apartment: r.apartment,
               floor: r.floor,
               landmark: r.landmark,
-            }) || r.fullAddress || "";
+            }) || r.fullAddress || "",
+      );
 
       const rowXml =
         `<row r="${rowNum}" spans="1:30" ht="16.35" customHeight="1">` +

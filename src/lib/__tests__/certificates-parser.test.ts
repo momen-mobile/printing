@@ -27,4 +27,32 @@ describe("certificates-parser", () => {
     const students = parseLocalCertificateFile(aramexPath);
     expect(students.length).toBeGreaterThan(0);
   });
+
+  it("keeps each student aligned with their own Excel row (serials 59 and 77)", () => {
+    const aramexPath = path.join(process.cwd(), "Aramex-Official_Report-Batch 1 Online - 07.11.2026.xlsx");
+    const students = parseLocalCertificateFile(aramexPath);
+
+    const student59 = students.find((s) => String(s.serialNumber) === "59");
+    expect(student59).toBeTruthy();
+    expect(student59?.studentName).toBe("Basant Ahmed Abdelhamid Ahmed Abdelghany");
+    expect(student59?.governorate).toBe("Minya");
+    expect(student59?.street).toBe("شارع البستان");
+
+    const student77 = students.find((s) => String(s.serialNumber) === "77");
+    expect(student77).toBeTruthy();
+    expect(student77?.studentName).toBe("Eyad Hossam Hassan Mostafa Youssef");
+    expect(student77?.governorate).toBe("Cairo");
+    expect(student77?.street).toBe("3 مكرم عبيد تقاطع مصطفي النحاس");
+  });
+
+  it("strips scraped portal text from a street cell", () => {
+    const aramexPath = path.join(process.cwd(), "Aramex-Official_Report-Batch 1 Online - 07.11.2026.xlsx");
+    const students = parseLocalCertificateFile(aramexPath);
+
+    const dirtyRow = students.find((s) => String(s.serialNumber) === "174");
+    expect(dirtyRow).toBeTruthy();
+    expect(dirtyRow?.street).not.toMatch(/select exams|terms and conditions|proceed to payment/i);
+    expect(dirtyRow?.street).not.toMatch(/Apartment:|Floor:|Landmark:/i);
+    expect(dirtyRow?.street).toContain("برج الفيروز");
+  });
 });
