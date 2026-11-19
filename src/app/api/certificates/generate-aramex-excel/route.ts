@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 import JSZip from "jszip";
 import type { AramexRowItem } from "@/lib/aramex-utils";
 import { ARAMEX_CITY_MAP, DEFAULT_ARAMEX_CITY, buildFullAddress, normalizeCityKey } from "@/lib/aramex-utils";
 import { sanitizeText } from "@/lib/text-sanitizer";
+import { ARAMEX_TEMPLATE_BASE64 } from "@/lib/assets/aramex-template";
 
 function escapeXml(unsafe: any): string {
   if (unsafe === undefined || unsafe === null) return "";
@@ -26,12 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No shipment rows provided" }, { status: 400 });
     }
 
-    const tplPath = path.join(process.cwd(), "Aramex_PDU_Template_City_Auto_Fixed (2).xlsx");
-    if (!fs.existsSync(tplPath)) {
-      throw new Error("Aramex official template file not found on server");
-    }
-
-    const tplBuffer = fs.readFileSync(tplPath);
+    const tplBuffer = Buffer.from(ARAMEX_TEMPLATE_BASE64, "base64");
     const zip = await JSZip.loadAsync(tplBuffer);
 
     const sheet1File = zip.file("xl/worksheets/sheet1.xml");

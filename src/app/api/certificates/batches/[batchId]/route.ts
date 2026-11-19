@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 import * as XLSX from "xlsx";
 import { requireSession, enforceRateLimit, jsonError, parseJson } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +8,8 @@ import { SANITIZABLE_STUDENT_FIELDS, sanitizeText } from "@/lib/text-sanitizer";
 import { getDriveContextWithRoot } from "@/lib/auth";
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
+import { ARAMEX_SAMPLE_WORKBOOK_BASE64 } from "@/lib/assets/aramex-sample";
+import { MOE_SAMPLE_WORKBOOK_BASE64 } from "@/lib/assets/moe-sample";
 
 export const dynamic = "force-dynamic";
 
@@ -54,44 +54,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ batc
           }
         }
 
-        // 2. Fallback to local files in workspace
         if (!wb) {
-          const candidateNames = [
-            batch.fileName,
-            `${batch.name}.xlsx`,
-            "Aramex-Official_Report-Batch 1 Online - 07.11.2026.xlsx",
-            "Data for MoE - Nov Batch 2 11.11.2026.xlsx",
-          ].filter(Boolean) as string[];
-
-          for (const name of candidateNames) {
-            try {
-              const fp = path.join(process.cwd(), name);
-              if (fs.existsSync(fp)) {
-                const buf = fs.readFileSync(fp);
-                wb = XLSX.read(buf, { type: "buffer" });
-                break;
-              }
-            } catch {}
-          }
-
-          // If still no wb, look for any xlsx file containing Aramex or reports in cwd
-          if (!wb) {
-            try {
-              const files = fs.readdirSync(process.cwd());
-              for (const f of files) {
-                if (f.endsWith(".xlsx") && !f.startsWith("~") && (f.includes("Aramex") || f.includes("Report") || f.includes("Batch"))) {
-                  const fp = path.join(process.cwd(), f);
-                  const buf = fs.readFileSync(fp);
-                  const candidateWb = XLSX.read(buf, { type: "buffer" });
-                  const candParsed = parseCertificateWorkbook(candidateWb, "Candidate");
-                  // Check if candParsed matches students
-                  if (candParsed.some((cp) => students.some((s) => s.nationalId && s.nationalId === cp.nationalId))) {
-                    wb = candidateWb;
-                    break;
-                  }
-                }
-              }
-            } catch {}
+          const embeddedWorkbooks = [
+            ARAMEX_SAMPLE_WORKBOOK_BASE64,
+            MOE_SAMPLE_WORKBOOK_BASE64,
+          ];
+          for (const base64 of embeddedWorkbooks) {
+            const candidateWb = XLSX.read(Buffer.from(base64, "base64"), { type: "buffer" });
+            const candParsed = parseCertificateWorkbook(candidateWb, "Candidate");
+            if (candParsed.some((cp) => students.some((s) => s.nationalId && s.nationalId === cp.nationalId))) {
+              wb = candidateWb;
+              break;
+            }
           }
         }
 
