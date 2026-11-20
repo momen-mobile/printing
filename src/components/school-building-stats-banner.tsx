@@ -91,13 +91,29 @@ export function SchoolBuildingStatsBanner({
                 <span className="inline-flex items-center gap-1 font-bold text-foreground bg-surface/80 px-2 py-0.5 rounded-md border border-border/60">
                   <DoorOpen className="size-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>
-                    {roomCount > 0 ? roomCount : "—"} {locale === "ar" ? "قاعات بهذا الدور" : "Rooms on this floor"}
+                    {roomCount > 0
+                      ? `${roomCount} ${locale === "ar" ? "قاعات بهذا الدور" : "Rooms on this floor"}`
+                      : locale === "ar"
+                      ? "لا توجد قاعات مسجلة بهذا الدور بعد"
+                      : "No rooms registered on this floor yet"}
                   </span>
                 </span>
-                {roomCount > 0 && (
+                {roomCount > 0 ? (
                   <span className="inline-flex items-center gap-1 text-muted text-[11px]">
                     <Users className="size-3 text-muted" />
-                    <span>~{roomCount * 25} {locale === "ar" ? "طالب متوقع" : "Est. students"}</span>
+                    <span>
+                      {locale === "ar"
+                        ? "أعداد الطلاب تُحتسب من كشوفات القاعات فقط"
+                        : "Student counts from room registers only"}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-[11px]">
+                    <span>
+                      {locale === "ar"
+                        ? "لا توجد بيانات قاعات حالياً"
+                        : "No room data available currently"}
+                    </span>
                   </span>
                 )}
               </div>
@@ -293,27 +309,37 @@ export function SchoolBuildingStatsBanner({
               <span>{locale === "ar" ? "إجمالي الأدوار" : "Total Floors"}</span>
             </div>
             <p className="text-base sm:text-lg font-bold text-foreground">
-              {totalFloors} {locale === "ar" ? "أدوار" : "Floors"}
+              {floorFoldersInView.length > 0
+                ? `${floorFoldersInView.length} ${locale === "ar" ? "أدوار بالدرايف" : "Floors"}`
+                : locale === "ar"
+                ? "لا توجد أدوار مسجلة بعد"
+                : "No floors yet"}
             </p>
           </div>
 
           <div className="rounded-xl border border-border/70 bg-surface/80 p-2.5 sm:p-3">
             <div className="flex items-center gap-1.5 text-xs text-muted mb-0.5">
               <DoorOpen className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>{locale === "ar" ? "إجمالي القاعات" : "Total Rooms"}</span>
+              <span>{locale === "ar" ? "القاعات" : "Rooms"}</span>
             </div>
-            <p className="text-base sm:text-lg font-bold text-foreground">
-              {totalRooms} {locale === "ar" ? "قاعة" : "Rooms"}
+            <p className="text-xs sm:text-sm font-bold text-foreground">
+              {floorFoldersInView.length > 0
+                ? locale === "ar"
+                  ? "تُحسب عند فتح كل دور"
+                  : "Counted in floor"
+                : locale === "ar"
+                ? "لا توجد قاعات بعد"
+                : "No rooms yet"}
             </p>
           </div>
 
           <div className="rounded-xl border border-border/70 bg-surface/80 p-2.5 sm:p-3">
             <div className="flex items-center gap-1.5 text-xs text-muted mb-0.5">
               <Users className="size-3.5 text-purple-600 dark:text-purple-400" />
-              <span>{locale === "ar" ? "الطلاب المتوقعين" : "Est. Students"}</span>
+              <span>{locale === "ar" ? "أعداد الطلاب" : "Students"}</span>
             </div>
-            <p className="text-base sm:text-lg font-bold text-foreground">
-              ~{estStudents} {locale === "ar" ? "طالب" : "Students"}
+            <p className="text-xs sm:text-sm font-bold text-foreground">
+              {locale === "ar" ? "من الكشوفات فقط" : "From files only"}
             </p>
           </div>
 
@@ -323,7 +349,13 @@ export function SchoolBuildingStatsBanner({
               <span>{locale === "ar" ? "طبيعة المركز" : "Center Model"}</span>
             </div>
             <p className="text-xs sm:text-sm font-bold text-foreground truncate">
-              {locale === "ar" ? "المدرسة = السنتر والمبنى" : "School = Center & Bldg"}
+              {stats.isSchool
+                ? locale === "ar"
+                  ? "المدرسة = السنتر والمبنى"
+                  : "School = Center & Bldg"
+                : locale === "ar"
+                ? "سنتر متعدد المباني"
+                : "Multi-building Center"}
             </p>
           </div>
         </div>

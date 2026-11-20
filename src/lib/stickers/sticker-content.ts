@@ -167,11 +167,26 @@ export function buildStickerContent(
     const fourthLevel = locationChain[3];
     const fifthLevel = locationChain[4];
 
-    // Check if secondLevel is a school (or if thirdLevel is a Floor, meaning secondLevel is the Building/School)
+    const norm = (s?: string) => (s || "").trim().toLowerCase();
+    const isRepeatedSchoolName =
+      Boolean(thirdLevel) && norm(secondLevel) === norm(thirdLevel);
+
+    const isCenterWithDistinctBuildings =
+      /abu\s*qir|أبو\s*قير|sheraton|شيراتون|university|جامعة/i.test(secondLevel) &&
+      Boolean(thirdLevel) &&
+      !isFloorFolderName(thirdLevel) &&
+      !isRepeatedSchoolName;
+
+    // Check if secondLevel is a school:
+    // 1. Repeated folder name: "Taymour English School" / "Taymour English School"
+    // 2. hints.isSchool is true
+    // 3. thirdLevel is a Floor directly
+    // 4. Name contains school keywords and is NOT a known multi-building center
     const isSchool =
+      isRepeatedSchoolName ||
       hints?.isSchool === true ||
       (thirdLevel ? isFloorFolderName(thirdLevel) : false) ||
-      /school|college|division|academy|مدرسة/i.test(secondLevel);
+      (!isCenterWithDistinctBuildings && /school|مدرسة|مدارس/i.test(secondLevel));
 
     if (isSchool) {
       // School name is both the test center and the building
@@ -183,15 +198,32 @@ export function buildStickerContent(
         governorate = parsed.governorate;
       }
 
-      if (locationChain.length === 2) {
-        level = "building";
-      } else if (locationChain.length === 3) {
-        level = "floor";
-        floor = thirdLevel;
-      } else if (locationChain.length >= 4) {
-        level = "room";
-        floor = thirdLevel;
-        room = fourthLevel;
+      if (isRepeatedSchoolName) {
+        // Repeated folder hierarchy:
+        // [Gov, School, School, Floor?, Room?]
+        if (locationChain.length === 2 || locationChain.length === 3) {
+          level = "building";
+        } else if (locationChain.length === 4) {
+          level = "floor";
+          floor = fourthLevel;
+        } else if (locationChain.length >= 5) {
+          level = "room";
+          floor = fourthLevel;
+          room = fifthLevel;
+        }
+      } else {
+        // Flattened school hierarchy:
+        // [Gov, School, Floor?, Room?]
+        if (locationChain.length === 2) {
+          level = "building";
+        } else if (locationChain.length === 3) {
+          level = "floor";
+          floor = thirdLevel;
+        } else if (locationChain.length >= 4) {
+          level = "room";
+          floor = thirdLevel;
+          room = fourthLevel;
+        }
       }
     } else {
       // University / Multi-building center (Governorate -> Center -> Building -> Floor -> Room)

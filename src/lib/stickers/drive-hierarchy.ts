@@ -156,6 +156,24 @@ export function countRoomFolders(
  *   - a floor folder as its child, or
  *   - the next ancestor level being a floor folder.
  */
+/**
+ * Determine whether the folder directly below the city is a school
+ * (center == building) or a multi-building test center.
+ *
+ * Rules:
+ *   1. Live subfolders inspection (authoritative):
+ *      - If a child folder has the EXACT SAME NAME as the parent folder, it is 100% a SCHOOL
+ *        (the outer folder is the Center, the inner folder is the Building).
+ *      - If child folders are Floors (e.g. "1st Floor"), it is a SCHOOL (floors directly inside).
+ *      - If child folders have DIFFERENT names (e.g. "Pharmacy", "Eng. Building B" inside "Arab Academy Abu Qir"),
+ *        it is a multi-building CENTER (Abu Qir is a Center with multiple buildings).
+ *   2. Breadcrumbs inspection:
+ *      - If the next breadcrumb has the same name as this folder, it is a SCHOOL.
+ *      - If the next breadcrumb is a floor, it is a SCHOOL.
+ *   3. Name-based fallback if no live children:
+ *      - Specific multi-building centers (Abu Qir, Sheraton, etc.) are always Centers.
+ *      - Names with "school" / "مدرسة" are Schools.
+ */
 export async function inferSecondLevelIsSchool(
   drive: drive_v3.Drive | null,
   breadcrumbs: Array<{ id?: string; name?: string | null }>,
@@ -168,20 +186,73 @@ export async function inferSecondLevelIsSchool(
   const second = relevant[1];
   if (!second) return false;
 
-  const name = (second.name || "").trim();
-  if (/school|college|division|academy|مدرسة|مدارس/i.test(name)) return true;
+  const secondName = (second.name || "").trim().toLowerCase();
 
-  const third = (relevant[2]?.name || "").trim();
-  if (third && isFloorFolderName(third)) return true;
-
-  if (drive && second.id) {
-    try {
-      const { folders } = await listStickerChildren(drive, second.id);
-      if (folders.some((folder) => isFloorFolderName(folder.name))) return true;
-    } catch {
-      // If the live lookup fails, fall back to the name-based decision above.
+  // Rule 2A: If third breadcrumb exists and has the same name as second, it's a School!
+  const third = relevant[2];
+  if (third) {
+    const thirdName = (third.name || "").trim().toLowerCase();
+    if (thirdName === secondName) return true;
+    if (isFloorFolderName(thirdName)) return true;
+    // If third is a known building name different from second and not a floor, it's a Center
+    if (!isFloorFolderName(thirdName) && !isRoomFolderName(thirdName)) {
+      return false;
     }
   }
 
+  // Rule 1: Live drive children inspection (most authoritative)
+  if (drive && second.id) {
+    try {
+      const { folders } = await listStickerChildren(drive, second.id);
+      if (folders.length > 0) {
+        // Repeated folder name inside: e.g. "Taymour English School" -> "Taymour English School"
+        const hasSameNameChild = folders.some(
+          (f) => f.name.trim().toLowerCase() === secondName,
+        );
+        if (hasSameNameChild) return true;
+
+        // Direct floor folders inside
+        const hasFloorChild = folders.some((f) => isFloorFolderName(f.name));
+        if (hasFloorChild) return true;
+
+        // Distinct building subfolders (e.g. "Pharmacy", "Eng. Building B" under "Arab Academy Abu Qir")
+        return false;
+      }
+    } catch {
+      // Fall through to name-based logic
+    }
+  }
+
+  // Known multi-building test centers (like Abu Qir, Sheraton, University campuses)
+  if (/abu\s*qir|أبو\s*قير|sheraton|شيراتون|university|جامعة/i.test(secondName)) {
+    return false;
+  }
+
+  // School keywords
+  if (/school|مدرسة|مدارس/i.test(secondName)) {
+    return true;
+  }
+
   return false;
+}
+
+/**
+ * For a School folder, finds the effective building folder.
+ * If the school has an inner folder with the same name, returns the inner folder ID.
+ * Otherwise returns the schoolFolderId itself.
+ */
+export async function resolveSchoolBuildingFolder(
+  drive: drive_v3.Drive,
+  schoolFolderId: string,
+  schoolName: string,
+): Promise<{ id: string; name: string; isInner: boolean }> {
+  const norm = (s: string) => s.trim().toLowerCase();
+  try {
+    const { folders } = await listStickerChildren(drive, schoolFolderId);
+    const innerSameName = folders.find((f) => norm(f.name) === norm(schoolName));
+    if (innerSameName) {
+      return { id: innerSameName.id, name: innerSameName.name, isInner: true };
+    }
+  } catch {}
+  return { id: schoolFolderId, name: schoolName, isInner: false };
 }

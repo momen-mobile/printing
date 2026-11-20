@@ -3574,7 +3574,15 @@ export function FileBrowser({
         if (isFloor) {
           const parentCrumb = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1] : null;
           const parentName = parentCrumb?.name || hierarchy.building || hierarchy.center;
-          const fStats = getFloorStats(currentFolder.name, parentName, hierarchy.governorate);
+          // Count live rooms from the items in view
+          const liveRooms = items.filter(
+            (it) => it.isFolder && (isRoomFolderName(it.name) || /^(\d{1,4}[A-Za-z]?|[A-Za-z]\d{1,4}|room\s*\d+|قاعة\s*\d+)$/i.test(it.name)),
+          );
+          const fStats = {
+            floorName: currentFolder.name,
+            roomCount: liveRooms.length,
+            rooms: liveRooms.map((r) => r.name),
+          };
           return (
             <SchoolBuildingStatsBanner
               stats={null}
@@ -4064,29 +4072,52 @@ export function FileBrowser({
                       </span>
                     )}
                     {item.isFolder && (() => {
-                      const fStats = getSchoolOrBuildingStats(item.name);
-                      if (fStats) {
-                        return (
-                          <span className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
-                            <Building2 className="size-2.5" />
-                            <span>{fStats.totalFloors} {locale === "ar" ? "أدوار" : "fl"}</span>
-                            <span>•</span>
-                            <DoorOpen className="size-2.5" />
-                            <span>{fStats.totalRooms} {locale === "ar" ? "قاعة" : "rooms"}</span>
-                          </span>
-                        );
-                      }
+                      const normName = item.name.trim().toLowerCase();
                       if (isFloorFolderName(item.name)) {
-                        const parentStats = getSchoolOrBuildingStats(currentFolder?.name);
-                        const flStats = parentStats ? getFloorStats(item.name, parentStats.name) : null;
                         return (
                           <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
                             <Layers className="size-2.5" />
-                            {flStats ? (
-                              <span>{flStats.roomCount} {locale === "ar" ? "قاعات" : "rooms"}</span>
-                            ) : (
-                              <span>{locale === "ar" ? "دور" : "Floor"}</span>
-                            )}
+                            <span>{locale === "ar" ? "دور" : "Floor"}</span>
+                          </span>
+                        );
+                      }
+                      if (isRoomFolderName(item.name) || /^(\d{1,4}[A-Za-z]?|[A-Za-z]\d{1,4})$/i.test(item.name.trim())) {
+                        return (
+                          <span className="inline-flex items-center gap-1 rounded bg-teal-500/10 px-1.5 py-0.5 text-[10px] font-bold text-teal-700 dark:text-teal-300 border border-teal-500/20">
+                            <DoorOpen className="size-2.5" />
+                            <span>{locale === "ar" ? "قاعة" : "Room"}</span>
+                          </span>
+                        );
+                      }
+                      if (currentFolder && normName === currentFolder.name.trim().toLowerCase()) {
+                        return (
+                          <span className="inline-flex items-center gap-1 rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-300 border border-sky-500/20">
+                            <Building2 className="size-2.5" />
+                            <span>{locale === "ar" ? "مبنى المدرسة" : "School Building"}</span>
+                          </span>
+                        );
+                      }
+                      if (/abu\s*qir|أبو\s*قير|sheraton|شيراتون|university|جامعة/i.test(normName)) {
+                        return (
+                          <span className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                            <Building2 className="size-2.5" />
+                            <span>{locale === "ar" ? "سنتر" : "Center"}</span>
+                          </span>
+                        );
+                      }
+                      if (/school|مدرسة|مدارس|international|american|language/i.test(normName)) {
+                        return (
+                          <span className="inline-flex items-center gap-1 rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-300 border border-sky-500/20">
+                            <School className="size-2.5" />
+                            <span>{locale === "ar" ? "مدرسة" : "School"}</span>
+                          </span>
+                        );
+                      }
+                      if (/pharmacy|صيدلة|engineering|هندسة|building|مبنى|management|logistics|dentistry|طب/i.test(normName)) {
+                        return (
+                          <span className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                            <Building2 className="size-2.5" />
+                            <span>{locale === "ar" ? "مبنى" : "Building"}</span>
                           </span>
                         );
                       }
@@ -6330,30 +6361,53 @@ function TreeRow({
                   </span>
                 )}
                 {item.isFolder && (() => {
-                  const fStats = getSchoolOrBuildingStats(item.name);
-                  if (fStats) {
-                    return (
-                      <span className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 shrink-0">
-                        <Building2 className="size-2.5" />
-                        <span>{fStats.totalFloors} {locale === "ar" ? "أدوار" : "fl"}</span>
-                        <span>•</span>
-                        <DoorOpen className="size-2.5" />
-                        <span>{fStats.totalRooms} {locale === "ar" ? "قاعة" : "rooms"}</span>
-                      </span>
-                    );
-                  }
+                  const normName = item.name.trim().toLowerCase();
                   if (isFloorFolderName(item.name)) {
-                    const parentCrumb = breadcrumbs && breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1] : null;
-                    const parentStats = getSchoolOrBuildingStats(parentCrumb?.name);
-                    const flStats = parentStats ? getFloorStats(item.name, parentStats.name) : null;
                     return (
                       <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 shrink-0">
                         <Layers className="size-2.5" />
-                        {flStats ? (
-                          <span>{flStats.roomCount} {locale === "ar" ? "قاعات" : "rooms"}</span>
-                        ) : (
-                          <span>{locale === "ar" ? "دور" : "Floor"}</span>
-                        )}
+                        <span>{locale === "ar" ? "دور" : "Floor"}</span>
+                      </span>
+                    );
+                  }
+                  if (isRoomFolderName(item.name) || /^(\d{1,4}[A-Za-z]?|[A-Za-z]\d{1,4})$/i.test(item.name.trim())) {
+                    return (
+                      <span className="inline-flex items-center gap-1 rounded bg-teal-500/10 px-1.5 py-0.5 text-[10px] font-bold text-teal-700 dark:text-teal-300 border border-teal-500/20 shrink-0">
+                        <DoorOpen className="size-2.5" />
+                        <span>{locale === "ar" ? "قاعة" : "Room"}</span>
+                      </span>
+                    );
+                  }
+                  const parentCrumb = breadcrumbs && breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1] : null;
+                  if (parentCrumb && normName === parentCrumb.name.trim().toLowerCase()) {
+                    return (
+                      <span className="inline-flex items-center gap-1 rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-300 border border-sky-500/20 shrink-0">
+                        <Building2 className="size-2.5" />
+                        <span>{locale === "ar" ? "مبنى المدرسة" : "School Building"}</span>
+                      </span>
+                    );
+                  }
+                  if (/abu\s*qir|أبو\s*قير|sheraton|شيراتون|university|جامعة/i.test(normName)) {
+                    return (
+                      <span className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 shrink-0">
+                        <Building2 className="size-2.5" />
+                        <span>{locale === "ar" ? "سنتر" : "Center"}</span>
+                      </span>
+                    );
+                  }
+                  if (/school|مدرسة|مدارس|international|american|language/i.test(normName)) {
+                    return (
+                      <span className="inline-flex items-center gap-1 rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-300 border border-sky-500/20 shrink-0">
+                        <School className="size-2.5" />
+                        <span>{locale === "ar" ? "مدرسة" : "School"}</span>
+                      </span>
+                    );
+                  }
+                  if (/pharmacy|صيدلة|engineering|هندسة|building|مبنى|management|logistics|dentistry|طب/i.test(normName)) {
+                    return (
+                      <span className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 shrink-0">
+                        <Building2 className="size-2.5" />
+                        <span>{locale === "ar" ? "مبنى" : "Building"}</span>
                       </span>
                     );
                   }

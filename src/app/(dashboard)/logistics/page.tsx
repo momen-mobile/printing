@@ -444,14 +444,19 @@ export default function LogisticsHubPage() {
           } catch {}
         }
 
+        const norm = (s: string) => (s || "").trim().toLowerCase();
+        const sameNameFolder = directFolders.find((f) => norm(f.name) === norm(centerName));
         const hasFloorFolders = directFolders.some((f) => isFloorFolderName(f.name));
         const nonFloorFolders = directFolders.filter((f) => !isFloorFolderName(f.name));
 
-        if (directFolders.length > 0 && hasFloorFolders) {
+        if (sameNameFolder) {
+          // School logic: The folder name is repeated inside for Center and Building (e.g. Taymour -> Taymour)
+          bList = [{ id: sameNameFolder.id, name: sameNameFolder.name }];
+        } else if (directFolders.length > 0 && hasFloorFolders) {
           // This level already contains floors -> treat selected center as the building
           bList = [{ id: centerId, name: centerName }];
         } else if (nonFloorFolders.length > 0) {
-          // Subfolders are likely buildings (or another level before floors)
+          // Multi-building center: subfolders are distinct buildings (e.g. Pharmacy, Eng. Building B inside Abu Qir)
           bList = nonFloorFolders.map((f) => ({ id: f.id, name: f.name }));
         } else if (directFolders.length > 0) {
           bList = directFolders.map((f) => ({ id: f.id, name: f.name }));

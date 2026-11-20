@@ -579,6 +579,11 @@ export interface SchoolOrBuildingStats {
 /**
  * Resolves floor and room statistics for any official school, center, or building.
  */
+/**
+ * Resolves school, center, or building classification.
+ * NOTE: Never returns hard-coded or fabricated floor/room counts.
+ * Any counts must come dynamically from live Google Drive data only.
+ */
 export function getSchoolOrBuildingStats(
   name?: string | null,
   governorate?: string | null,
@@ -603,20 +608,15 @@ export function getSchoolOrBuildingStats(
   });
 
   if (school) {
-    const totalRooms = school.floors.reduce((sum, f) => sum + f.rooms.length, 0);
     return {
       isSchool: true,
       isCenter: false,
       name: school.schoolName,
       cleanName: school.schoolName,
       governorate: school.governorate,
-      totalFloors: school.floors.length,
-      totalRooms,
-      floors: school.floors.map((f) => ({
-        floorName: f.floorName,
-        roomCount: f.rooms.length,
-        rooms: f.rooms,
-      })),
+      totalFloors: 0,
+      totalRooms: 0,
+      floors: [],
     };
   }
 
@@ -632,7 +632,6 @@ export function getSchoolOrBuildingStats(
     });
 
     if (bld) {
-      const totalRooms = bld.floors.reduce((sum, f) => sum + f.rooms.length, 0);
       return {
         isSchool: false,
         isCenter: true,
@@ -640,34 +639,38 @@ export function getSchoolOrBuildingStats(
         cleanName: bld.buildingName,
         centerName: center.centerName,
         governorate: center.governorate,
-        totalFloors: bld.floors.length,
-        totalRooms,
-        floors: bld.floors.map((f) => ({
-          floorName: f.floorName,
-          roomCount: f.rooms.length,
-          rooms: f.rooms,
-        })),
+        totalFloors: 0,
+        totalRooms: 0,
+        floors: [],
       };
     }
 
     if (cName === cleanTarget || cName.includes(cleanTarget) || cleanTarget.includes(cName)) {
-      const allFloors = center.buildings.flatMap((b) => b.floors);
-      const totalRooms = allFloors.reduce((sum, f) => sum + f.rooms.length, 0);
       return {
         isSchool: false,
         isCenter: true,
         name: center.centerName,
         cleanName: center.centerName,
         governorate: center.governorate,
-        totalFloors: allFloors.length,
-        totalRooms,
-        floors: allFloors.map((f) => ({
-          floorName: f.floorName,
-          roomCount: f.rooms.length,
-          rooms: f.rooms,
-        })),
+        totalFloors: 0,
+        totalRooms: 0,
+        floors: [],
       };
     }
+  }
+
+  // Generic heuristic for schools
+  if (/school|مدرسة|مدارس/i.test(cleanTarget)) {
+    return {
+      isSchool: true,
+      isCenter: false,
+      name,
+      cleanName: name,
+      governorate: governorate || "",
+      totalFloors: 0,
+      totalRooms: 0,
+      floors: [],
+    };
   }
 
   return null;
@@ -675,22 +678,13 @@ export function getSchoolOrBuildingStats(
 
 /**
  * Resolves room count and room list for a specific floor in a building or school.
+ * NOTE: Never returns hard-coded room counts. Rooms must come from live Drive files.
  */
 export function getFloorStats(
   floorName?: string | null,
   parentName?: string | null,
   governorate?: string | null,
 ): { floorName: string; roomCount: number; rooms: string[] } | null {
-  if (!floorName) return null;
-  const parentStats = getSchoolOrBuildingStats(parentName, governorate);
-  if (parentStats) {
-    const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_-]+/g, " ");
-    const targetF = norm(floorName);
-    const fl = parentStats.floors.find((f) => norm(f.floorName) === targetF);
-    if (fl) {
-      return fl;
-    }
-  }
   return null;
 }
 

@@ -382,7 +382,23 @@ export async function GET(request: Request) {
 
         // Discover the real floor/room hierarchy under the selected folder.
         try {
-          const children = await listStickerChildren(drive, folderId);
+          let scanFolderId = folderId;
+          let children = await listStickerChildren(drive, scanFolderId);
+
+          // Check if this folder has an inner folder with the exact same name (School pattern: Center -> Building)
+          const currentFolderName = crumbs[crumbs.length - 1]?.name || "";
+          const norm = (s: string) => (s || "").trim().toLowerCase();
+          const innerSameName = children.folders.find((f) => norm(f.name) === norm(currentFolderName));
+          if (innerSameName) {
+            try {
+              const innerChildren = await listStickerChildren(drive, innerSameName.id);
+              if (innerChildren.folders.length > 0) {
+                scanFolderId = innerSameName.id;
+                children = innerChildren;
+              }
+            } catch {}
+          }
+
           const floorSubs = children.folders.filter((f) => isFloorFolderName(f.name));
           const directRooms = children.folders.filter(
             (f) =>

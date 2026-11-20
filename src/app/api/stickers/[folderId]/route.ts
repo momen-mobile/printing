@@ -45,21 +45,37 @@ function subfolderInfoFromDemo(
 async function subfolderInfoFromDrive(
   drive: any,
   folderId: string,
+  folderName: string,
   children: Awaited<ReturnType<typeof listStickerChildren>>,
 ): Promise<StickerSubfolderInfo> {
-  const childNames = children.folders.map((folder) => folder.name);
+  const norm = (s: string) => (s || "").trim().toLowerCase();
+  let effectiveFolders = children.folders;
+
+  // Check if this folder has an inner folder with the exact same name (School pattern)
+  const innerSameName = children.folders.find((f) => norm(f.name) === norm(folderName));
+  if (innerSameName) {
+    try {
+      const innerChildren = await listStickerChildren(drive, innerSameName.id);
+      if (innerChildren.folders.length > 0) {
+        effectiveFolders = innerChildren.folders;
+      }
+    } catch {}
+  }
+
+  const childNames = effectiveFolders.map((folder) => folder.name);
   const childLabel = classifyChildLabel(childNames);
-  let totalRooms = childLabel === "Rooms" ? children.folders.length : 0;
+  let totalRooms = childLabel === "Rooms" ? effectiveFolders.length : 0;
   if (childLabel !== "Rooms") {
     try {
-      const desc = await getFolderDescendants(drive, [folderId]);
+      const targetScanId = innerSameName ? innerSameName.id : folderId;
+      const desc = await getFolderDescendants(drive, [targetScanId]);
       totalRooms = countRoomFolders(desc.folders, desc.folderTree);
     } catch {
       totalRooms = 0;
     }
   }
   return {
-    childCount: children.folders.length,
+    childCount: effectiveFolders.length,
     childNames,
     childLabel,
     totalRooms,
@@ -155,7 +171,8 @@ export async function GET(request: Request, context: Context) {
         let liveChildren: Awaited<ReturnType<typeof listStickerChildren>> | null = null;
         try {
           liveChildren = await listStickerChildren(drive, folderId);
-          driveSubfolderInfo = await subfolderInfoFromDrive(drive, resolvedFolderId, liveChildren);
+          const currentFolderName = data.currentFolder?.name || breadcrumbs[breadcrumbs.length - 1]?.name || "";
+          driveSubfolderInfo = await subfolderInfoFromDrive(drive, resolvedFolderId, currentFolderName, liveChildren);
           folderFiles = liveChildren.files;
         } catch (err) {
           console.warn("[sticker] Error reading live folder children:", err);
