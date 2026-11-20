@@ -4,6 +4,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { EST_LOGO_BASE64 } from "./est-logo-base64";
 import { formatArabicForPdf } from "./arabic-shaper";
+import { sanitizeText } from "../text-sanitizer";
 
 export interface CertificateStudentData {
   id?: string;
@@ -12,6 +13,7 @@ export interface CertificateStudentData {
   studentNameAr?: string; // Arabic candidate name e.g. "ابانوب عماد عدلى عبده"
   seatNumber?: string;
   nationalId?: string;
+  email?: string;
   schoolName?: string;
   governorate?: string;
   examName?: string;
@@ -158,7 +160,7 @@ function wrapTextToLines(
 
 export function parseReportsList(raw: string): string[] {
   if (!raw) return [];
-  const normalized = normalizeReportItem(raw);
+  const normalized = normalizeReportItem(sanitizeText(raw));
   const parts = normalized
     .split(/[;؛،,\n\r•]|\s+و\s+/)
     .map((p) => p.replace(/^[-•*]\s*/, "").trim())
@@ -713,7 +715,7 @@ function drawAramexCertificateSticker(params: {
     opts?: { fontSize?: number; maxLines?: number },
   ) => {
     if (!rawVal && rawVal !== 0) return;
-    const valStr = String(rawVal).trim();
+    const valStr = sanitizeText(String(rawVal));
     if (!valStr) return;
 
     const fSize = opts?.fontSize || 11.5;
@@ -776,16 +778,18 @@ function drawAramexCertificateSticker(params: {
   };
 
   // 1. Recipient (e.g. عماد عدلي عبده / مصطفى مهدي...)
-  const recipientVal = student.recipient || student.studentNameAr || student.studentName;
+  const recipientVal = sanitizeText(
+    student.recipient || student.studentNameAr || student.studentName,
+  );
   drawFieldRow("Recipient", recipientVal, { fontSize: 12, maxLines: 2 });
 
   // 2. Student name
-  const studentNameVal = student.studentNameAr || student.studentName;
+  const studentNameVal = sanitizeText(student.studentNameAr || student.studentName);
   drawFieldRow("Student name", studentNameVal, { fontSize: 12, maxLines: 2 });
 
   // 3. Governorate & City
-  const govVal = student.governorate || "—";
-  const cityVal = student.city || "—";
+  const govVal = sanitizeText(student.governorate) || "—";
+  const cityVal = sanitizeText(student.city) || "—";
   drawFieldRow("", `Governorate: ${govVal}   •   City: ${cityVal}`, {
     fontSize: 11.5,
     maxLines: 2,
@@ -802,8 +806,8 @@ function drawAramexCertificateSticker(params: {
   }
 
   // 6. Apartment & Floor
-  const aptVal = student.apartment ? String(student.apartment) : "—";
-  const floorVal = student.floor ? String(student.floor) : "—";
+  const aptVal = sanitizeText(student.apartment) || "—";
+  const floorVal = sanitizeText(student.floor) || "—";
   drawFieldRow("", `Apartment: ${aptVal}        Floor: ${floorVal}`, {
     fontSize: 11.5,
     maxLines: 2,
