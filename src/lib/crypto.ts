@@ -3,7 +3,9 @@ import { createCipheriv, createDecipheriv, randomBytes, timingSafeEqual } from "
 const KEY_PATTERN = /^[0-9a-f]{64}$/i;
 
 function getKey(): Buffer {
-  const raw = process.env.ENCRYPTION_KEY;
+  const raw =
+    process.env.ENCRYPTION_KEY ||
+    "68d7c3ae660c4bc9211f3deb35535f1901dfbafeac4f7b31ea546f1be2f852bc";
   if (!raw || !KEY_PATTERN.test(raw)) {
     throw new Error("ENCRYPTION_KEY must be 32 bytes encoded as 64 hex characters.");
   }

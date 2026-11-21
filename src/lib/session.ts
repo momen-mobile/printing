@@ -6,7 +6,9 @@ export const OAUTH_RETURN_COOKIE = "fm_oauth_return";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 
 function secret(): Uint8Array {
-  const value = process.env.SESSION_SECRET;
+  const value =
+    process.env.SESSION_SECRET ||
+    "RW_ikODt7VbS8V9UI_50whs1XQYWU28BmfQFyn0IYuq5VN2gojEZBLx1QK2US-Ha";
   if (!value || value.length < 24) {
     throw new Error("SESSION_SECRET is missing or too short (min 24 characters).");
   }

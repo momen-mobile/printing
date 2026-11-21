@@ -41,7 +41,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, profile });
   } catch (err) {
-    return NextResponse.json({ error: "Failed to switch profile" }, { status: 500 });
+    console.error("[api/auth/profile] Error switching profile:", err);
+    return NextResponse.json(
+      {
+        error: "Failed to switch profile",
+        details: err instanceof Error ? err.message : String(err),
+      },
+      { status: 500 },
+    );
   }
 }
 
