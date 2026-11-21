@@ -410,13 +410,13 @@ export async function renderBuildingCartonPage(
     color: COLOR_MUTED,
   });
 
-  // Huge Prominent Box Number: e.g. "BOX #1 OF 1"
-  const boxMainText = `BOX #${options.boxNumber || 1} OF ${options.totalBoxes || 1}`;
-  const boxMainW = font.widthOfTextAtSize(boxMainText, 18);
+  // Huge Prominent Box Number: e.g. "BOX #1" or "BOX #2" (just the box number per user request)
+  const boxMainText = `BOX #${options.boxNumber || 1}`;
+  const boxMainW = font.widthOfTextAtSize(boxMainText, 22);
   page.drawText(boxMainText, {
     x: boxBadgeX + (boxBadgeW - boxMainW) / 2,
-    y: boxBadgeY + 10,
-    size: 18,
+    y: boxBadgeY + 8,
+    size: 22,
     font,
     color: COLOR_CHARCOAL,
   });
@@ -536,14 +536,11 @@ export async function renderBuildingCartonPage(
     color: COLOR_CHARCOAL,
   });
 
-  // Dynamic Metric Cards filling the Left Column (NO ASSIGNED CANDIDATES per user request)
+  // 2 Prominent Metric Cards filling the Left Column (Floors & Rooms only - Seal Code removed per user request)
   const leftCardsTop = bodyBottom + bodyH - 24 - 10;
   const leftCardsBottom = bodyBottom + 10;
   const leftAvailableH = leftCardsTop - leftCardsBottom;
-
-  const hasSeal = Boolean(options.securitySeal && options.securitySeal.trim());
-  const numStatCards = hasSeal ? 3 : 2;
-  const statBoxH = Math.floor((leftAvailableH - (numStatCards - 1) * 12) / numStatCards);
+  const statBoxH = Math.floor((leftAvailableH - 16) / 2);
 
   // Stat Card 1: Total Building Floors
   const stat1Y = leftCardsTop - statBoxH;
@@ -558,21 +555,21 @@ export async function renderBuildingCartonPage(
   });
   page.drawText("TOTAL BUILDING FLOORS:", {
     x: leftX + 16,
-    y: stat1Y + statBoxH - 20,
+    y: stat1Y + statBoxH - 24,
     size: 8.5,
     font,
     color: COLOR_MUTED,
   });
   page.drawText(`${totalFloorsCount} FLOORS`, {
     x: leftX + 16,
-    y: stat1Y + (statBoxH - 36) / 2 + 4,
-    size: 22,
+    y: stat1Y + (statBoxH - 36) / 2 + 2,
+    size: 24,
     font,
     color: COLOR_CHARCOAL,
   });
 
   // Stat Card 2: Total Enclosed Rooms
-  const stat2Y = stat1Y - 12 - statBoxH;
+  const stat2Y = stat1Y - 16 - statBoxH;
   page.drawRectangle({
     x: leftX + 8,
     y: stat2Y,
@@ -584,48 +581,18 @@ export async function renderBuildingCartonPage(
   });
   page.drawText("TOTAL ENCLOSED ROOMS:", {
     x: leftX + 16,
-    y: stat2Y + statBoxH - 20,
+    y: stat2Y + statBoxH - 24,
     size: 8.5,
     font,
     color: COLOR_MUTED,
   });
   page.drawText(`${totalRoomsCount} ROOMS`, {
     x: leftX + 16,
-    y: stat2Y + (statBoxH - 36) / 2 + 4,
-    size: 22,
+    y: stat2Y + (statBoxH - 36) / 2 + 2,
+    size: 24,
     font,
     color: COLOR_CHARCOAL,
   });
-
-  // Stat Card 3 (If security seal exists): Security Seal Code
-  if (hasSeal) {
-    const stat3Y = stat2Y - 12 - statBoxH;
-    page.drawRectangle({
-      x: leftX + 8,
-      y: stat3Y,
-      width: leftW - 16,
-      height: statBoxH,
-      color: COLOR_LIGHT_BG,
-      borderColor: COLOR_BORDER,
-      borderWidth: 0.8,
-    });
-    page.drawText("SECURITY SEAL CODE:", {
-      x: leftX + 16,
-      y: stat3Y + statBoxH - 20,
-      size: 8.5,
-      font,
-      color: COLOR_MUTED,
-    });
-    const sealText = toEnglishText(options.securitySeal) || "OFFICIAL SEAL";
-    const sealSize = sealText.length > 15 ? 12 : 15;
-    page.drawText(sealText, {
-      x: leftX + 16,
-      y: stat3Y + (statBoxH - 28) / 2 + 4,
-      size: sealSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-  }
 
   // ----------------------------------------------------
   // RIGHT COLUMN: Floors & Rooms Directory
