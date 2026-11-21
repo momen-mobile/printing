@@ -48,7 +48,7 @@ export interface ManualCartonRow {
   notes?: string;
 }
 
-const STORAGE_KEY = "est_manual_cartons_sheet_v2";
+const STORAGE_KEY = "est_manual_cartons_sheet_v3";
 
 const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
   // --- EST 1 Known Alexandria & Official Centers ---
@@ -56,7 +56,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e1-1",
     boxNumber: 1,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 1",
     governorate: "Alexandria",
     centerName: "Taymour English School",
@@ -72,7 +72,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e1-2",
     boxNumber: 2,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 1",
     governorate: "Alexandria",
     centerName: "Pioneers International School",
@@ -88,7 +88,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e1-3",
     boxNumber: 3,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 1",
     governorate: "Alexandria",
     centerName: "Future International School",
@@ -104,7 +104,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e1-4",
     boxNumber: 4,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 1",
     governorate: "Alexandria",
     centerName: "Arab Academy Abu Qir",
@@ -120,7 +120,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e1-5",
     boxNumber: 5,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 1",
     governorate: "Alexandria",
     centerName: "Arab Academy Abu Qir",
@@ -136,7 +136,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e1-6",
     boxNumber: 6,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 1",
     governorate: "Cairo",
     centerName: "BUC Badr University",
@@ -152,7 +152,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e1-7",
     boxNumber: 7,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 1",
     governorate: "Giza",
     centerName: "Green Heights Int. School",
@@ -170,7 +170,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e2-1",
     boxNumber: 1,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 2",
     governorate: "Alexandria",
     centerName: "Taymour English School",
@@ -186,7 +186,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e2-2",
     boxNumber: 2,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 2",
     governorate: "Alexandria",
     centerName: "Pioneers International School",
@@ -202,7 +202,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e2-3",
     boxNumber: 3,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 2",
     governorate: "Alexandria",
     centerName: "Future International School",
@@ -218,7 +218,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e2-4",
     boxNumber: 4,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 2",
     governorate: "Alexandria",
     centerName: "Arab Academy Abu Qir",
@@ -234,7 +234,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e2-5",
     boxNumber: 5,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 2",
     governorate: "Alexandria",
     centerName: "Arab Academy Abu Qir",
@@ -250,7 +250,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e2-6",
     boxNumber: 6,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 2",
     governorate: "Cairo",
     centerName: "BUC Badr University",
@@ -266,7 +266,7 @@ const DEFAULT_SEED_ROWS: ManualCartonRow[] = [
     id: "seed-e2-7",
     boxNumber: 7,
     totalBoxes: 1,
-    cycleName: "ديسمبر 2026",
+    cycleName: "December 2026",
     examType: "EST 2",
     governorate: "Giza",
     centerName: "Green Heights Int. School",
@@ -310,7 +310,7 @@ export function ManualCartonsSheet({ currentDriveBuilding }: ManualCartonsSheetP
   // Form State
   const [formBoxNumber, setFormBoxNumber] = useState<number>(1);
   const [formTotalBoxes, setFormTotalBoxes] = useState<number>(1);
-  const [formCycleName, setFormCycleName] = useState<string>("ديسمبر 2026");
+  const [formCycleName, setFormCycleName] = useState<string>("December 2026");
   const [formExamType, setFormExamType] = useState<"EST 1" | "EST 2">("EST 1");
   const [formGovernorate, setFormGovernorate] = useState<string>("Alexandria");
   const [formCenterName, setFormCenterName] = useState<string>("");
@@ -398,7 +398,7 @@ export function ManualCartonsSheet({ currentDriveBuilding }: ManualCartonsSheetP
 
     setFormBoxNumber(nextBox);
     setFormTotalBoxes(1);
-    setFormCycleName("ديسمبر 2026");
+    setFormCycleName("December 2026");
     setFormExamType(activeTab === "EST 2" ? "EST 2" : "EST 1");
     setFormGovernorate("Alexandria");
     setFormCenterName("");
@@ -417,7 +417,7 @@ export function ManualCartonsSheet({ currentDriveBuilding }: ManualCartonsSheetP
     setEditingRow(row);
     setFormBoxNumber(row.boxNumber);
     setFormTotalBoxes(row.totalBoxes || 1);
-    setFormCycleName(row.cycleName || "ديسمبر 2026");
+    setFormCycleName(row.cycleName || "December 2026");
     setFormExamType(row.examType);
     setFormGovernorate(row.governorate);
     setFormCenterName(row.centerName);
@@ -447,7 +447,7 @@ export function ManualCartonsSheet({ currentDriveBuilding }: ManualCartonsSheetP
               ...r,
               boxNumber: Number(formBoxNumber) || 1,
               totalBoxes: Number(formTotalBoxes) || 1,
-              cycleName: formCycleName.trim() || "ديسمبر 2026",
+              cycleName: formCycleName.trim() || "December 2026",
               examType: formExamType,
               governorate: formGovernorate.trim(),
               centerName: formCenterName.trim(),
@@ -469,7 +469,7 @@ export function ManualCartonsSheet({ currentDriveBuilding }: ManualCartonsSheetP
         id: `carton-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         boxNumber: Number(formBoxNumber) || 1,
         totalBoxes: Number(formTotalBoxes) || 1,
-        cycleName: formCycleName.trim() || "ديسمبر 2026",
+        cycleName: formCycleName.trim() || "December 2026",
         examType: formExamType,
         governorate: formGovernorate.trim() || "Alexandria",
         centerName: formCenterName.trim(),
@@ -535,7 +535,7 @@ export function ManualCartonsSheet({ currentDriveBuilding }: ManualCartonsSheetP
       id: `imported-${Date.now()}`,
       boxNumber: existingCount + 1,
       totalBoxes: 1,
-      cycleName: currentDriveBuilding.sessionName || "ديسمبر 2026",
+      cycleName: currentDriveBuilding.sessionName || "December 2026",
       examType,
       governorate: currentDriveBuilding.governorate || "Alexandria",
       centerName: currentDriveBuilding.center || currentDriveBuilding.building,
@@ -566,6 +566,29 @@ export function ManualCartonsSheet({ currentDriveBuilding }: ManualCartonsSheetP
           .filter(Boolean)
       : [];
 
+    // Parse structured floors if available in floorsSummary
+    let floors: FloorRoomsData[] | undefined;
+    if (row.floorsSummary && row.floorsSummary.includes("(") && row.floorsSummary.includes(")")) {
+      const match = row.floorsSummary.match(/\(([^)]+)\)/);
+      if (match) {
+        const floorNames = match[1].split(/[,;/]+/).map((s) => s.trim()).filter(Boolean);
+        if (floorNames.length > 0 && roomNames.length > 0) {
+          const perFloor = Math.ceil(roomNames.length / floorNames.length);
+          floors = floorNames.map((fn, idx) => {
+            const start = idx * perFloor;
+            const end = Math.min(start + perFloor, roomNames.length);
+            const flRooms = roomNames.slice(start, end);
+            const cleanFn = fn.toLowerCase().includes("floor") ? fn : `${fn} Floor`;
+            return {
+              floor: cleanFn,
+              rooms: flRooms,
+              totalStudents: 0,
+            };
+          });
+        }
+      }
+    }
+
     return {
       examName: row.examType,
       governorate: row.governorate,
@@ -577,6 +600,7 @@ export function ManualCartonsSheet({ currentDriveBuilding }: ManualCartonsSheetP
       totalRooms: row.totalRooms || roomNames.length,
       totalStudents: row.totalStudents,
       securitySeal: row.securitySeal,
+      floors,
       roomNames: roomNames.length > 0 ? roomNames : undefined,
     };
   };
@@ -1251,7 +1275,7 @@ export function ManualCartonsSheet({ currentDriveBuilding }: ManualCartonsSheetP
                     value={formCycleName}
                     onChange={(e) => setFormCycleName(e.target.value)}
                     required
-                    placeholder="ديسمبر 2026"
+                    placeholder="December 2026"
                     className="w-full h-9 px-3 rounded-xl border border-border bg-surface text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
                   />
                 </div>

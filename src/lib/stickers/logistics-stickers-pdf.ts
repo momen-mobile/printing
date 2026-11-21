@@ -254,6 +254,64 @@ export function normalizeFloorsData(options: LogisticsStickerOptions): Normalize
 }
 
 /**
+ * Translates and standardizes Arabic months, governorates, and common logistics terms to English.
+ */
+export function toEnglishText(input: string | undefined): string {
+  if (!input) return "";
+  let str = input.trim();
+  // Arabic months
+  str = str.replace(/ديسمبر/gi, "December");
+  str = str.replace(/يناير/gi, "January");
+  str = str.replace(/فبراير/gi, "February");
+  str = str.replace(/مارس/gi, "March");
+  str = str.replace(/أبريل|ابريل/gi, "April");
+  str = str.replace(/مايو/gi, "May");
+  str = str.replace(/يونيو/gi, "June");
+  str = str.replace(/يوليو/gi, "July");
+  str = str.replace(/أغسطس|اغسطس/gi, "August");
+  str = str.replace(/سبتمبر/gi, "September");
+  str = str.replace(/أكتوبر|اكتوبر/gi, "October");
+  str = str.replace(/نوفمبر/gi, "November");
+  // Arabic governorates
+  str = str.replace(/الإسكندرية|الاسكندرية|اسكندرية/gi, "Alexandria");
+  str = str.replace(/القاهرة|قاهرة/gi, "Cairo");
+  str = str.replace(/الجيزة|جيزة/gi, "Giza");
+  str = str.replace(/المنوفية|منوفية/gi, "Menofia");
+  str = str.replace(/الدقهلية|دقهلية/gi, "Dakahlia");
+  str = str.replace(/الغربية|غربية/gi, "Gharbia");
+  str = str.replace(/الشرقية|شرقية/gi, "Sharqia");
+  str = str.replace(/القليوبية|قليوبية/gi, "Qalyubia");
+  str = str.replace(/البحيرة|بحيرة/gi, "Beheira");
+  str = str.replace(/بني سويف|بنى سويف/gi, "Beni Suef");
+  str = str.replace(/سوهاج/gi, "Sohag");
+  str = str.replace(/أسيوط|اسيوط/gi, "Assiut");
+  str = str.replace(/الإسماعيلية|الاسماعيلية/gi, "Ismailia");
+  str = str.replace(/السويس/gi, "Suez");
+  str = str.replace(/بورسعيد/gi, "Port Said");
+  str = str.replace(/كفر الشيخ/gi, "Kafr El Sheikh");
+  str = str.replace(/دمياط/gi, "Damietta");
+  str = str.replace(/الفيوم/gi, "Fayoum");
+  // Arabic floor descriptions
+  str = str.replace(/الدور\s*الأرضي|الدور\s*الارضي|أرضي|ارضي/gi, "Ground Floor");
+  str = str.replace(/الدور\s*الأول|الدور\s*الاول|أول|اول/gi, "1st Floor");
+  str = str.replace(/الدور\s*الثاني|الدور\s*الثانى|ثاني|ثانى/gi, "2nd Floor");
+  str = str.replace(/الدور\s*الثالث|ثالث/gi, "3rd Floor");
+  str = str.replace(/الدور\s*الرابع|رابع/gi, "4th Floor");
+  str = str.replace(/الدور\s*الخامس|خامس/gi, "5th Floor");
+  str = str.replace(/الدور\s*السادس|سادس/gi, "6th Floor");
+  str = str.replace(/دور/gi, "Floor");
+  // Terms
+  str = str.replace(/دورة/gi, "Session");
+  str = str.replace(/مدرسة/gi, "School");
+  str = str.replace(/سنتر/gi, "Center");
+  str = str.replace(/مبنى/gi, "Building");
+  str = str.replace(/قاعة|قاعه|غرفة|غرفه/gi, "Room");
+  // Arabic digits to Western digits
+  str = str.replace(/[\u0660-\u0669]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 48));
+  return str.trim();
+}
+
+/**
  * 1. Building Master Carton Sticker (A4 Landscape)
  * Affixed to the outside of the large carton box containing all room packets for that building.
  * Displays all Floors in the building, and for each floor, lists its constituent rooms with checkboxes.
@@ -278,18 +336,15 @@ export async function renderBuildingCartonPage(
   // Normalized Floors and Rooms data
   const floors = normalizeFloorsData(options);
   const totalFloorsCount = floors.length;
-  const totalRoomsCount = floors.reduce((sum, f) => sum + f.rooms.length, 0);
-  const totalStudentsCount =
-    typeof options.totalStudents === "number" && options.totalStudents > 0
-      ? options.totalStudents
-      : floors.reduce((sum, f) => sum + (f.totalStudents || 0), 0);
-
-  // Outer framing card - removed per user request (border box removed)
+  const totalRoomsCount =
+    typeof options.totalRooms === "number" && options.totalRooms > 0
+      ? options.totalRooms
+      : floors.reduce((sum, f) => sum + f.rooms.length, 0);
 
   // Header Bar
-  const headerH = 60;
+  const headerH = 64;
   const headerY = cardY + cardH - headerH - 8;
-  const logoH = 42;
+  const logoH = 46;
   const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 0;
   const logoX = cardX + 16;
   const logoY = headerY + (headerH - logoH) / 2;
@@ -307,12 +362,12 @@ export async function renderBuildingCartonPage(
   const rawExam = options.examName || "EST";
   const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
   const examLabel = isEst2 ? "EST II" : "EST I";
-  const sessionText = options.date || "OFFICIAL EXAMINATION SESSION";
+  const sessionText = toEnglishText(options.date) || "DECEMBER 2026";
 
   page.drawText(examLabel, {
     x: textStartX,
-    y: headerY + 32,
-    size: 20,
+    y: headerY + 34,
+    size: 22,
     font,
     color: COLOR_CHARCOAL,
   });
@@ -325,28 +380,45 @@ export async function renderBuildingCartonPage(
     color: COLOR_MUTED,
   });
 
-  // Right Badge: Box # / Carton count
-  const boxBadgeText = `CARTON BOX ${options.boxNumber || 1} OF ${options.totalBoxes || 1}`;
-  const badgeW = 160;
-  const badgeH = 32;
-  const badgeX = cardX + cardW - badgeW - 16;
-  const badgeY = headerY + (headerH - badgeH) / 2;
+  // ----------------------------------------------------
+  // Top-Right Corner: High-Visibility Box Identifier (ZERO black fill!)
+  // ----------------------------------------------------
+  const boxBadgeW = 210;
+  const boxBadgeH = 54;
+  const boxBadgeX = cardX + cardW - boxBadgeW - 12;
+  const boxBadgeY = headerY + (headerH - boxBadgeH) / 2;
 
+  // Clean White Card with Crisp Charcoal Border (2pt) - NO black background!
   page.drawRectangle({
-    x: badgeX,
-    y: badgeY,
-    width: badgeW,
-    height: badgeH,
-    color: COLOR_CHARCOAL,
+    x: boxBadgeX,
+    y: boxBadgeY,
+    width: boxBadgeW,
+    height: boxBadgeH,
+    color: COLOR_WHITE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 2,
   });
 
-  const boxW = font.widthOfTextAtSize(boxBadgeText, 9.5);
-  page.drawText(boxBadgeText, {
-    x: badgeX + (badgeW - boxW) / 2,
-    y: badgeY + 11,
-    size: 9.5,
+  // Top Sub-heading: CARTON BOX NUMBER
+  const boxSubLabel = "CARTON BOX NUMBER";
+  const boxSubW = font.widthOfTextAtSize(boxSubLabel, 8.5);
+  page.drawText(boxSubLabel, {
+    x: boxBadgeX + (boxBadgeW - boxSubW) / 2,
+    y: boxBadgeY + boxBadgeH - 14,
+    size: 8.5,
     font,
-    color: COLOR_GOLD,
+    color: COLOR_MUTED,
+  });
+
+  // Huge Prominent Box Number: e.g. "BOX #1 OF 1"
+  const boxMainText = `BOX #${options.boxNumber || 1} OF ${options.totalBoxes || 1}`;
+  const boxMainW = font.widthOfTextAtSize(boxMainText, 18);
+  page.drawText(boxMainText, {
+    x: boxBadgeX + (boxBadgeW - boxMainW) / 2,
+    y: boxBadgeY + 10,
+    size: 18,
+    font,
+    color: COLOR_CHARCOAL,
   });
 
   // Divider Line
@@ -354,7 +426,7 @@ export async function renderBuildingCartonPage(
     start: { x: cardX + 10, y: headerY },
     end: { x: cardX + cardW - 10, y: headerY },
     thickness: 1.5,
-    color: COLOR_GOLD,
+    color: COLOR_BORDER,
   });
 
   // Location Highlight Ribbon (Governorate - Center - Building)
@@ -373,7 +445,8 @@ export async function renderBuildingCartonPage(
 
   const locColW = (cardW - 24) / 3;
 
-  // 1. Governorate
+  // 1. Governorate (100% English)
+  const govText = toEnglishText(options.governorate) || "All Governorates";
   page.drawText("GOVERNORATE", {
     x: cardX + 22,
     y: locRibbonY + locRibbonH - 14,
@@ -381,7 +454,7 @@ export async function renderBuildingCartonPage(
     font,
     color: COLOR_MUTED,
   });
-  page.drawText(options.governorate || "All Governorates", {
+  page.drawText(govText, {
     x: cardX + 22,
     y: locRibbonY + 9,
     size: 13,
@@ -389,7 +462,8 @@ export async function renderBuildingCartonPage(
     color: COLOR_CHARCOAL,
   });
 
-  // 2. Test Center
+  // 2. Test Center (100% English)
+  const centerText = toEnglishText(options.center) || "Main Center";
   page.drawText("TEST CENTER", {
     x: cardX + 12 + locColW + 10,
     y: locRibbonY + locRibbonH - 14,
@@ -397,7 +471,7 @@ export async function renderBuildingCartonPage(
     font,
     color: COLOR_MUTED,
   });
-  page.drawText(options.center || "Main Center", {
+  page.drawText(centerText, {
     x: cardX + 12 + locColW + 10,
     y: locRibbonY + 9,
     size: 13,
@@ -405,7 +479,8 @@ export async function renderBuildingCartonPage(
     color: COLOR_CHARCOAL,
   });
 
-  // 3. Building
+  // 3. Building (100% English)
+  const buildingText = toEnglishText(options.building) || "Building HQ";
   page.drawText("BUILDING", {
     x: cardX + 12 + locColW * 2 + 10,
     y: locRibbonY + locRibbonH - 14,
@@ -413,7 +488,7 @@ export async function renderBuildingCartonPage(
     font,
     color: COLOR_MUTED,
   });
-  page.drawText(options.building || "Building HQ", {
+  page.drawText(buildingText, {
     x: cardX + 12 + locColW * 2 + 10,
     y: locRibbonY + 9,
     size: 14.5,
@@ -431,7 +506,7 @@ export async function renderBuildingCartonPage(
   const rightX = leftX + leftW + 10;
 
   // ----------------------------------------------------
-  // LEFT COLUMN: Overview & Key Statistics
+  // LEFT COLUMN: Specifications & Key Statistics (NO ASSIGNED CANDIDATES)
   // ----------------------------------------------------
   page.drawRectangle({
     x: leftX,
@@ -443,29 +518,34 @@ export async function renderBuildingCartonPage(
     borderWidth: 1,
   });
 
-  // Title for Left
+  // Title for Left (Light background, NO black bar)
   page.drawRectangle({
     x: leftX + 1,
     y: bodyBottom + bodyH - 24,
     width: leftW - 2,
     height: 23,
-    color: COLOR_CHARCOAL,
+    color: COLOR_LIGHT_BG,
+    borderColor: COLOR_BORDER,
+    borderWidth: 0.8,
   });
   page.drawText("CARTON SPECIFICATIONS", {
     x: leftX + 12,
     y: bodyBottom + bodyH - 16,
-    size: 8,
+    size: 8.5,
     font,
-    color: COLOR_GOLD,
+    color: COLOR_CHARCOAL,
   });
 
-  // 3 Large Metric Cards filling the Left Column (Checklist removed per user request)
+  // Dynamic Metric Cards filling the Left Column (NO ASSIGNED CANDIDATES per user request)
   const leftCardsTop = bodyBottom + bodyH - 24 - 10;
   const leftCardsBottom = bodyBottom + 10;
   const leftAvailableH = leftCardsTop - leftCardsBottom;
-  const statBoxH = Math.floor((leftAvailableH - 2 * 12) / 3);
 
-  // Stat Card 1: Total Floors
+  const hasSeal = Boolean(options.securitySeal && options.securitySeal.trim());
+  const numStatCards = hasSeal ? 3 : 2;
+  const statBoxH = Math.floor((leftAvailableH - (numStatCards - 1) * 12) / numStatCards);
+
+  // Stat Card 1: Total Building Floors
   const stat1Y = leftCardsTop - statBoxH;
   page.drawRectangle({
     x: leftX + 8,
@@ -479,19 +559,19 @@ export async function renderBuildingCartonPage(
   page.drawText("TOTAL BUILDING FLOORS:", {
     x: leftX + 16,
     y: stat1Y + statBoxH - 20,
-    size: 8,
+    size: 8.5,
     font,
     color: COLOR_MUTED,
   });
   page.drawText(`${totalFloorsCount} FLOORS`, {
     x: leftX + 16,
-    y: stat1Y + 20,
+    y: stat1Y + (statBoxH - 36) / 2 + 4,
     size: 22,
     font,
     color: COLOR_CHARCOAL,
   });
 
-  // Stat Card 2: Total Rooms
+  // Stat Card 2: Total Enclosed Rooms
   const stat2Y = stat1Y - 12 - statBoxH;
   page.drawRectangle({
     x: leftX + 8,
@@ -505,43 +585,47 @@ export async function renderBuildingCartonPage(
   page.drawText("TOTAL ENCLOSED ROOMS:", {
     x: leftX + 16,
     y: stat2Y + statBoxH - 20,
-    size: 8,
+    size: 8.5,
     font,
     color: COLOR_MUTED,
   });
   page.drawText(`${totalRoomsCount} ROOMS`, {
     x: leftX + 16,
-    y: stat2Y + 20,
+    y: stat2Y + (statBoxH - 36) / 2 + 4,
     size: 22,
     font,
     color: COLOR_CHARCOAL,
   });
 
-  // Stat Card 3: Total Candidates
-  const stat3Y = stat2Y - 12 - statBoxH;
-  page.drawRectangle({
-    x: leftX + 8,
-    y: stat3Y,
-    width: leftW - 16,
-    height: statBoxH,
-    color: COLOR_LIGHT_BG,
-    borderColor: COLOR_BORDER,
-    borderWidth: 0.8,
-  });
-  page.drawText("ASSIGNED CANDIDATES:", {
-    x: leftX + 16,
-    y: stat3Y + statBoxH - 20,
-    size: 8,
-    font,
-    color: COLOR_MUTED,
-  });
-  page.drawText(totalStudentsCount > 0 ? `${totalStudentsCount} CANDIDATES` : "0 CANDIDATES", {
-    x: leftX + 16,
-    y: stat3Y + 20,
-    size: 20,
-    font,
-    color: COLOR_CHARCOAL,
-  });
+  // Stat Card 3 (If security seal exists): Security Seal Code
+  if (hasSeal) {
+    const stat3Y = stat2Y - 12 - statBoxH;
+    page.drawRectangle({
+      x: leftX + 8,
+      y: stat3Y,
+      width: leftW - 16,
+      height: statBoxH,
+      color: COLOR_LIGHT_BG,
+      borderColor: COLOR_BORDER,
+      borderWidth: 0.8,
+    });
+    page.drawText("SECURITY SEAL CODE:", {
+      x: leftX + 16,
+      y: stat3Y + statBoxH - 20,
+      size: 8.5,
+      font,
+      color: COLOR_MUTED,
+    });
+    const sealText = toEnglishText(options.securitySeal) || "OFFICIAL SEAL";
+    const sealSize = sealText.length > 15 ? 12 : 15;
+    page.drawText(sealText, {
+      x: leftX + 16,
+      y: stat3Y + (statBoxH - 28) / 2 + 4,
+      size: sealSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+  }
 
   // ----------------------------------------------------
   // RIGHT COLUMN: Floors & Rooms Directory
@@ -556,30 +640,32 @@ export async function renderBuildingCartonPage(
     borderWidth: 1,
   });
 
-  // Top header for Right
+  // Top header for Right (Light background, NO black bar)
   page.drawRectangle({
     x: rightX + 1,
     y: bodyBottom + bodyH - 24,
     width: rightW - 2,
     height: 23,
-    color: COLOR_CHARCOAL,
+    color: COLOR_LIGHT_BG,
+    borderColor: COLOR_BORDER,
+    borderWidth: 0.8,
   });
   page.drawText("BUILDING FLOORS & ENCLOSED ROOMS DIRECTORY", {
     x: rightX + 14,
     y: bodyBottom + bodyH - 16,
     size: 8.5,
     font,
-    color: COLOR_GOLD,
+    color: COLOR_CHARCOAL,
   });
 
   const dirSubtitle = "[ CHECK OFF [✓] EACH ROOM UPON PACKING ]";
-  const dirSubW = font.widthOfTextAtSize(dirSubtitle, 7);
+  const dirSubW = font.widthOfTextAtSize(dirSubtitle, 7.5);
   page.drawText(dirSubtitle, {
     x: rightX + rightW - dirSubW - 14,
     y: bodyBottom + bodyH - 16,
-    size: 7,
+    size: 7.5,
     font,
-    color: COLOR_GOLD,
+    color: COLOR_MUTED,
   });
 
   // Layout floors dynamically
@@ -645,8 +731,8 @@ export async function renderBuildingCartonPage(
         borderWidth: 0.5,
       });
 
-      // Floor Title (left)
-      const floorLabel = fl.floor.toUpperCase();
+      // Floor Title (left) - 100% English
+      const floorLabel = toEnglishText(fl.floor).toUpperCase();
       page.drawText(floorLabel, {
         x: fx + 8,
         y: fHeaderY + 6,
@@ -655,11 +741,8 @@ export async function renderBuildingCartonPage(
         color: COLOR_CHARCOAL,
       });
 
-      // Floor Badge (right): "3 Rooms • 80 Candidates" or "3 Rooms • Pending Upload"
-      const badgeText =
-        fl.totalStudents > 0
-          ? `${fl.rooms.length} Rooms  •  ${fl.totalStudents} Candidates`
-          : `${fl.rooms.length} Rooms  •  Pending Upload`;
+      // Floor Badge (right): e.g. "3 ENCLOSED ROOMS" (no candidate count)
+      const badgeText = `${fl.rooms.length} ENCLOSED ROOMS`;
       const badgeW = font.widthOfTextAtSize(badgeText, 7.5);
       page.drawText(badgeText, {
         x: fx + fCardW - badgeW - 8,
@@ -714,11 +797,9 @@ export async function renderBuildingCartonPage(
           borderWidth: 0.8,
         });
 
-        // Room Name & Student Count Label
-        let label = rm.room;
-        if (rm.studentCount) {
-          label += ` (${rm.studentCount})`;
-        }
+        // Room Name Label (100% English, no candidates)
+        const rmRaw = typeof rm === "string" ? rm : rm.room;
+        const label = toEnglishText(rmRaw);
         let fSize = 8;
         let textW = font.widthOfTextAtSize(label, fSize);
         if (textW > rCellW - 20) {
