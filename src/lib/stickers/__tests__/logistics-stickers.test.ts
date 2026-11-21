@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { PDFDocument } from "pdf-lib";
 import {
   generateBuildingCartonStickerPdf,
+  generateBatchBuildingCartonStickersPdf,
   generateExamBagChecklistPdf,
   generateCleanSkinMasterPdf,
   generateMasterBuildingManifestPdf,
@@ -111,6 +112,27 @@ describe("Logistics Stickers PDF Generator", () => {
     const pdfBytes = await generateBuildingCartonStickerPdf(baseData);
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
     expect(pdfBytes.length).toBeGreaterThan(1000);
+  });
+
+  it("generates Batch Building Carton Stickers PDF with 1 page per building carton", async () => {
+    const cartons = [
+      { ...baseData, building: "Taymour English School", boxNumber: 1 },
+      { ...baseData, building: "Pioneers International School", boxNumber: 2 },
+      { ...baseData, building: "Future International School", boxNumber: 3 },
+    ];
+    const pdfBytes = await generateBatchBuildingCartonStickersPdf(cartons);
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    expect(pdfDoc.getPageCount()).toBe(3);
+  });
+
+  it("returns empty array and invents zero rooms when no rooms or floors provided", () => {
+    const normalized = normalizeFloorsData({
+      governorate: "Alexandria",
+      center: "Empty Center",
+      building: "Empty Building",
+    });
+    expect(normalized).toEqual([]);
   });
 
   it("generates Building Carton Sticker PDF with explicit floors and rooms directory", async () => {

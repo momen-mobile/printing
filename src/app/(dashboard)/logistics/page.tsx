@@ -16,6 +16,8 @@ import {
   MapPin,
   School,
   Landmark,
+  FileSpreadsheet,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useI18n } from "@/components/locale-provider";
@@ -23,6 +25,7 @@ import { parseSchoolFolderName, getFloorSortWeight } from "@/lib/stickers/est-re
 import { parseEstRoomFileName } from "@/lib/stickers/est-room-data";
 import { isFloorFolderName } from "@/lib/stickers/register-utils";
 import { StickerPreviewModal } from "@/components/sticker-preview-modal";
+import { ManualCartonsSheet } from "@/components/manual-cartons-sheet";
 import { toast } from "sonner";
 import type { DriveItem } from "@/lib/types";
 
@@ -74,16 +77,19 @@ export default function LogisticsHubPage() {
   const urlCycle = searchParams.get("cycle") || undefined;
   const [urlHandled, setUrlHandled] = useState<boolean>(false);
 
-  // 1. Session / Cycle
+  // Main View Switcher Tab: "DRIVE_HUB" or "MANUAL_SHEET"
+  const [activeMainTab, setActiveMainTab] = useState<"DRIVE_HUB" | "MANUAL_SHEET">("DRIVE_HUB");
+
+  // 1. Session / Cycle (Controlled: no auto-selection unless URL cycle provided)
   const [sessions, setSessions] = useState<DriveFolderOption[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
-  const [selectedSessionName, setSelectedSessionName] = useState<string>("December 2026");
+  const [selectedSessionName, setSelectedSessionName] = useState<string>("");
   const [loadingSessions, setLoadingSessions] = useState<boolean>(true);
 
-  // 2. Exam (EST 1 / EST 2)
+  // 2. Exam (EST 1 / EST 2) (Controlled: no auto-selection unless URL exam provided)
   const [exams, setExams] = useState<DriveFolderOption[]>([]);
   const [selectedExamId, setSelectedExamId] = useState<string>("");
-  const [selectedExamName, setSelectedExamName] = useState<string>("EST 1");
+  const [selectedExamName, setSelectedExamName] = useState<string>("");
   const [loadingExams, setLoadingExams] = useState<boolean>(false);
 
   // 3. Category / Destination (المدارس أو إحدى المدن/المحافظات)
@@ -179,20 +185,25 @@ export default function LogisticsHubPage() {
 
         if (list.length > 0) {
           setSessions(list);
-          const chosen = urlCycle
-            ? list.find(
-                (s) =>
-                  s.name.toLowerCase() === urlCycle.toLowerCase() ||
-                  s.name.toLowerCase().includes(urlCycle.toLowerCase()),
-              ) || list[0]
-            : list[0];
-          setSelectedSessionId(chosen.id);
-          setSelectedSessionName(chosen.name);
+          if (urlCycle) {
+            const chosen = list.find(
+              (s) =>
+                s.name.toLowerCase() === urlCycle.toLowerCase() ||
+                s.name.toLowerCase().includes(urlCycle.toLowerCase()),
+            );
+            if (chosen) {
+              setSelectedSessionId(chosen.id);
+              setSelectedSessionName(chosen.name);
+            }
+          }
+          // Intentionally do NOT auto-select list[0]: wait for user choice as requested!
         } else {
           const fallback = [{ id: "root", name: urlCycle || "December 2026" }];
           setSessions(fallback);
-          setSelectedSessionId("root");
-          setSelectedSessionName(urlCycle || "December 2026");
+          if (urlCycle) {
+            setSelectedSessionId("root");
+            setSelectedSessionName(urlCycle);
+          }
         }
       }
     } catch (err) {
@@ -211,7 +222,12 @@ export default function LogisticsHubPage() {
   // ----------------------------------------------------
   const loadExams = useCallback(
     async (sessionId: string) => {
-      if (!sessionId) return;
+      if (!sessionId) {
+        setExams([]);
+        setSelectedExamId("");
+        setSelectedExamName("");
+        return;
+      }
       setLoadingExams(true);
       try {
         const url =
@@ -238,17 +254,18 @@ export default function LogisticsHubPage() {
                   .map((f) => ({ id: f.id, name: f.name }));
 
           setExams(list);
-          if (list.length > 0) {
-            const chosen = urlExam
-              ? list.find(
-                  (e) =>
-                    e.name.toLowerCase() === urlExam.toLowerCase() ||
-                    e.name.replace(/\s+/g, "").toLowerCase() === urlExam.replace(/\s+/g, "").toLowerCase(),
-                ) || list[0]
-              : list.find((e) => /EST\s*[-_]?\s*1\b|EST\s*I\b/i.test(e.name)) || list[0];
-            setSelectedExamId(chosen.id);
-            setSelectedExamName(chosen.name);
+          if (urlExam && list.length > 0) {
+            const chosen = list.find(
+              (e) =>
+                e.name.toLowerCase() === urlExam.toLowerCase() ||
+                e.name.replace(/\s+/g, "").toLowerCase() === urlExam.replace(/\s+/g, "").toLowerCase(),
+            );
+            if (chosen) {
+              setSelectedExamId(chosen.id);
+              setSelectedExamName(chosen.name);
+            }
           }
+          // Do NOT auto-select list[0]: wait for user choice
         }
       } catch (err) {
         console.error("[logistics] Failed to load exams:", err);
@@ -475,7 +492,14 @@ export default function LogisticsHubPage() {
 
         setBuildings(bList);
 
-        if (bList.length > 0) {
+        if (bList.length === 1) {
+          // Exactly one building or repeated school folder (Taymour -> Taymour)
+          const targetBuilding = bList[0];
+          setSelectedBuildingId(targetBuilding.id);
+          setSelectedBuildingName(targetBuilding.name);
+          void loadTargetHierarchy(targetBuilding.id, "building", cityName, targetBuilding.name);
+        } else if (bList.length > 1) {
+          // Multiple buildings inside center (e.g. Pharmacy, Eng. Building B inside Abu Qir)
           const searchName = targetBuildingName || urlBuilding;
           const targetBuilding = searchName
             ? bList.find(
@@ -484,14 +508,20 @@ export default function LogisticsHubPage() {
                   b.name.toLowerCase() === searchName.toLowerCase() ||
                   searchName.toLowerCase().includes(b.name.toLowerCase()) ||
                   b.name.toLowerCase().includes(searchName.toLowerCase()),
-              ) || bList[0]
+              )
             : urlFolderId
-            ? bList.find((b) => b.id === urlFolderId) || bList[0]
-            : bList[0];
+            ? bList.find((b) => b.id === urlFolderId)
+            : undefined;
 
-          setSelectedBuildingId(targetBuilding.id);
-          setSelectedBuildingName(targetBuilding.name);
-          void loadTargetHierarchy(targetBuilding.id, "building", cityName, targetBuilding.name);
+          if (targetBuilding) {
+            setSelectedBuildingId(targetBuilding.id);
+            setSelectedBuildingName(targetBuilding.name);
+            void loadTargetHierarchy(targetBuilding.id, "building", cityName, targetBuilding.name);
+          } else {
+            setSelectedBuildingId("");
+            setSelectedBuildingName("");
+            setLiveFloors([]);
+          }
         } else {
           setSelectedBuildingId("");
           setSelectedBuildingName("");
@@ -592,12 +622,21 @@ export default function LogisticsHubPage() {
                   c.name.toLowerCase() === desiredCenter.toLowerCase() ||
                   desiredCenter.toLowerCase().includes(c.name.toLowerCase()) ||
                   c.name.toLowerCase().includes(desiredCenter.toLowerCase()),
-              ) || centerFolders[0]
-            : centerFolders[0];
+              )
+            : undefined;
 
-          setSelectedCenterId(centerToPick.id);
-          setSelectedCenterName(centerToPick.name);
-          void loadBuildings(centerToPick.id, centerToPick.name, cityName, targetBuildingName || urlBuilding);
+          if (centerToPick) {
+            setSelectedCenterId(centerToPick.id);
+            setSelectedCenterName(centerToPick.name);
+            void loadBuildings(centerToPick.id, centerToPick.name, cityName, targetBuildingName || urlBuilding);
+          } else {
+            setSelectedCenterId("");
+            setSelectedCenterName("");
+            setBuildings([]);
+            setSelectedBuildingId("");
+            setSelectedBuildingName("");
+            setLiveFloors([]);
+          }
         } else {
           // Last resort: treat city folder itself as the selectable target if it exists
           const fallbackName = desiredCenter || targetBuildingName || cityName;
@@ -667,24 +706,30 @@ export default function LogisticsHubPage() {
         // No hard-coded school list: only folders found in Drive are offered.
         setSchools(loadedSchools);
         if (loadedSchools.length > 0) {
-          const targetSchool = urlFolderId
+          const targetSchool = (urlFolderId || urlBuilding)
             ? loadedSchools.find(
                 (s) =>
                   s.id === urlFolderId ||
                   s.name.toLowerCase() === (urlBuilding || "").toLowerCase() ||
                   s.fullFolderName.toLowerCase() === (urlBuilding || "").toLowerCase() ||
                   (urlBuilding || "").toLowerCase().includes(s.name.toLowerCase()),
-              ) || loadedSchools[0]
-            : loadedSchools[0];
+              )
+            : undefined;
 
-          setSelectedSchoolId(targetSchool.id);
-          setSelectedSchool(targetSchool);
-          void loadTargetHierarchy(
-            targetSchool.id,
-            "school",
-            targetSchool.governorate,
-            targetSchool.name,
-          );
+          if (targetSchool) {
+            setSelectedSchoolId(targetSchool.id);
+            setSelectedSchool(targetSchool);
+            void loadTargetHierarchy(
+              targetSchool.id,
+              "school",
+              targetSchool.governorate,
+              targetSchool.name,
+            );
+          } else {
+            setSelectedSchoolId("");
+            setSelectedSchool(null);
+            setLiveFloors([]);
+          }
         }
       } catch (err) {
         console.error("[logistics] Failed to load schools:", err);
@@ -775,13 +820,13 @@ export default function LogisticsHubPage() {
         setDestinations(destList);
 
         if (destList.length > 0) {
-          let selected = destList[0];
+          let selected: DestinationOption | undefined;
 
           if (urlGovernorate) {
             if (/^schools|المدارس|مدارس$/i.test(urlGovernorate)) {
-              selected = destList.find((d) => d.isSchools) || destList[0];
+              selected = destList.find((d) => d.isSchools);
             } else {
-              const matchedGov = destList.find(
+              selected = destList.find(
                 (d) =>
                   !d.isSchools &&
                   d.cityName &&
@@ -789,27 +834,30 @@ export default function LogisticsHubPage() {
                     urlGovernorate.toLowerCase().includes(d.cityName.toLowerCase()) ||
                     d.cityName.toLowerCase().includes(urlGovernorate.toLowerCase())),
               );
-              if (matchedGov) selected = matchedGov;
             }
           } else if (urlBuilding) {
             const isSchoolFromUrl = /school|college|academy|مدرسة/i.test(urlBuilding);
             if (isSchoolFromUrl) {
-              selected = destList.find((d) => d.isSchools) || destList[0];
+              selected = destList.find((d) => d.isSchools);
             } else {
-              const matchedCity = destList.find(
+              selected = destList.find(
                 (d) => !d.isSchools && d.cityName && urlBuilding.toLowerCase().includes(d.cityName.toLowerCase()),
               );
-              if (matchedCity) selected = matchedCity;
             }
           }
 
-          setSelectedDestId(selected.id);
-          setSelectedDest(selected);
+          if (selected) {
+            setSelectedDestId(selected.id);
+            setSelectedDest(selected);
 
-          if (selected.isSchools) {
-            void loadSchools(selected.id);
-          } else if (selected.cityName) {
-            void loadCenters(selected.id, selected.cityName, urlCenter, urlBuilding);
+            if (selected.isSchools) {
+              void loadSchools(selected.id);
+            } else if (selected.cityName) {
+              void loadCenters(selected.id, selected.cityName, urlCenter, urlBuilding);
+            }
+          } else {
+            setSelectedDestId("");
+            setSelectedDest(null);
           }
         }
       } catch (err) {
@@ -828,20 +876,25 @@ export default function LogisticsHubPage() {
   }, [selectedExamId, loadDestinations]);
 
   // Derived Active Destination Details
-  const isSchoolMode = selectedDest?.isSchools ?? true;
+  const isSchoolMode = Boolean(selectedDest?.isSchools);
+
+  const isTargetSelected = Boolean(
+    (isSchoolMode && selectedSchoolId && selectedSchool) ||
+    (!isSchoolMode && selectedBuildingId && selectedBuildingName)
+  );
 
   const activeBuildingName = useMemo(() => {
     if (isSchoolMode) {
-      return selectedSchool?.name || selectedSchool?.fullFolderName || "Building HQ";
+      return selectedSchool?.name || selectedSchool?.fullFolderName || "";
     }
-    return selectedBuildingName || selectedCenterName || "Building HQ";
+    return selectedBuildingName || selectedCenterName || "";
   }, [isSchoolMode, selectedSchool, selectedBuildingName, selectedCenterName]);
 
   const activeCenterName = useMemo(() => {
     if (isSchoolMode) {
-      return selectedSchool?.name || "Main School";
+      return selectedSchool?.name || "";
     }
-    return selectedCenterName || "Main Center";
+    return selectedCenterName || "";
   }, [isSchoolMode, selectedSchool, selectedCenterName]);
 
   const activeGovernorateName = useMemo(() => {
@@ -866,6 +919,30 @@ export default function LogisticsHubPage() {
     () => liveFloors.reduce((sum, fl) => sum + fl.totalStudents, 0),
     [liveFloors],
   );
+
+  const currentDriveBuildingProp = useMemo(() => {
+    if (!isTargetSelected) return undefined;
+    return {
+      examName: selectedExamName,
+      governorate: activeGovernorateName,
+      center: activeCenterName,
+      building: activeBuildingName,
+      sessionName: selectedSessionName,
+      totalRooms: totalRoomsCount,
+      totalStudents: totalCandidatesCount,
+      floors: liveFloors,
+    };
+  }, [
+    isTargetSelected,
+    selectedExamName,
+    activeGovernorateName,
+    activeCenterName,
+    activeBuildingName,
+    selectedSessionName,
+    totalRoomsCount,
+    totalCandidatesCount,
+    liveFloors,
+  ]);
   const allRoomNames = useMemo(
     () => liveFloors.flatMap((fl) => fl.rooms.map((r) => r.room)),
     [liveFloors],
@@ -1010,7 +1087,7 @@ export default function LogisticsHubPage() {
         <button
           type="button"
           onClick={() => handleLogisticsAction("bundle", "print")}
-          disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
+          disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white px-5 py-2.5 text-sm font-bold shadow-md shadow-indigo-500/25 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
         >
           {busyAction === "bundle-print" ? (
@@ -1021,7 +1098,11 @@ export default function LogisticsHubPage() {
             <Printer className="size-4" />
           )}
           <span>
-            {isAnyLoading && !busyAction
+            {!isTargetSelected
+              ? isAr
+                ? "في انتظار اختيار المبنى"
+                : "Select Building First"
+              : isAnyLoading && !busyAction
               ? isAr
                 ? "جاري تحميل البيانات..."
                 : "Loading Data..."
@@ -1032,793 +1113,1047 @@ export default function LogisticsHubPage() {
         </button>
       </div>
 
-      {/* Real-time Global Loading & Drive Sync Banner */}
-      {isAnyLoading && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 animate-pulse text-xs font-semibold shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <Loader2 className="size-4 animate-spin text-indigo-600 dark:text-indigo-400" />
-            <span>
-              {isAr
-                ? "جاري قراءة البيانات اللوجستية وتوزيع القاعات المباشر من Google Drive..."
-                : "Loading logistics metadata and live room structure from Google Drive..."}
-            </span>
-          </div>
-          <span className="text-[11px] font-mono opacity-80">
-            {loadingFloors
-              ? isAr ? "جاري معالجة القاعات والأدوار..." : "Resolving rooms & floors..."
-              : isAr ? "جاري فحص المجلدات..." : "Scanning folders..."}
-          </span>
-        </div>
-      )}
+      {/* Top View Navigation Switcher: Drive Logistics vs Manual Sheet */}
+      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-surface border border-border w-fit shadow-xs">
+        <button
+          type="button"
+          onClick={() => setActiveMainTab("DRIVE_HUB")}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center gap-2",
+            activeMainTab === "DRIVE_HUB"
+              ? "bg-indigo-600 text-white shadow-xs"
+              : "text-muted hover:text-foreground hover:bg-surface-soft",
+          )}
+        >
+          <Boxes className="size-4" />
+          <span>{isAr ? "📁 الاستخراج التلقائي من Google Drive" : "Live Google Drive Hub"}</span>
+        </button>
 
-      {/* Dynamic Drive Selector Bar */}
-      <div className="card p-4 sm:p-5 border border-border shadow-xs bg-surface-soft/40 backdrop-blur-xs space-y-4">
-        {/* ROW 1: Cycle, Exam, and Destination Category */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Step 1: Session / Cycle Folder (فولدر الدورة) */}
-          <div>
-            <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Calendar className="size-3.5 text-amber-500" />
-                <span>{isAr ? "1. فولدر الدورة (Session)" : "1. Cycle Folder"}</span>
-              </span>
-              {loadingSessions && <Loader2 className="size-3 animate-spin text-muted" />}
-            </label>
-            <select
-              value={selectedSessionId}
-              onChange={(e) => {
-                const found = sessions.find((s) => s.id === e.target.value);
-                if (found) {
-                  setSelectedSessionId(found.id);
-                  setSelectedSessionName(found.name);
-                }
-              }}
-              disabled={loadingSessions}
-              className="w-full h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl border border-border bg-surface text-foreground cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
-            >
-              {sessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  📁 {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <button
+          type="button"
+          onClick={() => setActiveMainTab("MANUAL_SHEET")}
+          className={cn(
+            "px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center gap-2",
+            activeMainTab === "MANUAL_SHEET"
+              ? "bg-amber-600 text-white shadow-xs"
+              : "text-muted hover:text-foreground hover:bg-surface-soft",
+          )}
+        >
+          <FileSpreadsheet className="size-4" />
+          <span>{isAr ? "📊 شيت كراتين الشحن والمباني (Excel يدوي)" : "Manual Carton Dispatch Sheet"}</span>
+        </button>
+      </div>
 
-          {/* Step 2: Exam Folder (EST 1 / EST 2) */}
-          <div>
-            <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-indigo-500" />
-                <span>{isAr ? "2. فولدر الاختبار (Exam)" : "2. Exam Folder"}</span>
-              </span>
-              {loadingExams && <Loader2 className="size-3 animate-spin text-muted" />}
-            </label>
-            <select
-              value={selectedExamId}
-              onChange={(e) => {
-                const found = exams.find((ex) => ex.id === e.target.value);
-                if (found) {
-                  setSelectedExamId(found.id);
-                  setSelectedExamName(found.name);
-                }
-              }}
-              disabled={loadingExams || exams.length === 0}
-              className="w-full h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl border border-border bg-surface text-foreground cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
-            >
-              {exams.length > 0 ? (
-                exams.map((ex) => (
-                  <option key={ex.id} value={ex.id}>
-                    📋 {ex.name}
-                  </option>
-                ))
-              ) : (
-                <option value="">
-                  {loadingExams ? (isAr ? "جاري التحميل..." : "Loading...") : (isAr ? "لا توجد مجلدات اختبار" : "No exam folders")}
-                </option>
-              )}
-            </select>
-          </div>
-
-          {/* Step 3: Destination Category (المدارس أو إحدى المدن/المحافظات) */}
-          <div>
-            <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <MapPin className="size-3.5 text-rose-500" />
-                <span>{isAr ? "3. الوجهة (المدارس أو المدينة)" : "3. Destination (Schools/City)"}</span>
-              </span>
-              {loadingDestinations && <Loader2 className="size-3 animate-spin text-muted" />}
-            </label>
-            <select
-              value={selectedDestId}
-              onChange={(e) => {
-                const found = destinations.find((d) => d.id === e.target.value);
-                if (found) {
-                  setSelectedDestId(found.id);
-                  setSelectedDest(found);
-                  setCenters([]);
-                  setSelectedCenterId("");
-                  setSelectedCenterName("");
-                  setBuildings([]);
-                  setSelectedBuildingId("");
-                  setSelectedBuildingName("");
-                  setLiveFloors([]);
-                  if (found.isSchools) {
-                    void loadSchools(found.id);
-                  } else if (found.cityName) {
-                    void loadCenters(found.id, found.cityName);
-                  }
-                }
-              }}
-              disabled={loadingDestinations || destinations.length === 0}
-              className="w-full h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl border border-border bg-surface text-foreground cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
-            >
-              {destinations.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* ROW 2: Dependent Selectors (Schools OR Centers & Buildings) */}
-        <div className="pt-2 border-t border-border/50">
-          {isSchoolMode ? (
-            /* CASE A: Schools Dropdown */
-            <div>
-              <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <School className="size-3.5 text-emerald-500" />
-                  <span>{isAr ? "4. اختيار المدرسة (School)" : "4. Select School"}</span>
+      {activeMainTab === "MANUAL_SHEET" ? (
+        <ManualCartonsSheet currentDriveBuilding={currentDriveBuildingProp} />
+      ) : (
+        <>
+          {/* Real-time Global Loading & Drive Sync Banner */}
+          {isAnyLoading && (
+            <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 animate-pulse text-xs font-semibold shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <Loader2 className="size-4 animate-spin text-indigo-600 dark:text-indigo-400" />
+                <span>
+                  {isAr
+                    ? "جاري قراءة البيانات اللوجستية وتوزيع القاعات المباشر من Google Drive..."
+                    : "Loading logistics metadata and live room structure from Google Drive..."}
                 </span>
-                {loadingSchools && <Loader2 className="size-3 animate-spin text-muted" />}
-              </label>
-              <select
-                value={selectedSchoolId}
-                onChange={(e) => {
-                  const found = schools.find((s) => s.id === e.target.value);
-                  if (found) {
-                    setSelectedSchoolId(found.id);
-                    setSelectedSchool(found);
-                    void loadTargetHierarchy(found.id, "school", found.governorate, found.name);
-                  }
-                }}
-                disabled={loadingSchools || schools.length === 0}
-                className="w-full h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl border border-border bg-surface text-foreground cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
-              >
-                {schools.map((sc) => (
-                  <option key={sc.id} value={sc.id}>
-                    🏫 {sc.fullFolderName}
-                  </option>
-                ))}
-              </select>
+              </div>
+              <span className="text-[11px] font-mono opacity-80">
+                {loadingFloors
+                  ? isAr ? "جاري معالجة القاعات والأدوار..." : "Resolving rooms & floors..."
+                  : isAr ? "جاري فحص المجلدات..." : "Scanning folders..."}
+              </span>
             </div>
-          ) : (
-            /* CASE B: City Mode -> Center Dropdown & Building Dropdown */
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Select Center */}
+          )}
+
+          {/* Dynamic Drive Selector Bar */}
+          <div className="card p-4 sm:p-5 border border-border shadow-xs bg-surface-soft/40 backdrop-blur-xs space-y-4">
+            {/* ROW 1: Cycle, Exam, and Destination Category */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Step 1: Session / Cycle Folder (فولدر الدورة) */}
               <div>
                 <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Landmark className="size-3.5 text-blue-500" />
-                    <span>{isAr ? "4. السنتر (Test Center)" : "4. Test Center"}</span>
+                    <Calendar className="size-3.5 text-amber-500" />
+                    <span>{isAr ? "1. فولدر الدورة (Session)" : "1. Cycle Folder"}</span>
                   </span>
-                  {loadingCenters && <Loader2 className="size-3 animate-spin text-muted" />}
+                  {loadingSessions && <Loader2 className="size-3 animate-spin text-muted" />}
                 </label>
                 <select
-                  value={selectedCenterId}
+                  value={selectedSessionId}
                   onChange={(e) => {
-                    const found = centers.find((c) => c.id === e.target.value);
+                    const found = sessions.find((s) => s.id === e.target.value);
                     if (found) {
-                      setSelectedCenterId(found.id);
-                      setSelectedCenterName(found.name);
+                      setSelectedSessionId(found.id);
+                      setSelectedSessionName(found.name);
+                      setSelectedExamId("");
+                      setSelectedExamName("");
+                      setExams([]);
+                      setSelectedDestId("");
+                      setSelectedDest(null);
+                      setDestinations([]);
+                      setSchools([]);
+                      setSelectedSchoolId("");
+                      setSelectedSchool(null);
+                      setCenters([]);
+                      setSelectedCenterId("");
+                      setSelectedCenterName("");
                       setBuildings([]);
                       setSelectedBuildingId("");
                       setSelectedBuildingName("");
                       setLiveFloors([]);
-                      const cityName = selectedDest?.cityName || activeGovernorateName;
-                      void loadBuildings(found.id, found.name, cityName);
+                      void loadExams(found.id);
+                    } else {
+                      setSelectedSessionId("");
+                      setSelectedSessionName("");
+                      setSelectedExamId("");
+                      setSelectedExamName("");
+                      setExams([]);
+                      setSelectedDestId("");
+                      setSelectedDest(null);
+                      setDestinations([]);
+                      setSchools([]);
+                      setSelectedSchoolId("");
+                      setSelectedSchool(null);
+                      setCenters([]);
+                      setSelectedCenterId("");
+                      setSelectedCenterName("");
+                      setBuildings([]);
+                      setSelectedBuildingId("");
+                      setSelectedBuildingName("");
+                      setLiveFloors([]);
                     }
                   }}
-                  disabled={loadingCenters || centers.length === 0}
+                  disabled={loadingSessions}
                   className="w-full h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl border border-border bg-surface text-foreground cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
                 >
-                  {centers.length > 0 ? (
-                    centers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        🏛️ {c.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">
-                      {loadingCenters ? (isAr ? "جاري التحميل..." : "Loading...") : (isAr ? "لا توجد سناتر" : "No centers")}
+                  <option value="">{isAr ? "-- اختر الدورة أولاً --" : "-- Select Session First --"}</option>
+                  {sessions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      📁 {s.name}
                     </option>
-                  )}
+                  ))}
                 </select>
               </div>
 
-              {/* Select Building */}
+              {/* Step 2: Exam Folder (EST 1 / EST 2) */}
               <div>
                 <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Building2 className="size-3.5 text-purple-500" />
-                    <span>{isAr ? "5. المبنى (Building)" : "5. Building"}</span>
+                    <Sparkles className="size-3.5 text-indigo-500" />
+                    <span>{isAr ? "2. فولدر الاختبار (Exam)" : "2. Exam Folder"}</span>
                   </span>
-                  {loadingBuildings && <Loader2 className="size-3 animate-spin text-muted" />}
+                  {loadingExams && <Loader2 className="size-3 animate-spin text-muted" />}
                 </label>
                 <select
-                  value={selectedBuildingId}
+                  value={selectedExamId}
                   onChange={(e) => {
-                    const found = buildings.find((b) => b.id === e.target.value);
+                    const found = exams.find((ex) => ex.id === e.target.value);
                     if (found) {
-                      setSelectedBuildingId(found.id);
-                      setSelectedBuildingName(found.name);
+                      setSelectedExamId(found.id);
+                      setSelectedExamName(found.name);
+                      setSelectedDestId("");
+                      setSelectedDest(null);
+                      setDestinations([]);
+                      setSchools([]);
+                      setSelectedSchoolId("");
+                      setSelectedSchool(null);
+                      setCenters([]);
+                      setSelectedCenterId("");
+                      setSelectedCenterName("");
+                      setBuildings([]);
+                      setSelectedBuildingId("");
+                      setSelectedBuildingName("");
                       setLiveFloors([]);
-                      const cityName = selectedDest?.cityName || activeGovernorateName;
-                      void loadTargetHierarchy(
-                        found.id,
-                        "building",
-                        cityName,
-                        found.name,
-                      );
+                      void loadDestinations(found.id);
+                    } else {
+                      setSelectedExamId("");
+                      setSelectedExamName("");
+                      setSelectedDestId("");
+                      setSelectedDest(null);
+                      setDestinations([]);
+                      setSchools([]);
+                      setSelectedSchoolId("");
+                      setSelectedSchool(null);
+                      setCenters([]);
+                      setSelectedCenterId("");
+                      setSelectedCenterName("");
+                      setBuildings([]);
+                      setSelectedBuildingId("");
+                      setSelectedBuildingName("");
+                      setLiveFloors([]);
                     }
                   }}
-                  disabled={loadingBuildings || buildings.length === 0}
+                  disabled={loadingExams || !selectedSessionId || exams.length === 0}
                   className="w-full h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl border border-border bg-surface text-foreground cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
                 >
-                  {buildings.length > 0 ? (
-                    buildings.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        🏢 {b.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">
-                      {loadingBuildings ? (isAr ? "جاري التحميل..." : "Loading...") : (isAr ? "لا توجد مباني" : "No buildings")}
+                  <option value="">
+                    {!selectedSessionId
+                      ? isAr ? "يرجى اختيار الدورة أولاً" : "Select session first"
+                      : isAr ? "-- اختر نوع الامتحان (EST 1 / EST 2) --" : "-- Select Exam (EST 1 / EST 2) --"}
+                  </option>
+                  {exams.map((ex) => (
+                    <option key={ex.id} value={ex.id}>
+                      📋 {ex.name}
                     </option>
-                  )}
+                  ))}
+                </select>
+              </div>
+
+              {/* Step 3: Destination Category (المدارس أو إحدى المدن/المحافظات) */}
+              <div>
+                <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="size-3.5 text-rose-500" />
+                    <span>{isAr ? "3. الوجهة (المدارس أو المدينة)" : "3. Destination (Schools/City)"}</span>
+                  </span>
+                  {loadingDestinations && <Loader2 className="size-3 animate-spin text-muted" />}
+                </label>
+                <select
+                  value={selectedDestId}
+                  onChange={(e) => {
+                    const found = destinations.find((d) => d.id === e.target.value);
+                    if (found) {
+                      setSelectedDestId(found.id);
+                      setSelectedDest(found);
+                      setSchools([]);
+                      setSelectedSchoolId("");
+                      setSelectedSchool(null);
+                      setCenters([]);
+                      setSelectedCenterId("");
+                      setSelectedCenterName("");
+                      setBuildings([]);
+                      setSelectedBuildingId("");
+                      setSelectedBuildingName("");
+                      setLiveFloors([]);
+                      if (found.isSchools) {
+                        void loadSchools(found.id);
+                      } else if (found.cityName) {
+                        void loadCenters(found.id, found.cityName);
+                      }
+                    } else {
+                      setSelectedDestId("");
+                      setSelectedDest(null);
+                      setSchools([]);
+                      setSelectedSchoolId("");
+                      setSelectedSchool(null);
+                      setCenters([]);
+                      setSelectedCenterId("");
+                      setSelectedCenterName("");
+                      setBuildings([]);
+                      setSelectedBuildingId("");
+                      setSelectedBuildingName("");
+                      setLiveFloors([]);
+                    }
+                  }}
+                  disabled={loadingDestinations || !selectedExamId || destinations.length === 0}
+                  className="w-full h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl border border-border bg-surface text-foreground cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
+                >
+                  <option value="">
+                    {!selectedExamId
+                      ? isAr ? "يرجى اختيار نوع الامتحان أولاً" : "Select exam first"
+                      : isAr ? "-- اختر المحافظة أو المدارس --" : "-- Select Destination / City --"}
+                  </option>
+                  {destinations.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Live Detected Stats Banner from Google Drive */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-950 dark:text-indigo-200">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-extrabold text-sm text-foreground flex items-center gap-1.5">
-              <FolderCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
-              <span>{activeBuildingName}</span>
-              {activeGovernorateName && (
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
-                  {activeGovernorateName}
-                </span>
-              )}
-            </span>
-            <span className="text-muted/60">•</span>
-            {isAnyLoading || loadingFloors ? (
-              <span className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold">
-                <Loader2 className="size-3.5 animate-spin" />
-                <span>{isAr ? "جاري قراءة الأدوار والقاعات..." : "Reading floors & rooms..."}</span>
-              </span>
-            ) : (
-              <>
-                <span className="font-bold flex items-center gap-1">
-                  <Layers className="size-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span>{totalFloorsCount} {isAr ? "أدوار" : "Floors"}</span>
-                </span>
-                <span className="text-muted/60">•</span>
-                <span className="font-bold flex items-center gap-1">
-                  <Boxes className="size-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span>{totalRoomsCount} {isAr ? "قاعات / لجان" : "Rooms"}</span>
-                </span>
-                <span className="text-muted/60">•</span>
-                {est1TotalCandidates > 0 || est2TotalCandidates > 0 || totalCandidatesCount > 0 ? (
-                  <>
-                    <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                      {est1TotalCandidates || totalCandidatesCount} {isAr ? "طالب EST 1" : "EST I"}
-                    </span>
-                    <span className="text-muted/60">•</span>
-                    <span className="font-bold text-purple-600 dark:text-purple-400">
-                      {est2TotalCandidates || 0} {isAr ? "طالب EST 2" : "EST II"}
-                    </span>
-                    <span className="text-muted/60">•</span>
-                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                      {(est1TotalCandidates || totalCandidatesCount) + (est2TotalCandidates || 0)} {isAr ? "إجمالي الحصر" : "Grand Total"}
-                    </span>
-                  </>
+            {/* ROW 2: Dependent Selectors (Schools OR Centers & Buildings) */}
+            {selectedDestId && (
+              <div className="pt-2 border-t border-border/50">
+                {isSchoolMode ? (
+                  /* CASE A: Schools Dropdown */
+                  <div>
+                    <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <School className="size-3.5 text-emerald-500" />
+                        <span>{isAr ? "4. اختيار المدرسة (School)" : "4. Select School"}</span>
+                      </span>
+                      {loadingSchools && <Loader2 className="size-3 animate-spin text-muted" />}
+                    </label>
+                    <select
+                      value={selectedSchoolId}
+                      onChange={(e) => {
+                        const found = schools.find((s) => s.id === e.target.value);
+                        if (found) {
+                          setSelectedSchoolId(found.id);
+                          setSelectedSchool(found);
+                          void loadTargetHierarchy(found.id, "school", found.governorate, found.name);
+                        } else {
+                          setSelectedSchoolId("");
+                          setSelectedSchool(null);
+                          setLiveFloors([]);
+                        }
+                      }}
+                      disabled={loadingSchools || schools.length === 0}
+                      className="w-full h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl border border-border bg-surface text-foreground cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
+                    >
+                      <option value="">{isAr ? "-- اختر المدرسة من القائمة --" : "-- Select School --"}</option>
+                      {schools.map((sc) => (
+                        <option key={sc.id} value={sc.id}>
+                          🏫 {sc.fullFolderName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 ) : (
-                  <span className="text-[11px] font-semibold text-muted italic">
-                    {isAr ? "0 طالب مسجل (في انتظار رفع ملفات القاعات)" : "0 Candidates (Awaiting Room Files Upload)"}
-                  </span>
+                  /* CASE B: City Mode -> Center Dropdown & Building Dropdown */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Select Center */}
+                    <div>
+                      <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Landmark className="size-3.5 text-blue-500" />
+                          <span>{isAr ? "4. السنتر أو المدرسة (Test Center / School)" : "4. Test Center / School"}</span>
+                        </span>
+                        {loadingCenters && <Loader2 className="size-3 animate-spin text-muted" />}
+                      </label>
+                      <select
+                        value={selectedCenterId}
+                        onChange={(e) => {
+                          const found = centers.find((c) => c.id === e.target.value);
+                          if (found) {
+                            setSelectedCenterId(found.id);
+                            setSelectedCenterName(found.name);
+                            setBuildings([]);
+                            setSelectedBuildingId("");
+                            setSelectedBuildingName("");
+                            setLiveFloors([]);
+                            const cityName = selectedDest?.cityName || activeGovernorateName;
+                            void loadBuildings(found.id, found.name, cityName);
+                          } else {
+                            setSelectedCenterId("");
+                            setSelectedCenterName("");
+                            setBuildings([]);
+                            setSelectedBuildingId("");
+                            setSelectedBuildingName("");
+                            setLiveFloors([]);
+                          }
+                        }}
+                        disabled={loadingCenters || centers.length === 0}
+                        className="w-full h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl border border-border bg-surface text-foreground cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
+                      >
+                        <option value="">{isAr ? "-- اختر السنتر أو المدرسة --" : "-- Select Center or School --"}</option>
+                        {centers.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            🏛️ {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Select Building */}
+                    <div>
+                      <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Building2 className="size-3.5 text-purple-500" />
+                          <span>{isAr ? "5. المبنى (Building)" : "5. Building"}</span>
+                        </span>
+                        {loadingBuildings && <Loader2 className="size-3 animate-spin text-muted" />}
+                      </label>
+                      <select
+                        value={selectedBuildingId}
+                        onChange={(e) => {
+                          const found = buildings.find((b) => b.id === e.target.value);
+                          if (found) {
+                            setSelectedBuildingId(found.id);
+                            setSelectedBuildingName(found.name);
+                            setLiveFloors([]);
+                            const cityName = selectedDest?.cityName || activeGovernorateName;
+                            void loadTargetHierarchy(found.id, "building", cityName, found.name);
+                          } else {
+                            setSelectedBuildingId("");
+                            setSelectedBuildingName("");
+                            setLiveFloors([]);
+                          }
+                        }}
+                        disabled={loadingBuildings || buildings.length <= 1}
+                        className="w-full h-10 px-3 text-xs sm:text-sm font-semibold rounded-xl border border-border bg-surface text-foreground cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-indigo-500/30"
+                      >
+                        {buildings.length <= 1 ? (
+                          <option value={selectedBuildingId}>
+                            🏢 {selectedBuildingName || (isAr ? "المبنى الرئيسي للمدرسة" : "Main Building")}
+                          </option>
+                        ) : (
+                          <>
+                            <option value="">{isAr ? "-- اختر المبنى داخل السنتر --" : "-- Select Building --"}</option>
+                            {buildings.map((b) => (
+                              <option key={b.id} value={b.id}>
+                                🏢 {b.name}
+                              </option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+                    </div>
+                  </div>
                 )}
-              </>
+              </div>
+            )}
+
+            {/* Stepper Progress Guide Card if not all stages chosen */}
+            {!isTargetSelected ? (
+              <div className="card p-6 border border-border/80 shadow-xs bg-surface-soft/40 text-center space-y-4">
+                <div className="max-w-xl mx-auto space-y-1.5">
+                  <div className="inline-flex items-center justify-center size-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-extrabold text-xl mb-1">
+                    🎯
+                  </div>
+                  <h3 className="text-base font-extrabold text-foreground">
+                    {isAr ? "حدد المبنى أو المدرسة لبدء سحب البيانات والطباعة" : "Select Building / School to Begin"}
+                  </h3>
+                  <p className="text-xs text-muted leading-relaxed">
+                    {isAr
+                      ? "يرجى اتباع خطوات الاختيار أعلاه (1. الدورة ➔ 2. الامتحان ➔ 3. المحافظة ➔ 4. المدرسة أو السنتر والمبنى). لن يتم سحب أي بيانات أو طباعة كشوفات إلا بعد تحديد الهدف."
+                      : "Follow the steps above (1. Cycle ➔ 2. Exam ➔ 3. Destination ➔ 4. School / Building). Data is loaded strictly on-demand."}
+                  </p>
+                </div>
+
+                {/* Stepper Progress Badges */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto pt-2">
+                  <div
+                    className={cn(
+                      "p-3 rounded-xl border text-center transition-all",
+                      selectedSessionId
+                        ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300"
+                        : "border-indigo-500/40 bg-indigo-500/5 text-indigo-700 dark:text-indigo-300 animate-pulse",
+                    )}
+                  >
+                    <span className="text-[10px] font-bold block mb-1">
+                      {selectedSessionId ? "✓ " + (isAr ? "مكتمل" : "Done") : isAr ? "الخطوة 1" : "Step 1"}
+                    </span>
+                    <span className="text-xs font-extrabold block truncate">
+                      {selectedSessionId ? selectedSessionName : isAr ? "1. الدورة" : "1. Cycle"}
+                    </span>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "p-3 rounded-xl border text-center transition-all",
+                      selectedExamId
+                        ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300"
+                        : selectedSessionId
+                        ? "border-indigo-500/40 bg-indigo-500/5 text-indigo-700 dark:text-indigo-300 animate-pulse"
+                        : "border-border bg-surface text-muted/60 opacity-60",
+                    )}
+                  >
+                    <span className="text-[10px] font-bold block mb-1">
+                      {selectedExamId ? "✓ " + (isAr ? "مكتمل" : "Done") : isAr ? "الخطوة 2" : "Step 2"}
+                    </span>
+                    <span className="text-xs font-extrabold block truncate">
+                      {selectedExamId ? selectedExamName : isAr ? "2. الاختبار" : "2. Exam"}
+                    </span>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "p-3 rounded-xl border text-center transition-all",
+                      selectedDestId
+                        ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300"
+                        : selectedExamId
+                        ? "border-indigo-500/40 bg-indigo-500/5 text-indigo-700 dark:text-indigo-300 animate-pulse"
+                        : "border-border bg-surface text-muted/60 opacity-60",
+                    )}
+                  >
+                    <span className="text-[10px] font-bold block mb-1">
+                      {selectedDestId ? "✓ " + (isAr ? "مكتمل" : "Done") : isAr ? "الخطوة 3" : "Step 3"}
+                    </span>
+                    <span className="text-xs font-extrabold block truncate">
+                      {selectedDest ? selectedDest.name.replace(/^📍\s*/, "") : isAr ? "3. المحافظة" : "3. Destination"}
+                    </span>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "p-3 rounded-xl border text-center transition-all",
+                      isTargetSelected
+                        ? "border-emerald-500/40 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300"
+                        : selectedDestId
+                        ? "border-indigo-500/40 bg-indigo-500/5 text-indigo-700 dark:text-indigo-300 animate-pulse"
+                        : "border-border bg-surface text-muted/60 opacity-60",
+                    )}
+                  >
+                    <span className="text-[10px] font-bold block mb-1">
+                      {isTargetSelected ? "✓ " + (isAr ? "مكتمل" : "Done") : isAr ? "الخطوة 4" : "Step 4"}
+                    </span>
+                    <span className="text-xs font-extrabold block truncate">
+                      {isTargetSelected ? activeBuildingName : isAr ? "4. المبنى / المدرسة" : "4. Building/School"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Live Detected Stats Banner from Google Drive when target selected */
+              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-950 dark:text-indigo-200">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-extrabold text-sm text-foreground flex items-center gap-1.5">
+                    <FolderCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>{activeBuildingName}</span>
+                    {activeGovernorateName && (
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-300">
+                        {activeGovernorateName}
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-muted/60">•</span>
+                  {isAnyLoading || loadingFloors ? (
+                    <span className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold">
+                      <Loader2 className="size-3.5 animate-spin" />
+                      <span>{isAr ? "جاري قراءة الأدوار والقاعات..." : "Reading floors & rooms..."}</span>
+                    </span>
+                  ) : (
+                    <>
+                      <span className="font-bold flex items-center gap-1">
+                        <Layers className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <span>{totalFloorsCount} {isAr ? "أدوار" : "Floors"}</span>
+                      </span>
+                      <span className="text-muted/60">•</span>
+                      <span className="font-bold flex items-center gap-1">
+                        <Boxes className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <span>{totalRoomsCount} {isAr ? "قاعات / لجان" : "Rooms"}</span>
+                      </span>
+                      <span className="text-muted/60">•</span>
+                      {est1TotalCandidates > 0 || est2TotalCandidates > 0 || totalCandidatesCount > 0 ? (
+                        <>
+                          <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                            {est1TotalCandidates || totalCandidatesCount} {isAr ? "طالب EST 1" : "EST I"}
+                          </span>
+                          <span className="text-muted/60">•</span>
+                          <span className="font-bold text-purple-600 dark:text-purple-400">
+                            {est2TotalCandidates || 0} {isAr ? "طالب EST 2" : "EST II"}
+                          </span>
+                          <span className="text-muted/60">•</span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                            {(est1TotalCandidates || totalCandidatesCount) + (est2TotalCandidates || 0)} {isAr ? "إجمالي الحصر" : "Grand Total"}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-muted italic">
+                          {isAr ? "0 طالب مسجل (في انتظار رفع ملفات القاعات)" : "0 Candidates (Awaiting Room Files Upload)"}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeTargetFolderId) {
+                      void loadTargetHierarchy(
+                        activeTargetFolderId,
+                        isSchoolMode ? "school" : "building",
+                        activeGovernorateName,
+                        activeBuildingName,
+                      );
+                    }
+                  }}
+                  disabled={loadingFloors}
+                  className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  title={isAr ? "إعادة قراءة محتويات المجلد من الدرايف" : "Refresh from Drive"}
+                >
+                  <RefreshCw className={cn("size-3", loadingFloors && "animate-spin")} />
+                  <span>{isAr ? "تحديث الداتا" : "Refresh"}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Live Floors and Rooms Chips Preview when target selected */}
+            {isTargetSelected && (
+              isAnyLoading || loadingFloors ? (
+                <div className="pt-3 border-t border-border/40">
+                  <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-6 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2 text-indigo-600 dark:text-indigo-400">
+                      <Loader2 className="size-7 animate-spin" />
+                      <span className="text-sm font-bold">
+                        {isAr
+                          ? "جاري تحميل وتجميع بيانات المكان والأدوار والقاعات من الدرايف..."
+                          : "Loading, deduplicating, and calculating live hierarchy from Google Drive..."}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {isAr
+                          ? "يتم قراءة أعداد الطلاب من ملفات القاعات وفحص امتحانات EST 1 و EST 2 تلقائياً"
+                          : "Calculating live candidate counts from room registers across EST 1 and EST 2"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : liveFloors.length > 0 ? (
+                <div className="pt-2 border-t border-border/40">
+                  <span className="text-[11px] font-bold text-muted block mb-2">
+                    {isAr ? "دليل الأدوار والقاعات المستخرج تلقائياً من الدرايف:" : "Directory Extracted from Drive:"}
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    {liveFloors.map((fl) => (
+                      <div
+                        key={fl.floor}
+                        className="rounded-lg border border-border/80 bg-surface/60 p-2 text-xs"
+                      >
+                        <div className="flex items-center justify-between font-bold text-foreground mb-1.5 border-b border-border/40 pb-1">
+                          <span>🏢 {fl.floor}</span>
+                          <span className="text-[10px] text-muted font-mono">
+                            {fl.rooms.length} {isAr ? "لجان" : "rooms"}
+                            {" • "}
+                            {fl.totalStudents > 0
+                              ? `${fl.totalStudents} ${isAr ? "طالب" : "cand."}`
+                              : isAr
+                              ? "في انتظار الرفع"
+                              : "Pending Upload"}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {fl.rooms.map((rm) => {
+                            const hasE1 = rm.est1Count !== undefined && rm.est1Count > 0;
+                            const hasE2 = rm.est2Count !== undefined && rm.est2Count > 0;
+                            const hasStd = rm.studentCount !== undefined && rm.studentCount > 0;
+                            return (
+                              <span
+                                key={rm.room}
+                                title={
+                                  (rm.est1Subjects ? `EST I: ${rm.est1Subjects}\n` : "") +
+                                  (rm.est2Subjects ? `EST II: ${rm.est2Subjects}` : "")
+                                }
+                                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-soft border border-border text-[10.5px] font-mono text-foreground hover:border-indigo-500/50 transition-colors"
+                              >
+                                <span className="font-bold">{rm.room}</span>
+                                {hasE1 && (
+                                  <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+                                    E1:{rm.est1Count}
+                                  </span>
+                                )}
+                                {hasE2 && (
+                                  <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                                    E2:{rm.est2Count}
+                                  </span>
+                                )}
+                                {!hasE1 && !hasE2 && hasStd && (
+                                  <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                                    {rm.studentCount}
+                                  </span>
+                                )}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="pt-3 border-t border-border/40 text-center py-6 text-xs text-muted space-y-1">
+                  <div className="font-extrabold text-foreground text-sm">
+                    {isAr ? "لا توجد قاعات أو أدوار في هذا المجلد حالياً" : "No floors or rooms in this folder currently"}
+                  </div>
+                  <p className="max-w-md mx-auto text-[11px] text-muted">
+                    {isAr
+                      ? "مجلد هذا المبنى موجود على Google Drive ولكن الموظف المسئول لم يقم بإضافة قاعات أو كشوفات طلاب بعد."
+                      : "Building folder exists on Google Drive, but room folders or files have not been uploaded yet."}
+                  </p>
+                </div>
+              )
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              if (activeTargetFolderId) {
-                void loadTargetHierarchy(
-                  activeTargetFolderId,
-                  isSchoolMode ? "school" : "building",
-                  activeGovernorateName,
-                  activeBuildingName,
-                );
-              }
-            }}
-            disabled={loadingFloors}
-            className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
-            title={isAr ? "إعادة قراءة محتويات المجلد من الدرايف" : "Refresh from Drive"}
-          >
-            <RefreshCw className={cn("size-3", loadingFloors && "animate-spin")} />
-            <span>{isAr ? "تحديث الداتا" : "Refresh"}</span>
-          </button>
-        </div>
-
-        {/* Live Floors and Rooms Chips Preview or Loading Skeleton */}
-        {isAnyLoading || loadingFloors ? (
-          <div className="pt-3 border-t border-border/40">
-            <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-6 text-center">
-              <div className="flex flex-col items-center justify-center gap-2 text-indigo-600 dark:text-indigo-400">
-                <Loader2 className="size-7 animate-spin" />
-                <span className="text-sm font-bold">
-                  {isAr
-                    ? "جاري تحميل وتجميع بيانات المكان والأدوار والقاعات من الدرايف..."
-                    : "Loading, deduplicating, and calculating live hierarchy from Google Drive..."}
-                </span>
-                <span className="text-xs text-muted">
-                  {isAr
-                    ? "يتم قراءة أعداد الطلاب من ملفات القاعات وفحص امتحانات EST 1 و EST 2 تلقائياً"
-                    : "Calculating live candidate counts from room registers across EST 1 and EST 2"}
-                </span>
-              </div>
-            </div>
-          </div>
-        ) : liveFloors.length > 0 ? (
-          <div className="pt-2 border-t border-border/40">
-            <span className="text-[11px] font-bold text-muted block mb-2">
-              {isAr ? "دليل الأدوار والقاعات المستخرج تلقائياً من الدرايف:" : "Directory Extracted from Drive:"}
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-              {liveFloors.map((fl) => (
-                <div
-                  key={fl.floor}
-                  className="rounded-lg border border-border/80 bg-surface/60 p-2 text-xs"
-                >
-                  <div className="flex items-center justify-between font-bold text-foreground mb-1.5 border-b border-border/40 pb-1">
-                    <span>🏢 {fl.floor}</span>
-                    <span className="text-[10px] text-muted font-mono">
-                      {fl.rooms.length} {isAr ? "لجان" : "rooms"}
-                      {" • "}
-                      {fl.totalStudents > 0
-                        ? `${fl.totalStudents} ${isAr ? "طالب" : "cand."}`
-                        : isAr
-                        ? "في انتظار الرفع"
-                        : "Pending Upload"}
-                    </span>
+          {/* Main 4 Action Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* CARD 1: Master Building Carton Placard */}
+            <div className="card p-5 border border-border/80 hover:border-indigo-500/40 shadow-xs transition-all relative overflow-hidden group">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-10 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center font-bold text-lg">
+                    📦
                   </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {fl.rooms.map((rm) => {
-                        const hasE1 = rm.est1Count !== undefined && rm.est1Count > 0;
-                        const hasE2 = rm.est2Count !== undefined && rm.est2Count > 0;
-                        const hasStd = rm.studentCount !== undefined && rm.studentCount > 0;
-                        return (
-                          <span
-                            key={rm.room}
-                            title={
-                              (rm.est1Subjects ? `EST I: ${rm.est1Subjects}\n` : "") +
-                              (rm.est2Subjects ? `EST II: ${rm.est2Subjects}` : "")
-                            }
-                            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-soft border border-border text-[10.5px] font-mono text-foreground hover:border-indigo-500/50 transition-colors"
-                          >
-                            <span className="font-bold">{rm.room}</span>
-                            {hasE1 && (
-                              <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
-                                E1:{rm.est1Count}
-                              </span>
-                            )}
-                            {hasE2 && (
-                              <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300">
-                                E2:{rm.est2Count}
-                              </span>
-                            )}
-                            {!hasE1 && !hasE2 && hasStd && (
-                              <span className="text-[9px] font-semibold px-1 py-0.2 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                                {rm.studentCount}
-                              </span>
-                            )}
-                          </span>
-                        );
-                      })}
-                    </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+                      A4 Landscape
+                    </span>
+                    <h3 className="text-base font-extrabold text-foreground">
+                      {isAr ? "ستيكر كرتونة المبنى الرئيسية" : "Master Building Carton Placard"}
+                    </h3>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="pt-2 border-t border-border/40 text-center py-3 text-xs text-muted">
-            {isAr
-              ? "لم يتم العثور على قاعات أو أدوار في هذا المجلد حالياً"
-              : "No floors or rooms found for the selected building."}
-          </div>
-        )}
-      </div>
-
-      {/* Main 4 Action Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* CARD 1: Master Building Carton Placard */}
-        <div className="card p-5 border border-border/80 hover:border-indigo-500/40 shadow-xs transition-all relative overflow-hidden group">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="size-10 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 flex items-center justify-center font-bold text-lg">
-                📦
-              </div>
-              <div>
-                <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
-                  A4 Landscape
+                <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold">
+                  Carton Sticker
                 </span>
-                <h3 className="text-base font-extrabold text-foreground">
-                  {isAr ? "ستيكر كرتونة المبنى الرئيسية" : "Master Building Carton Placard"}
-                </h3>
+              </div>
+
+              <p className="text-xs text-muted mb-4 leading-relaxed">
+                {isAr
+                  ? "ورقة مقاس A4 بالعرض تلصق على الكرتونة الخارجية التي تحتوي على جميع أكياس ومظاريف المبنى مع مسرد الأدوار والقاعات بالكامل ومربعات [ ] للتأكيد."
+                  : "A4 Landscape placard affixed to the master carton, detailing total floors, rooms, candidates, and packing check-off boxes."}
+              </p>
+
+              <div className="flex items-center gap-2 pt-3 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => handleLogisticsAction("carton", "show")}
+                  disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface-soft hover:bg-surface-strong text-foreground text-xs font-bold border border-border transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {busyAction === "carton-show" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : isAnyLoading ? (
+                    <Loader2 className="size-3.5 animate-spin opacity-70" />
+                  ) : (
+                    <Eye className="size-3.5" />
+                  )}
+                  <span>
+                    {!isTargetSelected
+                      ? isAr ? "اختر المبنى أولاً" : "Select Building"
+                      : isAnyLoading && !busyAction
+                      ? isAr ? "جاري التحميل..." : "Loading..."
+                      : isAr ? "معاينة PDF" : "Preview PDF"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLogisticsAction("carton", "print")}
+                  disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {busyAction === "carton-print" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : isAnyLoading ? (
+                    <Loader2 className="size-3.5 animate-spin opacity-70" />
+                  ) : (
+                    <Printer className="size-3.5" />
+                  )}
+                  <span>
+                    {!isTargetSelected
+                      ? isAr ? "اختر المبنى أولاً" : "Select Building"
+                      : isAnyLoading && !busyAction
+                      ? isAr ? "تحميل..." : "Loading..."
+                      : isAr ? "طباعة فورية" : "Print Placard"}
+                  </span>
+                </button>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold">
-              Carton Sticker
-            </span>
-          </div>
 
-          <p className="text-xs text-muted mb-4 leading-relaxed">
-            {isAr
-              ? "ورقة مقاس A4 بالعرض تلصق على الكرتونة الخارجية التي تحتوي على جميع أكياس ومظاريف المبنى مع مسرد الأدوار والقاعات بالكامل ومربعات [ ] للتأكيد."
-              : "A4 Landscape placard affixed to the master carton, detailing total floors, rooms, candidates, and packing check-off boxes."}
-          </p>
-
-          <div className="flex items-center gap-2 pt-3 border-t border-border/60">
-            <button
-              type="button"
-              onClick={() => handleLogisticsAction("carton", "show")}
-              disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface-soft hover:bg-surface-strong text-foreground text-xs font-bold border border-border transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {busyAction === "carton-show" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : isAnyLoading ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
-              ) : (
-                <Eye className="size-3.5" />
-              )}
-              <span>
-                {isAnyLoading && !busyAction
-                  ? isAr ? "جاري التحميل..." : "Loading..."
-                  : isAr ? "معاينة PDF" : "Preview PDF"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLogisticsAction("carton", "print")}
-              disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {busyAction === "carton-print" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : isAnyLoading ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
-              ) : (
-                <Printer className="size-3.5" />
-              )}
-              <span>
-                {isAnyLoading && !busyAction
-                  ? isAr ? "تحميل..." : "Loading..."
-                  : isAr ? "طباعة فورية" : "Print Placard"}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* CARD 2: Transit Bag Exam Checklist */}
-        <div className="card p-5 border border-border/80 hover:border-indigo-500/40 shadow-xs transition-all relative overflow-hidden group">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="size-10 rounded-xl bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 flex items-center justify-center font-bold text-lg">
-                🎒
-              </div>
-              <div>
-                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
-                  A4 Portrait
+            {/* CARD 2: Transit Bag Exam Checklist */}
+            <div className="card p-5 border border-border/80 hover:border-indigo-500/40 shadow-xs transition-all relative overflow-hidden group">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-10 rounded-xl bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 flex items-center justify-center font-bold text-lg">
+                    🎒
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
+                      A4 Portrait
+                    </span>
+                    <h3 className="text-base font-extrabold text-foreground">
+                      {isAr ? "بيان محتويات شنطة الامتحانات (Checklist)" : "Transit Bag Exam Checklist"}
+                    </h3>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-xs font-bold">
+                  Bag Manifest
                 </span>
-                <h3 className="text-base font-extrabold text-foreground">
-                  {isAr ? "بيان محتويات شنطة الامتحانات (Checklist)" : "Transit Bag Exam Checklist"}
-                </h3>
+              </div>
+
+              <p className="text-xs text-muted mb-4 leading-relaxed">
+                {isAr
+                  ? "بيان A4 رأسي ملصق على شنطة نقل أوراق الإجابة والأسئلة لتأكيد استلام أكياس كل قاعة والمظاريف المغلقة."
+                  : "A4 Portrait checklist affixed to the transit bag with subject breakdowns and packing verification for EST."}
+              </p>
+
+              <div className="flex items-center gap-2 pt-3 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => handleLogisticsAction("bag", "show")}
+                  disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface-soft hover:bg-surface-strong text-foreground text-xs font-bold border border-border transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {busyAction === "bag-show" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : isAnyLoading ? (
+                    <Loader2 className="size-3.5 animate-spin opacity-70" />
+                  ) : (
+                    <Eye className="size-3.5" />
+                  )}
+                  <span>
+                    {!isTargetSelected
+                      ? isAr ? "اختر المبنى أولاً" : "Select Building"
+                      : isAnyLoading && !busyAction
+                      ? isAr ? "جاري التحميل..." : "Loading..."
+                      : isAr ? "معاينة PDF" : "Preview PDF"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLogisticsAction("bag", "print")}
+                  disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {busyAction === "bag-print" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : isAnyLoading ? (
+                    <Loader2 className="size-3.5 animate-spin opacity-70" />
+                  ) : (
+                    <Printer className="size-3.5" />
+                  )}
+                  <span>
+                    {!isTargetSelected
+                      ? isAr ? "اختر المبنى أولاً" : "Select Building"
+                      : isAnyLoading && !busyAction
+                      ? isAr ? "تحميل..." : "Loading..."
+                      : isAr ? "طباعة البيان" : "Print Checklist"}
+                  </span>
+                </button>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-xs font-bold">
-              Bag Manifest
-            </span>
-          </div>
 
-          <p className="text-xs text-muted mb-4 leading-relaxed">
-            {isAr
-              ? "بيان A4 رأسي ملصق على شنطة نقل أوراق الإجابة والأسئلة لتأكيد استلام أكياس كل قاعة والمظاريف المغلقة."
-              : "A4 Portrait checklist affixed to the transit bag with subject breakdowns and packing verification for EST."}
-          </p>
-
-          <div className="flex items-center gap-2 pt-3 border-t border-border/60">
-            <button
-              type="button"
-              onClick={() => handleLogisticsAction("bag", "show")}
-              disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface-soft hover:bg-surface-strong text-foreground text-xs font-bold border border-border transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {busyAction === "bag-show" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : isAnyLoading ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
-              ) : (
-                <Eye className="size-3.5" />
-              )}
-              <span>
-                {isAnyLoading && !busyAction
-                  ? isAr ? "جاري التحميل..." : "Loading..."
-                  : isAr ? "معاينة PDF" : "Preview PDF"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLogisticsAction("bag", "print")}
-              disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {busyAction === "bag-print" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : isAnyLoading ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
-              ) : (
-                <Printer className="size-3.5" />
-              )}
-              <span>
-                {isAnyLoading && !busyAction
-                  ? isAr ? "تحميل..." : "Loading..."
-                  : isAr ? "طباعة البيان" : "Print Checklist"}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* CARD 3: Master Center & Building Examination Manifest (Single Page Blueprint) */}
-        <div className="card p-5 border border-indigo-500/30 hover:border-indigo-500/50 shadow-xs transition-all relative overflow-hidden group bg-indigo-500/[0.02]">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="size-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-lg">
-                📋
-              </div>
-              <div>
-                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
-                  A4 Strict Single Page
+            {/* CARD 3: Master Center & Building Examination Manifest (Single Page Blueprint) */}
+            <div className="card p-5 border border-indigo-500/30 hover:border-indigo-500/50 shadow-xs transition-all relative overflow-hidden group bg-indigo-500/[0.02]">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-lg">
+                    📋
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
+                      A4 Strict Single Page
+                    </span>
+                    <h3 className="text-base font-extrabold text-foreground">
+                      {isAr ? "بيان الحصر العام للجان ومبنى الامتحان" : "Master Center & Building Manifest"}
+                    </h3>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-xs font-bold">
+                  EST I & II Manifest
                 </span>
-                <h3 className="text-base font-extrabold text-foreground">
-                  {isAr ? "بيان الحصر العام للجان ومبنى الامتحان" : "Master Center & Building Manifest"}
-                </h3>
+              </div>
+
+              <p className="text-xs text-muted mb-4 leading-relaxed">
+                {isAr
+                  ? "ورقة مقاس A4 واحدة تجمع كافة تفاصيل السنتر والمبنى: الأدوار، القاعات، مواد الامتحان في كل قاعة، وأعداد الطلاب لـ EST 1 و EST 2 مع إجمالي الحصر."
+                  : "Strict single-page master blueprint detailing center, building, floors, rooms, subjects for both EST I & EST II, and total candidate allocations."}
+              </p>
+
+              <div className="flex items-center gap-2 pt-3 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => handleLogisticsAction("manifest", "show")}
+                  disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface-soft hover:bg-surface-strong text-foreground text-xs font-bold border border-border transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {busyAction === "manifest-show" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : isAnyLoading ? (
+                    <Loader2 className="size-3.5 animate-spin opacity-70" />
+                  ) : (
+                    <Eye className="size-3.5" />
+                  )}
+                  <span>
+                    {!isTargetSelected
+                      ? isAr ? "اختر المبنى أولاً" : "Select Building"
+                      : isAnyLoading && !busyAction
+                      ? isAr ? "جاري التحميل..." : "Loading..."
+                      : isAr ? "معاينة البيان" : "Preview Manifest"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLogisticsAction("manifest", "print")}
+                  disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {busyAction === "manifest-print" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : isAnyLoading ? (
+                    <Loader2 className="size-3.5 animate-spin opacity-70" />
+                  ) : (
+                    <Printer className="size-3.5" />
+                  )}
+                  <span>
+                    {!isTargetSelected
+                      ? isAr ? "اختر المبنى أولاً" : "Select Building"
+                      : isAnyLoading && !busyAction
+                      ? isAr ? "تحميل..." : "Loading..."
+                      : isAr ? "طباعة البيان" : "Print Manifest"}
+                  </span>
+                </button>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 text-xs font-bold">
-              EST I & II Manifest
-            </span>
-          </div>
 
-          <p className="text-xs text-muted mb-4 leading-relaxed">
-            {isAr
-              ? "ورقة مقاس A4 واحدة تجمع كافة تفاصيل السنتر والمبنى: الأدوار، القاعات، مواد الامتحان في كل قاعة، وأعداد الطلاب لـ EST 1 و EST 2 مع إجمالي الحصر."
-              : "Strict single-page master blueprint detailing center, building, floors, rooms, subjects for both EST I & EST II, and total candidate allocations."}
-          </p>
-
-          <div className="flex items-center gap-2 pt-3 border-t border-border/60">
-            <button
-              type="button"
-              onClick={() => handleLogisticsAction("manifest", "show")}
-              disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface-soft hover:bg-surface-strong text-foreground text-xs font-bold border border-border transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {busyAction === "manifest-show" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : isAnyLoading ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
-              ) : (
-                <Eye className="size-3.5" />
-              )}
-              <span>
-                {isAnyLoading && !busyAction
-                  ? isAr ? "جاري التحميل..." : "Loading..."
-                  : isAr ? "معاينة البيان" : "Preview Manifest"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLogisticsAction("manifest", "print")}
-              disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {busyAction === "manifest-print" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : isAnyLoading ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
-              ) : (
-                <Printer className="size-3.5" />
-              )}
-              <span>
-                {isAnyLoading && !busyAction
-                  ? isAr ? "تحميل..." : "Loading..."
-                  : isAr ? "طباعة البيان" : "Print Manifest"}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* CARD 4: Official Clean Skin Emergency Reserve Packet (Master Custody - 2 Pages) */}
-        <div className="card p-5 border border-red-500/30 hover:border-red-500/50 shadow-xs transition-all relative overflow-hidden group bg-red-500/[0.02]">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="size-10 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-lg">
-                🛡️
-              </div>
-              <div>
-                <span className="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider block">
-                  A4 2-Page Master Dossier
+            {/* CARD 4: Official Clean Skin Emergency Reserve Packet (Master Custody - 2 Pages) */}
+            <div className="card p-5 border border-red-500/30 hover:border-red-500/50 shadow-xs transition-all relative overflow-hidden group bg-red-500/[0.02]">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-10 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 flex items-center justify-center font-bold text-lg">
+                    🛡️
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider block">
+                      A4 2-Page Master Dossier
+                    </span>
+                    <h3 className="text-base font-extrabold text-foreground">
+                      {isAr ? "كيس طوارئ الكنترول وبيان الحصر الشامل" : "Emergency Reserve Master Packet"}
+                    </h3>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-md bg-red-500/10 text-red-700 dark:text-red-400 text-xs font-bold">
+                  2 Pages (Manifest + Log)
                 </span>
-                <h3 className="text-base font-extrabold text-foreground">
-                  {isAr ? "كيس طوارئ الكنترول وبيان الحصر الشامل" : "Emergency Reserve Master Packet"}
-                </h3>
               </div>
-            </div>
-            <span className="px-2 py-0.5 rounded-md bg-red-500/10 text-red-700 dark:text-red-400 text-xs font-bold">
-              2 Pages (Manifest + Log)
-            </span>
-          </div>
 
-          <p className="text-xs text-muted mb-4 leading-relaxed">
-            {isAr
-              ? "حزمة متكاملة من صفحتين: صفحة 1 بيان الحصر الشامل لكافة اللجان والمبنى، وصفحة 2 جدول سجل صرف الطوارئ لكيس الكنترول المسطر بـ 18 صفاً."
-              : "Comprehensive 2-page Master Control Dossier: Page 1 Master Building Manifest + Page 2 Emergency Dispatch Log Sheet with 18 incident tracking rows."}
-          </p>
+              <p className="text-xs text-muted mb-4 leading-relaxed">
+                {isAr
+                  ? "حزمة متكاملة من صفحتين: صفحة 1 بيان الحصر الشامل لكافة اللجان والمبنى، وصفحة 2 جدول سجل صرف الطوارئ لكيس الكنترول المسطر بـ 18 صفاً."
+                  : "Comprehensive 2-page Master Control Dossier: Page 1 Master Building Manifest + Page 2 Emergency Dispatch Log Sheet with 18 incident tracking rows."}
+              </p>
 
-          <div className="flex items-center gap-2 pt-3 border-t border-border/60">
-            <button
-              type="button"
-              onClick={() => handleLogisticsAction("clean_skin_master", "show")}
-              disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface-soft hover:bg-surface-strong text-foreground text-xs font-bold border border-border transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {busyAction === "clean_skin_master-show" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : isAnyLoading ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
-              ) : (
-                <Eye className="size-3.5" />
-              )}
-              <span>
-                {isAnyLoading && !busyAction
-                  ? isAr ? "جاري التحميل..." : "Loading..."
-                  : isAr ? "معاينة (2 صفحة)" : "Preview (2 Pages)"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLogisticsAction("clean_skin_master", "print")}
-              disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {busyAction === "clean_skin_master-print" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : isAnyLoading ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
-              ) : (
-                <Printer className="size-3.5" />
-              )}
-              <span>
-                {isAnyLoading && !busyAction
-                  ? isAr ? "تحميل..." : "Loading..."
-                  : isAr ? "طباعة الباقة (2 صفحة)" : "Print Packet (2 Pages)"}
-              </span>
-            </button>
-          </div>
-
-          {/* Sub-action quick preview pills */}
-          <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-border/40 text-[11px]">
-            <span className="text-muted text-[10.5px]">
-              {isAr ? "معاينة الصفحات منفردة:" : "Standalone Sheets:"}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleLogisticsAction("manifest", "show")}
-                disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-                className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold cursor-pointer disabled:opacity-50"
-              >
-                {isAr ? "صفحة 1: بيان الحصر" : "Pg 1: Manifest"}
-              </button>
-              <span className="text-muted/40">•</span>
-              <button
-                type="button"
-                onClick={() => handleLogisticsAction("clean_skin_log", "show")}
-                disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-                className="text-red-600 dark:text-red-400 hover:underline font-semibold cursor-pointer disabled:opacity-50"
-              >
-                {isAr ? "صفحة 2: سجل الصرف" : "Pg 2: Incident Log"}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* CARD 4: Clean Skin Individual Subjects Stickers */}
-        <div className="card p-5 border border-orange-500/30 hover:border-orange-500/50 shadow-xs transition-all relative overflow-hidden group bg-orange-500/[0.02]">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="size-10 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold text-lg">
-                🏷️
+              <div className="flex items-center gap-2 pt-3 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => handleLogisticsAction("clean_skin_master", "show")}
+                  disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface-soft hover:bg-surface-strong text-foreground text-xs font-bold border border-border transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {busyAction === "clean_skin_master-show" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : isAnyLoading ? (
+                    <Loader2 className="size-3.5 animate-spin opacity-70" />
+                  ) : (
+                    <Eye className="size-3.5" />
+                  )}
+                  <span>
+                    {!isTargetSelected
+                      ? isAr ? "اختر المبنى أولاً" : "Select Building"
+                      : isAnyLoading && !busyAction
+                      ? isAr ? "جاري التحميل..." : "Loading..."
+                      : isAr ? "معاينة (2 صفحة)" : "Preview (2 Pages)"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLogisticsAction("clean_skin_master", "print")}
+                  disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {busyAction === "clean_skin_master-print" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : isAnyLoading ? (
+                    <Loader2 className="size-3.5 animate-spin opacity-70" />
+                  ) : (
+                    <Printer className="size-3.5" />
+                  )}
+                  <span>
+                    {!isTargetSelected
+                      ? isAr ? "اختر المبنى أولاً" : "Select Building"
+                      : isAnyLoading && !busyAction
+                      ? isAr ? "تحميل..." : "Loading..."
+                      : isAr ? "طباعة الباقة (2 صفحة)" : "Print Packet (2 Pages)"}
+                  </span>
+                </button>
               </div>
-              <div>
-                <span className="text-[11px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider block">
-                  Quarter A4 (4-up)
+
+              {/* Sub-action quick preview pills */}
+              <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-border/40 text-[11px]">
+                <span className="text-muted text-[10.5px]">
+                  {isAr ? "معاينة الصفحات منفردة:" : "Standalone Sheets:"}
                 </span>
-                <h3 className="text-base font-extrabold text-foreground">
-                  {isAr ? "ستيكرات مواد الطوارئ (Subject Packets)" : "Clean Skin Subject Stickers"}
-                </h3>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleLogisticsAction("manifest", "show")}
+                    disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                    className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold cursor-pointer disabled:opacity-50"
+                  >
+                    {isAr ? "صفحة 1: بيان الحصر" : "Pg 1: Manifest"}
+                  </button>
+                  <span className="text-muted/40">•</span>
+                  <button
+                    type="button"
+                    onClick={() => handleLogisticsAction("clean_skin_log", "show")}
+                    disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                    className="text-red-600 dark:text-red-400 hover:underline font-semibold cursor-pointer disabled:opacity-50"
+                  >
+                    {isAr ? "صفحة 2: سجل الصرف" : "Pg 2: Incident Log"}
+                  </button>
+                </div>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded-md bg-orange-500/10 text-orange-700 dark:text-orange-400 text-xs font-bold">
-              Quarter-A4
-            </span>
-          </div>
 
-          <p className="text-xs text-muted mb-4 leading-relaxed">
-            {isAr
-              ? "ستيكرات ربع A4 مقسمة 4 في الصفحة، مجهزة للمواد مع خانة عدد فارغة ومسطرة لكتابة العدد يدوياً بالقلم بعد التعبئة."
-              : "Quarter-A4 stickers (4-up on A4 landscape) with blank quantity boxes formatted for manual pen entry."}
-          </p>
+            {/* CARD 5: Clean Skin Individual Subjects Stickers */}
+            <div className="card p-5 border border-orange-500/30 hover:border-orange-500/50 shadow-xs transition-all relative overflow-hidden group bg-orange-500/[0.02]">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-10 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold text-lg">
+                    🏷️
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider block">
+                      Quarter A4 (4-up)
+                    </span>
+                    <h3 className="text-base font-extrabold text-foreground">
+                      {isAr ? "ستيكرات مواد الطوارئ (Subject Packets)" : "Clean Skin Subject Stickers"}
+                    </h3>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-md bg-orange-500/10 text-orange-700 dark:text-orange-400 text-xs font-bold">
+                  Quarter-A4
+                </span>
+              </div>
 
-          <div className="flex items-center gap-2 pt-3 border-t border-border/60">
-            <button
-              type="button"
-              onClick={() => handleLogisticsAction("clean_skin_subjects", "show")}
-              disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface-soft hover:bg-surface-strong text-foreground text-xs font-bold border border-border transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {busyAction === "clean_skin_subjects-show" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : isAnyLoading ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
-              ) : (
-                <Eye className="size-3.5" />
-              )}
-              <span>
-                {isAnyLoading && !busyAction
-                  ? isAr ? "جاري التحميل..." : "Loading..."
-                  : isAr ? "معاينة PDF" : "Preview PDF"}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleLogisticsAction("clean_skin_subjects", "print")}
-              disabled={Boolean(busyAction) || isAnyLoading || totalRoomsCount === 0}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {busyAction === "clean_skin_subjects-print" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : isAnyLoading ? (
-                <Loader2 className="size-3.5 animate-spin opacity-70" />
-              ) : (
-                <Printer className="size-3.5" />
-              )}
-              <span>
-                {isAnyLoading && !busyAction
-                  ? isAr ? "تحميل..." : "Loading..."
-                  : isAr ? "طباعة الستيكرات" : "Print Stickers"}
-              </span>
-            </button>
+              <p className="text-xs text-muted mb-4 leading-relaxed">
+                {isAr
+                  ? "ستيكرات ربع A4 مقسمة 4 في الصفحة، مجهزة للمواد مع خانة عدد فارغة ومسطرة لكتابة العدد يدوياً بالقلم بعد التعبئة."
+                  : "Quarter-A4 stickers (4-up on A4 landscape) with blank quantity boxes formatted for manual pen entry."}
+              </p>
+
+              <div className="flex items-center gap-2 pt-3 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => handleLogisticsAction("clean_skin_subjects", "show")}
+                  disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-surface-soft hover:bg-surface-strong text-foreground text-xs font-bold border border-border transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {busyAction === "clean_skin_subjects-show" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : isAnyLoading ? (
+                    <Loader2 className="size-3.5 animate-spin opacity-70" />
+                  ) : (
+                    <Eye className="size-3.5" />
+                  )}
+                  <span>
+                    {!isTargetSelected
+                      ? isAr ? "اختر المبنى أولاً" : "Select Building"
+                      : isAnyLoading && !busyAction
+                      ? isAr ? "جاري التحميل..." : "Loading..."
+                      : isAr ? "معاينة PDF" : "Preview PDF"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLogisticsAction("clean_skin_subjects", "print")}
+                  disabled={Boolean(busyAction) || !isTargetSelected || isAnyLoading || totalRoomsCount === 0}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {busyAction === "clean_skin_subjects-print" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : isAnyLoading ? (
+                    <Loader2 className="size-3.5 animate-spin opacity-70" />
+                  ) : (
+                    <Printer className="size-3.5" />
+                  )}
+                  <span>
+                    {!isTargetSelected
+                      ? isAr ? "اختر المبنى أولاً" : "Select Building"
+                      : isAnyLoading && !busyAction
+                      ? isAr ? "تحميل..." : "Loading..."
+                      : isAr ? "طباعة الستيكرات" : "Print Stickers"}
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Modal for PDF Preview */}
       <StickerPreviewModal

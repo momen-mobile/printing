@@ -249,19 +249,8 @@ export function normalizeFloorsData(options: LogisticsStickerOptions): Normalize
     return cleanAndSortFloors(raw);
   }
 
-  // 5. Default fallback: 2 floors
-  return [
-    {
-      floor: "2nd Floor",
-      rooms: [{ room: "201", studentCount: 0 }, { room: "202", studentCount: 0 }, { room: "203", studentCount: 0 }],
-      totalStudents: 0,
-    },
-    {
-      floor: "3rd Floor",
-      rooms: [{ room: "301", studentCount: 0 }, { room: "302", studentCount: 0 }, { room: "303", studentCount: 0 }],
-      totalStudents: 0,
-    },
-  ];
+  // 3. No rooms or floors provided: return empty array (zero fake data)
+  return [];
 }
 
 /**
@@ -269,15 +258,12 @@ export function normalizeFloorsData(options: LogisticsStickerOptions): Normalize
  * Affixed to the outside of the large carton box containing all room packets for that building.
  * Displays all Floors in the building, and for each floor, lists its constituent rooms with checkboxes.
  */
-export async function generateBuildingCartonStickerPdf(
+export async function renderBuildingCartonPage(
+  pdfDoc: PDFDocument,
   options: LogisticsStickerOptions,
-): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.create();
-  pdfDoc.registerFontkit(fontkit);
-
-  const font = await loadStickerFont(pdfDoc);
-  const logoImg = await loadLogoImage(pdfDoc);
-
+  font: any,
+  logoImg: any,
+): Promise<void> {
   // A4 Landscape: 841.89 x 595.28 pt
   const width = 841.89;
   const height = 595.28;
@@ -603,133 +589,187 @@ export async function generateBuildingCartonStickerPdf(
   const contentW = rightW - 16;
 
   const numFloors = floors.length;
-  const floorCols = numFloors <= 3 ? 1 : 2;
-  const floorRows = Math.ceil(numFloors / floorCols);
-  const gapX = 8;
-  const gapY = 8;
-  const fCardW = (contentW - (floorCols - 1) * gapX) / floorCols;
-  const fCardH = (contentH - (floorRows - 1) * gapY) / floorRows;
-
-  for (let fi = 0; fi < numFloors; fi++) {
-    const fl = floors[fi];
-    const col = fi % floorCols;
-    const row = Math.floor(fi / floorCols);
-    const fx = rightX + 8 + col * (fCardW + gapX);
-    const fy = contentTop - (row + 1) * fCardH - row * gapY;
-
-    // Floor Card Outer Box
-    page.drawRectangle({
-      x: fx,
-      y: fy,
-      width: fCardW,
-      height: fCardH,
-      color: COLOR_WHITE,
-      borderColor: COLOR_BORDER,
-      borderWidth: 1,
-    });
-
-    // Floor Header Ribbon
-    const fHeaderH = 20;
-    const fHeaderY = fy + fCardH - fHeaderH;
-    page.drawRectangle({
-      x: fx + 0.5,
-      y: fHeaderY,
-      width: fCardW - 1,
-      height: fHeaderH,
-      color: COLOR_LIGHT_BG,
-      borderColor: COLOR_BORDER,
-      borderWidth: 0.5,
-    });
-
-    // Floor Title (left)
-    const floorLabel = fl.floor.toUpperCase();
-    page.drawText(floorLabel, {
-      x: fx + 8,
-      y: fHeaderY + 6,
-      size: 8.5,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-
-    // Floor Badge (right): "3 Rooms • 80 Candidates" or "3 Rooms • Pending Upload"
-    const badgeText =
-      fl.totalStudents > 0
-        ? `${fl.rooms.length} Rooms  •  ${fl.totalStudents} Candidates`
-        : `${fl.rooms.length} Rooms  •  Pending Upload`;
-    const badgeW = font.widthOfTextAtSize(badgeText, 7.5);
-    page.drawText(badgeText, {
-      x: fx + fCardW - badgeW - 8,
-      y: fHeaderY + 6,
-      size: 7.5,
+  if (numFloors === 0) {
+    const emptyNotice = "NO FLOORS OR ROOMS REGISTERED YET";
+    const subNotice = "[ This building currently has no floor or room records uploaded ]";
+    page.drawText(emptyNotice, {
+      x: rightX + 24,
+      y: bodyBottom + bodyH / 2 + 10,
+      size: 13,
       font,
       color: COLOR_MUTED,
     });
+    page.drawText(subNotice, {
+      x: rightX + 24,
+      y: bodyBottom + bodyH / 2 - 12,
+      size: 9,
+      font,
+      color: COLOR_MUTED,
+    });
+  } else {
+    const floorCols = numFloors <= 3 ? 1 : 2;
+    const floorRows = Math.ceil(numFloors / floorCols);
+    const gapX = 8;
+    const gapY = 8;
+    const fCardW = (contentW - (floorCols - 1) * gapX) / floorCols;
+    const fCardH = (contentH - (floorRows - 1) * gapY) / floorRows;
 
-    // Rooms Grid inside Floor Card
-    const rAreaTop = fHeaderY - 4;
-    const rAreaBottom = fy + 4;
-    const rAreaH = rAreaTop - rAreaBottom;
-    const rAreaW = fCardW - 12;
+    for (let fi = 0; fi < numFloors; fi++) {
+      const fl = floors[fi];
+      const col = fi % floorCols;
+      const row = Math.floor(fi / floorCols);
+      const fx = rightX + 8 + col * (fCardW + gapX);
+      const fy = contentTop - (row + 1) * fCardH - row * gapY;
 
-    const rCount = fl.rooms.length;
-    const rCols = floorCols === 1
-      ? (rCount > 6 ? 4 : rCount > 3 ? 3 : rCount)
-      : (rCount > 6 ? 3 : rCount > 2 ? 2 : rCount);
-    const rRows = Math.max(1, Math.ceil(rCount / Math.max(1, rCols)));
-    const rGapX = 5;
-    const rGapY = 4;
-    const rCellW = (rAreaW - (rCols - 1) * rGapX) / rCols;
-    const rCellH = Math.min(26, (rAreaH - (rRows - 1) * rGapY) / rRows);
-
-    for (let ri = 0; ri < rCount; ri++) {
-      const rm = fl.rooms[ri];
-      const rCol = ri % rCols;
-      const rRow = Math.floor(ri / rCols);
-      const rcx = fx + 6 + rCol * (rCellW + rGapX);
-      const rcy = rAreaTop - (rRow + 1) * rCellH - rRow * rGapY;
-
-      // Room Chip Background
+      // Floor Card Outer Box
       page.drawRectangle({
-        x: rcx,
-        y: rcy,
-        width: rCellW,
-        height: rCellH,
+        x: fx,
+        y: fy,
+        width: fCardW,
+        height: fCardH,
+        color: COLOR_WHITE,
+        borderColor: COLOR_BORDER,
+        borderWidth: 1,
+      });
+
+      // Floor Header Ribbon
+      const fHeaderH = 20;
+      const fHeaderY = fy + fCardH - fHeaderH;
+      page.drawRectangle({
+        x: fx + 0.5,
+        y: fHeaderY,
+        width: fCardW - 1,
+        height: fHeaderH,
         color: COLOR_LIGHT_BG,
         borderColor: COLOR_BORDER,
-        borderWidth: 0.6,
+        borderWidth: 0.5,
       });
 
-      // Checkbox square (10x10)
-      page.drawRectangle({
-        x: rcx + 5,
-        y: rcy + (rCellH - 10) / 2,
-        width: 10,
-        height: 10,
-        color: COLOR_WHITE,
-        borderColor: COLOR_CHARCOAL,
-        borderWidth: 0.8,
-      });
-
-      // Room Name & Student Count Label
-      let label = rm.room;
-      if (rm.studentCount) {
-        label += ` (${rm.studentCount})`;
-      }
-      let fSize = 8;
-      let textW = font.widthOfTextAtSize(label, fSize);
-      if (textW > rCellW - 20) {
-        fSize = Math.max(6.5, ((rCellW - 20) / textW) * fSize);
-        textW = font.widthOfTextAtSize(label, fSize);
-      }
-
-      page.drawText(label, {
-        x: rcx + 18,
-        y: rcy + (rCellH - fSize) / 2 + 1,
-        size: fSize,
+      // Floor Title (left)
+      const floorLabel = fl.floor.toUpperCase();
+      page.drawText(floorLabel, {
+        x: fx + 8,
+        y: fHeaderY + 6,
+        size: 8.5,
         font,
         color: COLOR_CHARCOAL,
       });
+
+      // Floor Badge (right): "3 Rooms • 80 Candidates" or "3 Rooms • Pending Upload"
+      const badgeText =
+        fl.totalStudents > 0
+          ? `${fl.rooms.length} Rooms  •  ${fl.totalStudents} Candidates`
+          : `${fl.rooms.length} Rooms  •  Pending Upload`;
+      const badgeW = font.widthOfTextAtSize(badgeText, 7.5);
+      page.drawText(badgeText, {
+        x: fx + fCardW - badgeW - 8,
+        y: fHeaderY + 6,
+        size: 7.5,
+        font,
+        color: COLOR_MUTED,
+      });
+
+      // Rooms Grid inside Floor Card
+      const rAreaTop = fHeaderY - 4;
+      const rAreaBottom = fy + 4;
+      const rAreaH = rAreaTop - rAreaBottom;
+      const rAreaW = fCardW - 12;
+
+      const rCount = fl.rooms.length;
+      const rCols = floorCols === 1
+        ? (rCount > 6 ? 4 : rCount > 3 ? 3 : rCount)
+        : (rCount > 6 ? 3 : rCount > 2 ? 2 : rCount);
+      const rRows = Math.max(1, Math.ceil(rCount / Math.max(1, rCols)));
+      const rGapX = 5;
+      const rGapY = 4;
+      const rCellW = (rAreaW - (rCols - 1) * rGapX) / rCols;
+      const rCellH = Math.min(26, (rAreaH - (rRows - 1) * rGapY) / rRows);
+
+      for (let ri = 0; ri < rCount; ri++) {
+        const rm = fl.rooms[ri];
+        const rCol = ri % rCols;
+        const rRow = Math.floor(ri / rCols);
+        const rcx = fx + 6 + rCol * (rCellW + rGapX);
+        const rcy = rAreaTop - (rRow + 1) * rCellH - rRow * rGapY;
+
+        // Room Chip Background
+        page.drawRectangle({
+          x: rcx,
+          y: rcy,
+          width: rCellW,
+          height: rCellH,
+          color: COLOR_LIGHT_BG,
+          borderColor: COLOR_BORDER,
+          borderWidth: 0.6,
+        });
+
+        // Checkbox square (10x10)
+        page.drawRectangle({
+          x: rcx + 5,
+          y: rcy + (rCellH - 10) / 2,
+          width: 10,
+          height: 10,
+          color: COLOR_WHITE,
+          borderColor: COLOR_CHARCOAL,
+          borderWidth: 0.8,
+        });
+
+        // Room Name & Student Count Label
+        let label = rm.room;
+        if (rm.studentCount) {
+          label += ` (${rm.studentCount})`;
+        }
+        let fSize = 8;
+        let textW = font.widthOfTextAtSize(label, fSize);
+        if (textW > rCellW - 20) {
+          fSize = Math.max(6.5, ((rCellW - 20) / textW) * fSize);
+          textW = font.widthOfTextAtSize(label, fSize);
+        }
+
+        page.drawText(label, {
+          x: rcx + 18,
+          y: rcy + (rCellH - fSize) / 2 + 1,
+          size: fSize,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+      }
     }
+  }
+}
+
+/**
+ * 1. Building Master Carton Sticker (A4 Landscape)
+ * Generates single-page official carton placard.
+ */
+export async function generateBuildingCartonStickerPdf(
+  options: LogisticsStickerOptions,
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+
+  const font = await loadStickerFont(pdfDoc);
+  const logoImg = await loadLogoImage(pdfDoc);
+
+  await renderBuildingCartonPage(pdfDoc, options, font, logoImg);
+  return await pdfDoc.save();
+}
+
+/**
+ * Batch Building Master Carton Stickers (A4 Landscape Multi-Page)
+ * Generates a unified multi-page PDF where each carton placard occupies one complete A4 page.
+ */
+export async function generateBatchBuildingCartonStickersPdf(
+  cartons: LogisticsStickerOptions[],
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+
+  const font = await loadStickerFont(pdfDoc);
+  const logoImg = await loadLogoImage(pdfDoc);
+
+  for (const cartonOpt of cartons) {
+    await renderBuildingCartonPage(pdfDoc, cartonOpt, font, logoImg);
   }
 
   return await pdfDoc.save();

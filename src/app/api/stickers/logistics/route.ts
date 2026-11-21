@@ -9,6 +9,7 @@ import { listStickerChildren } from "@/lib/stickers/drive-hierarchy";
 import { isRoomFolderName } from "@/lib/stickers/register-utils";
 import {
   generateBuildingCartonStickerPdf,
+  generateBatchBuildingCartonStickersPdf,
   generateExamBagChecklistPdf,
   generateCleanSkinMasterPdf,
   generateMasterBuildingManifestPdf,
@@ -612,4 +613,64 @@ export async function GET(request: Request) {
     return jsonError(error);
   }
 }
+
+export async function POST(request: Request) {
+  try {
+    await requireSession(request);
+    enforceRateLimit(request, "logistics:generate:post", 120, 60_000);
+
+    const body = await request.json().catch(() => ({}));
+    const type = body.type || "batch-carton";
+
+    if (type === "batch-carton") {
+      const cartons: LogisticsStickerOptions[] = Array.isArray(body.cartons) ? body.cartons : [];
+      if (cartons.length === 0) {
+        return NextResponse.json({ error: "No cartons provided for batch print" }, { status: 400 });
+      }
+
+      const pdfBytes = await generateBatchBuildingCartonStickersPdf(cartons);
+      const filename = `Batch-Cartons-${body.examName || "EST"}-${Date.now()}.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${encodeURIComponent(filename)}"`,
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // Single carton print via POST
+    const options: LogisticsStickerOptions = {
+      examName: body.examName || "EST 1",
+      governorate: body.governorate || "Alexandria",
+      center: body.center || "Main Center",
+      building: body.building || "Building HQ",
+      date: body.date || "December 2026",
+      boxNumber: Number(body.boxNumber) || 1,
+      totalBoxes: Number(body.totalBoxes) || 1,
+      totalRooms: Number(body.totalRooms) || undefined,
+      totalStudents: Number(body.totalStudents) || undefined,
+      securitySeal: body.securitySeal || undefined,
+      floors: Array.isArray(body.floors) ? body.floors : undefined,
+      roomNames: Array.isArray(body.roomNames) ? body.roomNames : undefined,
+    };
+
+    const pdfBytes = await generateBuildingCartonStickerPdf(options);
+    const filename = `Carton-${options.building || "Building"}.pdf`;
+
+    return new NextResponse(Buffer.from(pdfBytes), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${encodeURIComponent(filename.replace(/[/\\?%*:|"<>]/g, "_"))}"`,
+        "Cache-Control": "private, no-cache, no-store, must-revalidate",
+      },
+    });
+  } catch (error) {
+    return jsonError(error);
+  }
+}
+
 
