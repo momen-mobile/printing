@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { cookies } from "next/headers";
 import { PROFILES, PROFILE_COOKIE, type ProfileId } from "@/lib/profiles";
-import { setSessionCookie } from "@/lib/session-server";
+import { createSessionToken, SESSION_COOKIE } from "@/lib/session";
+import { sessionCookieOptions } from "@/lib/session-server";
 
 export const dynamic = "force-dynamic";
 
@@ -29,17 +30,20 @@ export async function POST(request: Request) {
     const profile = PROFILES[profileId];
 
     // Create session token to authenticate future API calls
-    await setSessionCookie();
+    const sessionToken = await createSessionToken();
 
-    const store = await cookies();
-    store.set(PROFILE_COOKIE, profileId, {
+    const response = NextResponse.json({ ok: true, profile });
+
+    // Set cookies directly on response headers - 100% compatible with Node, Vercel, and Cloudflare Workers
+    response.cookies.set(SESSION_COOKIE, sessionToken, sessionCookieOptions());
+    response.cookies.set(PROFILE_COOKIE, profileId, {
       path: "/",
       maxAge: 60 * 60 * 24 * 30, // 30 days
       sameSite: "lax",
       httpOnly: false,
     });
 
-    return NextResponse.json({ ok: true, profile });
+    return response;
   } catch (err) {
     console.error("[api/auth/profile] Error switching profile:", err);
     return NextResponse.json(
@@ -53,8 +57,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE() {
-  const store = await cookies();
-  store.set(PROFILE_COOKIE, "", { path: "/", maxAge: 0 });
-  return NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set(PROFILE_COOKIE, "", { path: "/", maxAge: 0 });
+  response.cookies.set(SESSION_COOKIE, "", { path: "/", maxAge: 0 });
+  return response;
 }
 
