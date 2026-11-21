@@ -774,31 +774,23 @@ export default function LogisticsHubPage() {
           } catch {}
         }
 
-        const schoolsFolder = folders.find((f) => /^schools|المدارس|مدارس$/i.test(f.name.trim()));
-
-        // City folders under the exam (exclude Schools and auxiliary schedules)
-        const cityFolders = folders.filter(
-          (f) =>
-            !/^schools|المدارس|مدارس$/i.test(f.name.trim()) &&
-            !/schedule|جدول|backup/i.test(f.name.trim()),
+        // City/Governorate folders under the exam directly from Google Drive
+        const realFolders = folders.filter(
+          (f) => !/schedule|جدول|backup/i.test(f.name.trim()),
         );
 
         const destList: DestinationOption[] = [];
 
-        // Option 1: Schools
-        destList.push({
-          id: schoolsFolder ? schoolsFolder.id : "schools",
-          name: isAr ? "🏫 المدارس (Schools)" : "🏫 Schools",
-          isSchools: true,
-        });
-
-        // Option 2..N: Cities / Governorates from Drive
-        for (const cf of cityFolders) {
+        // Build list strictly from folders present in Google Drive (NEVER inject fake/synthetic items)
+        for (const cf of realFolders) {
+          const isSchoolsFolder = /^schools|المدارس|مدارس$/i.test(cf.name.trim());
           destList.push({
             id: cf.id,
-            name: `📍 ${cf.name}`,
-            isSchools: false,
-            cityName: cf.name,
+            name: isSchoolsFolder
+              ? (isAr ? "🏫 المدارس (Schools)" : "🏫 Schools")
+              : `📍 ${cf.name}`,
+            isSchools: isSchoolsFolder,
+            cityName: isSchoolsFolder ? undefined : cf.name,
           });
         }
 
@@ -899,9 +891,9 @@ export default function LogisticsHubPage() {
 
   const activeGovernorateName = useMemo(() => {
     if (isSchoolMode) {
-      return selectedSchool?.governorate || "Alexandria";
+      return selectedSchool?.governorate || "";
     }
-    return selectedDest?.cityName || "Alexandria";
+    return selectedDest?.cityName || "";
   }, [isSchoolMode, selectedSchool, selectedDest]);
 
   const activeTargetFolderId = useMemo(() => {
@@ -1306,7 +1298,7 @@ export default function LogisticsHubPage() {
                 <label className="block text-xs font-bold text-muted mb-1.5 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <MapPin className="size-3.5 text-rose-500" />
-                    <span>{isAr ? "3. الوجهة (المدارس أو المدينة)" : "3. Destination (Schools/City)"}</span>
+                    <span>{isAr ? "3. المحافظة / المدينة" : "3. Governorate / City"}</span>
                   </span>
                   {loadingDestinations && <Loader2 className="size-3 animate-spin text-muted" />}
                 </label>
@@ -1353,7 +1345,7 @@ export default function LogisticsHubPage() {
                   <option value="">
                     {!selectedExamId
                       ? isAr ? "يرجى اختيار نوع الامتحان أولاً" : "Select exam first"
-                      : isAr ? "-- اختر المحافظة أو المدارس --" : "-- Select Destination / City --"}
+                      : isAr ? "-- اختر المحافظة --" : "-- Select Governorate / City --"}
                   </option>
                   {destinations.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -1510,7 +1502,7 @@ export default function LogisticsHubPage() {
                   <p className="text-xs text-muted leading-relaxed">
                     {isAr
                       ? "يرجى اتباع خطوات الاختيار أعلاه (1. الدورة ➔ 2. الامتحان ➔ 3. المحافظة ➔ 4. المدرسة أو السنتر والمبنى). لن يتم سحب أي بيانات أو طباعة كشوفات إلا بعد تحديد الهدف."
-                      : "Follow the steps above (1. Cycle ➔ 2. Exam ➔ 3. Destination ➔ 4. School / Building). Data is loaded strictly on-demand."}
+                      : "Follow the steps above (1. Cycle ➔ 2. Exam ➔ 3. Governorate ➔ 4. School / Building). Data is loaded strictly on-demand."}
                   </p>
                 </div>
 
@@ -1564,7 +1556,7 @@ export default function LogisticsHubPage() {
                       {selectedDestId ? "✓ " + (isAr ? "مكتمل" : "Done") : isAr ? "الخطوة 3" : "Step 3"}
                     </span>
                     <span className="text-xs font-extrabold block truncate">
-                      {selectedDest ? selectedDest.name.replace(/^📍\s*/, "") : isAr ? "3. المحافظة" : "3. Destination"}
+                      {selectedDest ? selectedDest.name.replace(/^📍\s*/, "") : isAr ? "3. المحافظة" : "3. Governorate"}
                     </span>
                   </div>
 
