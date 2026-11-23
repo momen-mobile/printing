@@ -69,6 +69,11 @@ async function loadStickerFont(pdfDoc: PDFDocument): Promise<any> {
   return await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 }
 
+export function isSchoolCenter(centerName?: string): boolean {
+  if (!centerName) return false;
+  return /school|مدرسة|اكاديمية|academy|college|lycee|lycée/i.test(centerName);
+}
+
 /**
  * Generates official Floor Exam Stickers (A4 Landscape Placards).
  * Each subject tested on this floor gets its own dedicated A4 bag placard.
@@ -109,6 +114,41 @@ export async function generateFloorExamStickersPdf(
       subjectIndex: idx,
       totalSubjects,
     });
+  }
+
+  return await pdfDoc.save();
+}
+
+/**
+ * Batch generates Floor Subject Bag Placards across multiple floors in one unified PDF.
+ */
+export async function generateBatchFloorSubjectBagsPdf(
+  floorBatches: FloorExamStickersOptions[],
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+
+  const font = await loadStickerFont(pdfDoc);
+  const logoImg = await loadLogoImage(pdfDoc);
+
+  for (const options of floorBatches) {
+    const subjects = options.subjects && options.subjects.length > 0
+      ? options.subjects
+      : [];
+    const totalSubjects = subjects.length;
+
+    for (let idx = 0; idx < totalSubjects; idx++) {
+      const subj = subjects[idx];
+      drawFloorSubjectPlacardPage({
+        pdfDoc,
+        font,
+        logoImg,
+        options,
+        subject: subj,
+        subjectIndex: idx,
+        totalSubjects,
+      });
+    }
   }
 
   return await pdfDoc.save();
@@ -223,7 +263,10 @@ function drawFloorSubjectPlacardPage(params: {
     borderWidth: 1,
   });
 
-  const locColW = (cardW - 24) / 4;
+  const isSchool = isSchoolCenter(options.center);
+  const hasDiffBuilding = Boolean(options.building && options.building !== options.center && !isSchool);
+  const numCols = hasDiffBuilding ? 4 : 3;
+  const locColW = (cardW - 24) / numCols;
 
   // 1. Governorate
   page.drawText("GOVERNORATE", {
@@ -241,8 +284,9 @@ function drawFloorSubjectPlacardPage(params: {
     color: COLOR_CHARCOAL,
   });
 
-  // 2. Test Center / School
-  page.drawText("TEST CENTER / SCHOOL", {
+  // 2. School or Test Center
+  const centerColTitle = isSchool ? "SCHOOL" : "TEST CENTER";
+  page.drawText(centerColTitle, {
     x: cardX + 12 + locColW + 10,
     y: locRibbonY + locRibbonH - 13,
     size: 7,
@@ -257,32 +301,35 @@ function drawFloorSubjectPlacardPage(params: {
     color: COLOR_CHARCOAL,
   });
 
-  // 3. Building
-  page.drawText("BUILDING", {
-    x: cardX + 12 + locColW * 2 + 10,
-    y: locRibbonY + locRibbonH - 13,
-    size: 7,
-    font,
-    color: COLOR_MUTED,
-  });
-  page.drawText(options.building || "Building HQ", {
-    x: cardX + 12 + locColW * 2 + 10,
-    y: locRibbonY + 8,
-    size: 12,
-    font,
-    color: COLOR_CHARCOAL,
-  });
+  if (hasDiffBuilding) {
+    // 3. Building
+    page.drawText("BUILDING", {
+      x: cardX + 12 + locColW * 2 + 10,
+      y: locRibbonY + locRibbonH - 13,
+      size: 7,
+      font,
+      color: COLOR_MUTED,
+    });
+    page.drawText(options.building || "Building HQ", {
+      x: cardX + 12 + locColW * 2 + 10,
+      y: locRibbonY + 8,
+      size: 12,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+  }
 
-  // 4. Floor
+  // Last. Floor
+  const floorColIdx = hasDiffBuilding ? 3 : 2;
   page.drawText("ASSIGNED FLOOR", {
-    x: cardX + 12 + locColW * 3 + 10,
+    x: cardX + 12 + locColW * floorColIdx + 10,
     y: locRibbonY + locRibbonH - 13,
     size: 7,
     font,
     color: COLOR_MUTED,
   });
   page.drawText(options.floorName || "Floor HQ", {
-    x: cardX + 12 + locColW * 3 + 10,
+    x: cardX + 12 + locColW * floorColIdx + 10,
     y: locRibbonY + 8,
     size: 13,
     font,

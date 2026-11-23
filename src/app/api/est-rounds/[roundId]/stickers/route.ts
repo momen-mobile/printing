@@ -5,7 +5,15 @@ import { ensureEstExamRoundTable, type EstRoundRow } from "@/lib/est-rounds";
 import {
   generateBatchStickerPdf,
   generateBatchExamStickersPdf,
+  isSchoolCenter,
+  expandSubjectName,
 } from "@/lib/stickers/sticker-pdf";
+import {
+  generateBatchFloorSubjectBagsPdf,
+  type FloorExamStickersOptions,
+  type FloorSubjectPlacardData,
+  type FloorRoomSubjectData,
+} from "@/lib/stickers/floor-exam-stickers-pdf";
 import type { StickerContent } from "@/lib/stickers/sticker-content";
 import type { RoomSubjectCount } from "@/lib/stickers/est-room-data";
 
@@ -79,6 +87,7 @@ export async function POST(
 
     // Helper to build Room StickerContent
     const buildRoomStickerContent = (row: EstRoundRow): StickerContent => {
+      const isSchool = isSchoolCenter(row.center);
       const roomSubjects: RoomSubjectCount[] = Object.entries(row.subjects || {})
         .filter(([_, count]) => count > 0)
         .map(([code, count]) => {
@@ -106,7 +115,7 @@ export async function POST(
         lines: [
           round.name,
           `Governorate : ${row.governorate}`,
-          `Center : ${row.center}`,
+          `${isSchool ? "School" : "Center"} : ${row.center}`,
           `Floor : ${row.floor}`,
           `Room : ${row.room}`,
         ],
@@ -118,12 +127,12 @@ export async function POST(
         examDay: roundDayStr,
         governorate: row.governorate,
         center: row.center,
-        building: row.center,
+        building: isSchool ? "" : row.center,
         floor: row.floor,
         room: row.room,
         fields: [
           { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: row.governorate },
-          { key: "center", label: "Center", labelAr: "السنتر", value: row.center },
+          { key: "center", label: isSchool ? "School" : "Center", labelAr: isSchool ? "المدرسة" : "السنتر", value: row.center },
           { key: "floor", label: "Floor", labelAr: "الدور", value: row.floor },
           { key: "room", label: "Room", labelAr: "القاعة", value: row.room },
         ],
@@ -164,7 +173,7 @@ export async function POST(
       });
     }
 
-    // 2. FLOOR PLACARDS (Senior Supervisor Dossiers)
+    // 2. FLOOR PLACARDS (Senior Supervisor Dossiers - Quarter-A4 4-Up)
     if (type === "floor_placards") {
       // Group target rows by governorate + center + floor
       const floorGroups = new Map<string, EstRoundRow[]>();
@@ -178,6 +187,7 @@ export async function POST(
       const floorContents: StickerContent[] = [];
       for (const [_, rows] of floorGroups.entries()) {
         const first = rows[0];
+        const isSchool = isSchoolCenter(first.center);
         const floorRooms = rows.map((r) => r.room);
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
 
@@ -186,7 +196,7 @@ export async function POST(
           lines: [
             round.name,
             `Governorate : ${first.governorate}`,
-            `Center : ${first.center}`,
+            `${isSchool ? "School" : "Center"} : ${first.center}`,
             `Floor : ${first.floor}`,
             `Total Rooms : ${rows.length}`,
           ],
@@ -198,7 +208,7 @@ export async function POST(
           examDay: roundDayStr,
           governorate: first.governorate,
           center: first.center,
-          building: first.center,
+          building: isSchool ? "" : first.center,
           floor: first.floor,
           childCount: rows.length,
           childLabel: "Rooms",
@@ -206,7 +216,7 @@ export async function POST(
           totalStudents,
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Center", labelAr: "السنتر", value: first.center },
+            { key: "center", label: isSchool ? "School" : "Center", labelAr: isSchool ? "المدرسة" : "السنتر", value: first.center },
             { key: "floor", label: "Floor", labelAr: "الدور", value: first.floor },
           ],
         });
@@ -233,7 +243,91 @@ export async function POST(
       });
     }
 
-    // 3. BUILDING / CENTER PLACARDS (Full-Page A4)
+    // 2.5 FLOOR SUBJECT BAG PLACARDS (Dedicated A4 Landscape Placard per subject per floor)
+    if (type === "floor_subject_bags") {
+      const floorGroups = new Map<string, EstRoundRow[]>();
+      for (const r of targetRows) {
+        const key = `${r.governorate}::${r.center}::${r.floor}`;
+        const existing = floorGroups.get(key) || [];
+        existing.push(r);
+        floorGroups.set(key, existing);
+      }
+
+      const floorBatches: FloorExamStickersOptions[] = [];
+      for (const [_, rows] of floorGroups.entries()) {
+        const first = rows[0];
+        const isSchool = isSchoolCenter(first.center);
+
+        // Collect all subjects that have candidates on this floor
+        const subjectMap = new Map<string, {
+          name: string;
+          rooms: FloorRoomSubjectData[];
+          totalCandidates: number;
+        }>();
+
+        for (const r of rows) {
+          for (const [code, count] of Object.entries(r.subjects || {})) {
+            if (count > 0) {
+              const existing = subjectMap.get(code) || {
+                name: expandSubjectName(code),
+                rooms: [],
+                totalCandidates: 0,
+              };
+              existing.rooms.push({
+                roomName: r.room,
+                candidateCount: count,
+              });
+              existing.totalCandidates += count;
+              subjectMap.set(code, existing);
+            }
+          }
+        }
+
+        if (subjectMap.size === 0) {
+          const totalStud = rows.reduce((s, r) => s + r.totalStudents, 0);
+          subjectMap.set("EXAM", {
+            name: round.examType === "EST 2" ? "EST II Subjects" : "EST I Subjects",
+            rooms: rows.map((r) => ({ roomName: r.room, candidateCount: r.totalStudents })),
+            totalCandidates: totalStud,
+          });
+        }
+
+        const floorSubjectsList: FloorSubjectPlacardData[] = Array.from(subjectMap.entries()).map(([code, data]) => ({
+          subjectCode: code,
+          subjectName: data.name,
+          examType: round.examType as "EST 1" | "EST 2",
+          totalRooms: data.rooms.length,
+          totalCandidates: data.totalCandidates,
+          rooms: data.rooms,
+        }));
+
+        floorBatches.push({
+          floorName: first.floor,
+          examName: round.name || round.examType,
+          governorate: first.governorate,
+          center: first.center,
+          building: isSchool ? "" : first.center,
+          date: [roundDayStr, roundDateStr].filter(Boolean).join(", "),
+          subjects: floorSubjectsList,
+        });
+      }
+
+      const pdfBytes = await generateBatchFloorSubjectBagsPdf(floorBatches);
+
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Floor_Subject_Bags.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 3. BUILDING / SCHOOL PLACARDS (Full-Page A4 Landscape)
     if (type === "building_placards") {
       const centerGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
@@ -246,6 +340,7 @@ export async function POST(
       const buildingContents: StickerContent[] = [];
       for (const [_, rows] of centerGroups.entries()) {
         const first = rows[0];
+        const isSchool = isSchoolCenter(first.center);
         const uniqueFloors = Array.from(new Set(rows.map((r) => r.floor)));
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
 
@@ -254,12 +349,12 @@ export async function POST(
           lines: [
             round.name,
             `Governorate : ${first.governorate}`,
-            `Center : ${first.center}`,
+            `${isSchool ? "School" : "Center"} : ${first.center}`,
             `Total Floors : ${uniqueFloors.length}`,
             `Total Rooms : ${rows.length}`,
           ],
-          rawLines: ["EST", first.governorate, first.center, first.center],
-          cleanChain: ["EST", first.governorate, first.center, first.center],
+          rawLines: ["EST", first.governorate, first.center],
+          cleanChain: ["EST", first.governorate, first.center],
           examName: round.name || round.examType,
           examType: round.examType as "EST 1" | "EST 2",
           examDate: roundDateStr,
@@ -274,8 +369,7 @@ export async function POST(
           totalStudents,
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Center", labelAr: "السنتر", value: first.center },
-            { key: "building", label: "Building", labelAr: "المبنى", value: first.center },
+            { key: "center", label: isSchool ? "School" : "Center", labelAr: isSchool ? "المدرسة" : "السنتر", value: first.center },
           ],
         });
       }
@@ -283,7 +377,7 @@ export async function POST(
       const pdfBytes = await generateBatchStickerPdf({
         contents: buildingContents,
         paperMode: "a4",
-        orientation: "portrait",
+        orientation: "landscape", // A4 Landscape per user specification!
       });
 
       const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Building_Placards.pdf`;
@@ -299,7 +393,7 @@ export async function POST(
       });
     }
 
-    // 4. BUILDING HEAD PLACARDS
+    // 4. BUILDING HEAD PLACARDS (Quarter-A4 4-Up)
     if (type === "head_placards") {
       const centerGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
@@ -312,6 +406,7 @@ export async function POST(
       const headContents: StickerContent[] = [];
       for (const [_, rows] of centerGroups.entries()) {
         const first = rows[0];
+        const isSchool = isSchoolCenter(first.center);
         const uniqueFloors = Array.from(new Set(rows.map((r) => r.floor)));
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
 
@@ -321,7 +416,7 @@ export async function POST(
           lines: [
             round.name,
             `Governorate : ${first.governorate}`,
-            `Center : ${first.center}`,
+            `${isSchool ? "School" : "Center"} : ${first.center}`,
             `Total Floors : ${uniqueFloors.length}`,
             `Total Rooms : ${rows.length}`,
           ],
@@ -333,7 +428,7 @@ export async function POST(
           examDay: roundDayStr,
           governorate: first.governorate,
           center: first.center,
-          building: first.center,
+          building: isSchool ? "" : first.center,
           childCount: uniqueFloors.length,
           childLabel: "Floors",
           childNames: uniqueFloors,
@@ -341,18 +436,15 @@ export async function POST(
           totalStudents,
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Center", labelAr: "السنتر", value: first.center },
-            { key: "building", label: "Building", labelAr: "المبنى", value: first.center },
+            { key: "center", label: isSchool ? "School" : "Center", labelAr: isSchool ? "المدرسة" : "السنتر", value: first.center },
           ],
         });
       }
 
       const pdfBytes = await generateBatchStickerPdf({
         contents: headContents,
-        paperMode,
-        orientation,
-        widthMm,
-        heightMm,
+        paperMode: "a4",
+        orientation: "portrait",
       });
 
       const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Building_Head_Dossiers.pdf`;

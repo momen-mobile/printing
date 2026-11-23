@@ -21,6 +21,8 @@ import {
   Printer,
   RefreshCw,
   Search,
+  ShieldCheck,
+  ShoppingBag,
   Sparkles,
   Square,
   Tag,
@@ -415,7 +417,16 @@ export default function EstRoundsPage() {
 
   // Generate PDF Stickers
   const handleGeneratePdf = useCallback(
-    async (type: "room_placards" | "floor_placards" | "building_placards" | "head_placards" | "exam_stickers" | "bundle") => {
+    async (
+      type:
+        | "room_placards"
+        | "floor_placards"
+        | "floor_subject_bags"
+        | "building_placards"
+        | "head_placards"
+        | "exam_stickers"
+        | "bundle",
+    ) => {
       if (!activeRoundId) return;
 
       try {
@@ -869,13 +880,29 @@ export default function EstRoundsPage() {
                   <span>{isAr ? "ملفات الأدوار (Senior)" : "Floor Dossiers"}</span>
                 </Button>
 
-                {/* Print Building Placards */}
+                {/* Print Floor Subject Bags (A4 Landscape) */}
+                <Button
+                  variant="secondary"
+                  onClick={() => void handleGeneratePdf("floor_subject_bags")}
+                  disabled={isGenerating}
+                  className="cursor-pointer gap-1.5 text-xs h-9 px-3 border border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 font-bold shadow-xs"
+                  title={isAr ? "طباعة استيكرات أكياس المواد للأدوار بالحجم الكبير A4 بالعرض مع تفصيل اللجان وأعداد الطلاب" : "Print A4 Landscape Floor Subject Bag Placards with Room Directory & Candidate Counts"}
+                >
+                  {isGenerating && activeActionType === "floor_subject_bags" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <ShoppingBag className="size-4 text-amber-600" />
+                  )}
+                  <span>{isAr ? "أكياس مواد الأدوار (A4)" : "Floor Subject Bags"}</span>
+                </Button>
+
+                {/* Print Building Placards (A4 Landscape) */}
                 <Button
                   variant="secondary"
                   onClick={() => void handleGeneratePdf("building_placards")}
                   disabled={isGenerating}
                   className="cursor-pointer gap-1.5 text-xs h-9 px-3 border border-border hover:border-purple-500 font-bold"
-                  title={isAr ? "طباعة استيكرات المباني بحجم A4 كامل" : "Print Full-page A4 Building Placards"}
+                  title={isAr ? "طباعة استيكرات المباني بحجم A4 بالعرض (Landscape)" : "Print Full-page A4 Landscape Building Placards"}
                 >
                   {isGenerating && activeActionType === "building_placards" ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -885,20 +912,20 @@ export default function EstRoundsPage() {
                   <span>{isAr ? "استيكرات المباني (A4)" : "Building Placards"}</span>
                 </Button>
 
-                {/* Print Complete Bundle */}
+                {/* Print Building Head Dossiers (Quarter A4) */}
                 <Button
                   variant="secondary"
-                  onClick={() => void handleGeneratePdf("bundle")}
+                  onClick={() => void handleGeneratePdf("head_placards")}
                   disabled={isGenerating}
                   className="cursor-pointer gap-1.5 text-xs h-9 px-3 border border-purple-500/40 text-purple-700 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 font-bold"
-                  title={isAr ? "طباعة الحزمة اللوجستية الكاملة (المباني + الرؤساء + الأدوار + القاعات)" : "Print Complete Dossier Bundle"}
+                  title={isAr ? "طباعة استيكرات رئيس المبنى بنظام 4 في صفحة A4" : "Print Quarter-A4 Building Head Dossier Stickers"}
                 >
-                  {isGenerating && activeActionType === "bundle" ? (
+                  {isGenerating && activeActionType === "head_placards" ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
-                    <Package className="size-4 text-purple-600" />
+                    <ShieldCheck className="size-4 text-purple-600" />
                   )}
-                  <span>{isAr ? "الحزمة الشاملة (Bundle)" : "Complete Bundle"}</span>
+                  <span>{isAr ? "استيكرات الهيد (Quarter A4)" : "Building Head"}</span>
                 </Button>
               </div>
             </div>

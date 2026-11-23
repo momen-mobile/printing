@@ -204,7 +204,7 @@ export async function generateBatchStickerPdf(options: BatchStickerPdfOptions): 
   return await pdfDoc.save();
 }
 
-function expandSubjectName(codeOrName: string): string {
+export function expandSubjectName(codeOrName: string): string {
   let trimmed = (codeOrName || "").trim();
   // Strip any "EST I – " or "EST II – " prefix if present
   trimmed = trimmed.replace(/^EST\s*(?:I|II|1|2)?\s*[-–—:]\s*/i, "").trim();
@@ -218,6 +218,11 @@ function expandSubjectName(codeOrName: string): string {
   if (upper === "CHEM" || upper === "CHEMISTRY") return "Chemistry";
   if (upper === "PHY" || upper === "PHYSICS") return "Physics";
   return trimmed;
+}
+
+export function isSchoolCenter(centerName?: string): boolean {
+  if (!centerName) return false;
+  return /school|مدرسة|اكاديمية|academy|college|lycee|lycée/i.test(centerName);
 }
 
 /**
@@ -506,12 +511,17 @@ function drawA4PlacardPage(params: {
     const summaryCardHeight = isLandscape ? 56 : 52;
     const summaryY = bodyTop - summaryCardHeight;
 
+    const isSchool = isSchoolCenter(content.center);
+    const hasDiffBuilding = Boolean(content.building && content.building !== content.center && !isSchool);
+
     const cards = [
       { label: "Governorate", value: content.governorate || "—" },
-      { label: "Center", value: content.center || "—" },
-      { label: "Building", value: content.building || "—" },
-      { label: "Floor", value: content.floor || "—" },
+      { label: isSchool ? "School" : "Center", value: content.center || "—" },
     ];
+    if (hasDiffBuilding) {
+      cards.push({ label: "Building", value: content.building! });
+    }
+    cards.push({ label: "Floor", value: content.floor || "—" });
 
     const roomChecklistItems = [
       "1. Student Register",
@@ -521,9 +531,9 @@ function drawA4PlacardPage(params: {
     ];
 
     if (isLandscape) {
-      // 4 horizontal summary cards
-      const colWidth = (bodyWidth - 36) / 4;
-      for (let i = 0; i < 4; i++) {
+      // Horizontal summary cards
+      const colWidth = (bodyWidth - (cards.length - 1) * 12) / cards.length;
+      for (let i = 0; i < cards.length; i++) {
         renderSummaryCard({
           page,
           font,
@@ -568,27 +578,22 @@ function drawA4PlacardPage(params: {
         items: roomChecklistItems,
       });
     } else {
-      // Portrait layout
-      const rowHeight = 48;
-      const colWidth = (bodyWidth - 12) / 2;
-      for (let i = 0; i < 4; i++) {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        const cardX = bodyStartX + col * (colWidth + 12);
-        const cardY = bodyTop - (row + 1) * rowHeight - row * 8;
+      // Portrait layout: row of cards
+      const colWidth = (bodyWidth - (cards.length - 1) * 12) / cards.length;
+      for (let i = 0; i < cards.length; i++) {
         renderSummaryCard({
           page,
           font,
-          x: cardX,
-          y: cardY,
+          x: bodyStartX + i * (colWidth + 12),
+          y: summaryY,
           width: colWidth,
-          height: rowHeight,
+          height: summaryCardHeight,
           label: cards[i].label,
           value: cards[i].value,
         });
       }
 
-      const gridBottom = bodyTop - 2 * rowHeight - 8;
+      const gridBottom = summaryY;
       const remainingHeight = gridBottom - bodyBottom - 16;
       const heroHeight = Math.min(150, remainingHeight * 0.38);
       const checklistHeight = remainingHeight - heroHeight - 12;
@@ -628,15 +633,20 @@ function drawA4PlacardPage(params: {
     const summaryCardHeight = isLandscape ? 56 : 52;
     const summaryY = bodyTop - summaryCardHeight;
 
+    const isSchool = isSchoolCenter(content.center);
+    const hasDiffBuilding = Boolean(content.building && content.building !== content.center && !isSchool);
+
     const cards = [
       { label: "Governorate", value: content.governorate || "—" },
-      { label: "Center", value: content.center || "—" },
-      { label: "Building", value: content.building || "—" },
-      {
-        label: "Total Rooms",
-        value: childRoomsCount > 0 ? `${childRoomsCount} Rooms` : "Rooms Included",
-      },
+      { label: isSchool ? "School" : "Center", value: content.center || "—" },
     ];
+    if (hasDiffBuilding) {
+      cards.push({ label: "Building", value: content.building! });
+    }
+    cards.push({
+      label: "Total Rooms",
+      value: childRoomsCount > 0 ? `${childRoomsCount} Rooms` : "Rooms Included",
+    });
 
     const floorChecklistItems = [
       "1. Proctor Register",
@@ -696,9 +706,9 @@ function drawA4PlacardPage(params: {
         accentColor: COLOR_GOLD,
       });
     } else if (isLandscape) {
-      // 4 horizontal summary cards
-      const colWidth = (bodyWidth - 36) / 4;
-      for (let i = 0; i < 4; i++) {
+      // Horizontal summary cards
+      const colWidth = (bodyWidth - (cards.length - 1) * 12) / cards.length;
+      for (let i = 0; i < cards.length; i++) {
         renderSummaryCard({
           page,
           font,
@@ -744,26 +754,21 @@ function drawA4PlacardPage(params: {
       });
     } else {
       // Portrait layout
-      const rowHeight = 48;
-      const colWidth = (bodyWidth - 12) / 2;
-      for (let i = 0; i < 4; i++) {
-        const col = i % 2;
-        const row = Math.floor(i / 2);
-        const cardX = bodyStartX + col * (colWidth + 12);
-        const cardY = bodyTop - (row + 1) * rowHeight - row * 8;
+      const colWidth = (bodyWidth - (cards.length - 1) * 12) / cards.length;
+      for (let i = 0; i < cards.length; i++) {
         renderSummaryCard({
           page,
           font,
-          x: cardX,
-          y: cardY,
+          x: bodyStartX + i * (colWidth + 12),
+          y: summaryY,
           width: colWidth,
-          height: rowHeight,
+          height: summaryCardHeight,
           label: cards[i].label,
           value: cards[i].value,
         });
       }
 
-      const gridBottom = bodyTop - 2 * rowHeight - 8;
+      const gridBottom = summaryY;
       const remainingHeight = gridBottom - bodyBottom - 16;
       const heroHeight = Math.min(150, remainingHeight * 0.38);
       const checklistHeight = remainingHeight - heroHeight - 12;
@@ -804,14 +809,19 @@ function drawA4PlacardPage(params: {
     const summaryHeight = availBodyHeight - heroBoxHeight - 16;
     const summaryY = bodyTop - summaryHeight;
 
+    const isSchool = isSchoolCenter(content.center || content.building);
+    const hasDiffBuilding = Boolean(content.building && content.building !== content.center && !isSchool);
+
     const cards = [
       { label: "Governorate", value: content.governorate || "—" },
-      { label: "Center", value: content.center || "—" },
-      {
-        label: "Total Floors",
-        value: childFloorsCount > 0 ? `${childFloorsCount} Floors` : "Floors Included",
-      },
     ];
+    if (hasDiffBuilding) {
+      cards.push({ label: "Center", value: content.center || "—" });
+    }
+    cards.push({
+      label: "Total Floors",
+      value: childFloorsCount > 0 ? `${childFloorsCount} Floors` : "Floors Included",
+    });
 
     if (content.totalRooms && content.totalRooms > 0) {
       cards.push({
@@ -853,8 +863,8 @@ function drawA4PlacardPage(params: {
       y: bodyBottom,
       width: bodyWidth,
       height: heroBoxHeight,
-      badgeText: `${examTag} – BUILDING`,
-      valueText: content.building || "",
+      badgeText: isSchool ? `${examTag} – SCHOOL` : `${examTag} – BUILDING`,
+      valueText: content.building || content.center || "",
       subText,
       accentColor: COLOR_GOLD,
     });
@@ -1897,7 +1907,10 @@ function drawQuarterPlacard(params: {
     const headerBottom = logoY - 5;
     page.drawLine({ start: { x: x + 8, y: headerBottom }, end: { x: x + width - 8, y: headerBottom }, thickness: 1, color: COLOR_CHARCOAL });
 
-    const locItems = Array.from(new Set([content.governorate, content.center, content.building, isRoom ? content.floor : undefined].filter(Boolean)));
+    const isSchool = isSchoolCenter(content.center || content.building);
+    const centerVal = content.center;
+    const buildingVal = (!isSchool && content.building && content.building !== content.center) ? content.building : undefined;
+    const locItems = Array.from(new Set([content.governorate, centerVal, buildingVal, isRoom ? content.floor : undefined].filter(Boolean)));
     const locText = locItems.join("  •  ");
     let locSize = 8;
     let locWidth = font.widthOfTextAtSize(locText, locSize);
@@ -2235,10 +2248,13 @@ function drawQuarterPlacard(params: {
   });
 
   // Location string
+  const isSchool = isSchoolCenter(content.center || content.building);
+  const centerVal = content.center;
+  const buildingVal = (!isSchool && content.building && content.building !== content.center) ? content.building : undefined;
   const locItems = Array.from(new Set([
     content.governorate,
-    content.center,
-    content.building,
+    centerVal,
+    buildingVal,
     isRoom ? content.floor : undefined,
   ].filter(Boolean)));
   const locText = locItems.join("  •  ");
