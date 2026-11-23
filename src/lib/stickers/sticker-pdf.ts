@@ -1878,33 +1878,6 @@ function drawQuarterPlacard(params: {
       color: COLOR_CHARCOAL,
     });
 
-    if (!isRoom) {
-      // Top-Right Corner: Badge indicator
-      let cornerBadgeText = "";
-      let cornerBadgeColor = COLOR_MUTED;
-      if (isExamPapers) {
-        cornerBadgeText = "★ EXAM PAPERS ENCLOSED ★";
-        cornerBadgeColor = COLOR_CHARCOAL;
-      } else if (isHead) {
-        cornerBadgeText = "BUILDING HEAD DOSSIER";
-      } else if (content.level === "floor") {
-        cornerBadgeText = "FLOOR DOSSIER (SENIOR)";
-      }
-
-      if (cornerBadgeText) {
-        const badgeSize = isExamPapers ? 10 : 9;
-        const badgeW = font.widthOfTextAtSize(cornerBadgeText, badgeSize);
-        const badgeX = x + width - badgeW - 10;
-        page.drawText(cornerBadgeText, {
-          x: badgeX,
-          y: logoY + (logoH - badgeSize) / 2 + 1,
-          size: badgeSize,
-          font,
-          color: cornerBadgeColor,
-        });
-      }
-    }
-
     // Top Header: Date & Day in English (on the RIGHT side opposite logo)
     const dateDayStr = [content.examDay, content.examDate].filter(Boolean).join(", ");
     if (dateDayStr) {
@@ -2230,38 +2203,16 @@ function drawQuarterPlacard(params: {
     color: COLOR_CHARCOAL,
   });
 
-  if (!isRoom) {
-    // Top-Right Corner: Badge indicator
-    let cornerBadgeText = "";
-    let cornerBadgeColor = COLOR_MUTED;
-    if (isExamPapers) {
-      cornerBadgeText = "★ EXAM PAPERS ENCLOSED ★";
-      cornerBadgeColor = COLOR_CHARCOAL;
-    } else if (isHead) {
-      cornerBadgeText = "BUILDING HEAD DOSSIER";
-    } else if (content.level === "floor") {
-      cornerBadgeText = "FLOOR DOSSIER (SENIOR)";
-    }
-
-    if (cornerBadgeText) {
-      const badgeSize = isExamPapers ? 8.5 : 8.5;
-      const badgeW = font.widthOfTextAtSize(cornerBadgeText, badgeSize);
-      const badgeX = x + width - badgeW - 8;
-      page.drawText(cornerBadgeText, {
-        x: badgeX,
-        y: logoY + (logoH - badgeSize) / 2 + 1,
-        size: badgeSize,
-        font,
-        color: cornerBadgeColor,
-      });
-    }
-  }
-
   // Top Header: Date & Day in English (on the RIGHT side opposite logo)
   const dateDayStrPortrait = [content.examDay, content.examDate].filter(Boolean).join(", ");
   if (dateDayStrPortrait) {
-    const dSize = 7.5;
-    const dW = font.widthOfTextAtSize(dateDayStrPortrait, dSize);
+    let dSize = 7.5;
+    let dW = font.widthOfTextAtSize(dateDayStrPortrait, dSize);
+    const maxDW = width - (tagStartX + 30);
+    if (dW > maxDW) {
+      dSize = Math.max(6.5, (maxDW / dW) * dSize);
+      dW = font.widthOfTextAtSize(dateDayStrPortrait, dSize);
+    }
     const dX = x + width - dW - 6;
     const dY = logoY + (logoH - dSize) / 2 + 1;
     page.drawText(dateDayStrPortrait, {
@@ -2352,250 +2303,11 @@ function drawQuarterPlacard(params: {
     color: COLOR_BORDER,
   });
 
-  // 2. Middle Section (Subjects / Stats / Floor info / Head info)
-  let nextSectionTop = heroDividerY - 10;
-  if (isRoom) {
-    const subjectLines = getVerticalSubjectLines(content, true);
-    if (subjectLines.length > 0) {
-      const lineCount = subjectLines.length;
-      const step = 17;
-      const startSubjectY = heroDividerY - 14;
-      const baseLineSize = lineCount <= 2 ? 11 : 9.5;
-
-      for (let sIdx = 0; sIdx < lineCount; sIdx++) {
-        const lineText = subjectLines[sIdx];
-        const isTotal = /^total/i.test(lineText);
-        const rowY = startSubjectY - sIdx * step;
-        if (isTotal) {
-          page.drawRectangle({
-            x: x + 6,
-            y: rowY - 1,
-            width: width - 12,
-            height: step - 2,
-            color: rgb(0.92, 0.92, 0.92),
-            borderColor: COLOR_CHARCOAL,
-            borderWidth: 0.6,
-          });
-          const totSize = Math.max(9, baseLineSize);
-          const totW = font.widthOfTextAtSize(lineText.toUpperCase(), totSize);
-          page.drawText(lineText.toUpperCase(), {
-            x: x + (width - totW) / 2,
-            y: rowY + (step - 2 - totSize) / 2,
-            size: totSize,
-            font,
-            color: COLOR_CHARCOAL,
-          });
-        } else {
-          const m = lineText.match(/^(.+?):\s*(\d+.*)$/);
-          if (m) {
-            const sName = m[1].trim();
-            const cStr = `${m[2].trim()} Cand.`;
-            const cW = font.widthOfTextAtSize(cStr, baseLineSize);
-            page.drawText(sName, {
-              x: x + 8,
-              y: rowY + 1,
-              size: baseLineSize,
-              font,
-              color: COLOR_CHARCOAL,
-            });
-            page.drawText(cStr, {
-              x: x + width - cW - 8,
-              y: rowY + 1,
-              size: baseLineSize,
-              font,
-              color: COLOR_CHARCOAL,
-            });
-            if (sIdx < lineCount - 1) {
-              page.drawLine({
-                start: { x: x + 8, y: rowY - 2 },
-                end: { x: x + width - 8, y: rowY - 2 },
-                thickness: 0.4,
-                color: COLOR_BORDER,
-              });
-            }
-          } else {
-            let lineSize = baseLineSize;
-            let lineW = font.widthOfTextAtSize(lineText, lineSize);
-            if (lineW > width - 16) {
-              lineSize = Math.max(8, ((width - 16) / lineW) * lineSize);
-              lineW = font.widthOfTextAtSize(lineText, lineSize);
-            }
-            page.drawText(lineText, { x: x + (width - lineW) / 2, y: rowY + 1, size: lineSize, font, color: COLOR_CHARCOAL });
-          }
-        }
-      }
-
-      const lastSubjectY = startSubjectY - (lineCount - 1) * step;
-      const subjDividerY = lastSubjectY - 8;
-      page.drawLine({
-        start: { x: x + 6, y: subjDividerY },
-        end: { x: x + width - 6, y: subjDividerY },
-        thickness: 0.6,
-        color: COLOR_BORDER,
-      });
-      nextSectionTop = subjDividerY - 10;
-    }
-  } else if (isExamPapers) {
-    const childFloorsCount = content.childCount || (content.childNames ? content.childNames.length : 0);
-    const examSubText =
-      typeof content.totalRooms === "number" && content.totalRooms > 0
-        ? `${childFloorsCount > 0 ? `${childFloorsCount} FLOORS  •  ` : ""}${content.totalRooms} ROOMS • SEALED`
-        : typeof content.totalStudents === "number" && content.totalStudents > 0
-          ? `${content.totalStudents} STUDENTS • OFFICIAL PAPERS`
-          : "SEALED EXAMINATION PAPERS";
-
-    let totalSize = 12.5;
-    let totalW = font.widthOfTextAtSize(examSubText, totalSize);
-    if (totalW > width - 16) {
-      totalSize = Math.max(9, ((width - 16) / totalW) * totalSize);
-      totalW = font.widthOfTextAtSize(examSubText, totalSize);
-    }
-    const totalY = heroDividerY - 15;
-    page.drawText(examSubText, {
-      x: x + (width - totalW) / 2,
-      y: totalY,
-      size: totalSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-
-    const examDividerY = totalY - 8;
-    page.drawLine({
-      start: { x: x + 6, y: examDividerY },
-      end: { x: x + width - 6, y: examDividerY },
-      thickness: 0.6,
-      color: COLOR_BORDER,
-    });
-    nextSectionTop = examDividerY - 10;
-  } else if (isHead) {
-    const childFloorsCount = content.childCount || (content.childNames ? content.childNames.length : 0);
-    const headSubText =
-      typeof content.totalRooms === "number" && content.totalRooms > 0
-        ? `${childFloorsCount > 0 ? `${childFloorsCount} FLOORS  •  ` : ""}${content.totalRooms} ROOMS INCLUDED`
-        : childFloorsCount > 0
-          ? `${childFloorsCount} FLOORS INCLUDED`
-          : typeof content.totalStudents === "number" && content.totalStudents > 0
-            ? `${content.totalStudents} STUDENTS TOTAL`
-            : "BUILDING HEAD DOSSIER";
-
-    let totalSize = 12.5;
-    let totalW = font.widthOfTextAtSize(headSubText, totalSize);
-    if (totalW > width - 16) {
-      totalSize = Math.max(9, ((width - 16) / totalW) * totalSize);
-      totalW = font.widthOfTextAtSize(headSubText, totalSize);
-    }
-    const totalY = heroDividerY - 15;
-    page.drawText(headSubText, {
-      x: x + (width - totalW) / 2,
-      y: totalY,
-      size: totalSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-
-    const headDividerY = totalY - 8;
-    page.drawLine({
-      start: { x: x + 6, y: headDividerY },
-      end: { x: x + width - 6, y: headDividerY },
-      thickness: 0.6,
-      color: COLOR_BORDER,
-    });
-    nextSectionTop = headDividerY - 10;
-  } else {
-    // Floor level: Display list of rooms in this floor
-    const rooms = content.childNames || [];
-    const childRoomsCount = content.childCount || rooms.length;
-    const floorHdr = `ASSIGNED ROOMS IN THIS FLOOR (${childRoomsCount} ROOMS):`;
-    const fhSize = 8;
-    const fhW = font.widthOfTextAtSize(floorHdr, fhSize);
-    page.drawText(floorHdr, { x: x + (width - fhW) / 2, y: heroDividerY - 14, size: fhSize, font, color: COLOR_MUTED });
-
-    if (rooms.length > 0) {
-      const chunks: string[] = [];
-      for (let i = 0; i < rooms.length; i += 4) {
-        chunks.push(rooms.slice(i, i + 4).join("   •   "));
-      }
-      const lineCount = chunks.length;
-      const step = 14;
-      const startY = heroDividerY - 28;
-      for (let cIdx = 0; cIdx < lineCount; cIdx++) {
-        const chunkText = chunks[cIdx];
-        let cSize = 9.5;
-        let cW = font.widthOfTextAtSize(chunkText, cSize);
-        if (cW > width - 16) {
-          cSize = Math.max(7.5, ((width - 16) / cW) * cSize);
-          cW = font.widthOfTextAtSize(chunkText, cSize);
-        }
-        page.drawText(chunkText, {
-          x: x + (width - cW) / 2,
-          y: startY - cIdx * step,
-          size: cSize,
-          font,
-          color: COLOR_CHARCOAL,
-        });
-      }
-
-      const lastChunkY = startY - (lineCount - 1) * step;
-
-      // Highlight total bar
-      if (typeof content.totalStudents === "number" && content.totalStudents > 0) {
-        const totText = `${content.totalStudents} CANDIDATES TOTAL ACROSS ${childRoomsCount} ROOMS`;
-        const totSize = 8.5;
-        const totW = font.widthOfTextAtSize(totText, totSize);
-        const barY = lastChunkY - 18;
-        page.drawRectangle({
-          x: x + 6,
-          y: barY - 1,
-          width: width - 12,
-          height: 14,
-          color: rgb(0.92, 0.92, 0.92),
-          borderColor: COLOR_CHARCOAL,
-          borderWidth: 0.6,
-        });
-        page.drawText(totText, {
-          x: x + (width - totW) / 2,
-          y: barY + 2.5,
-          size: totSize,
-          font,
-          color: COLOR_CHARCOAL,
-        });
-        nextSectionTop = barY - 12;
-      } else {
-        nextSectionTop = lastChunkY - 14;
-      }
-    } else {
-      const floorSubText = typeof content.totalStudents === "number" && content.totalStudents > 0
-        ? `${content.totalStudents} STUDENTS TOTAL`
-        : childRoomsCount > 0
-          ? `${childRoomsCount} ROOMS INCLUDED`
-          : "SENIOR DOSSIER";
-
-      let totalSize = 13;
-      let totalW = font.widthOfTextAtSize(floorSubText, totalSize);
-      if (totalW > width - 16) {
-        totalSize = Math.max(9.5, ((width - 16) / totalW) * totalSize);
-        totalW = font.widthOfTextAtSize(floorSubText, totalSize);
-      }
-      const totalY = heroDividerY - 15;
-      page.drawText(floorSubText, {
-        x: x + (width - totalW) / 2,
-        y: totalY,
-        size: totalSize,
-        font,
-        color: COLOR_CHARCOAL,
-      });
-      nextSectionTop = totalY - 12;
-    }
-
-    page.drawLine({
-      start: { x: x + 6, y: nextSectionTop + 4 },
-      end: { x: x + width - 6, y: nextSectionTop + 4 },
-      thickness: 0.6,
-      color: COLOR_BORDER,
-    });
-  }
-
-  // 3. Checklist Section
+  // ---------------------------------------------------------------------------
+  // 3. Checklist Section (Anchored at the BOTTOM of the Quarter Sticker)
+  // Distance from bottom slot edge (slotY) to bottom of checklist matches distance
+  // from top slot edge to top of logo (16 pt, since y = slotY + 12, chkBottomY = y + 4).
+  // ---------------------------------------------------------------------------
   const chkTitle = isExamPapers
     ? "EXAM PAPERS HANDOVER CHECKLIST"
     : isHead
@@ -2603,21 +2315,6 @@ function drawQuarterPlacard(params: {
     : isRoom
       ? "ROOM FILE CONTENTS CHECKLIST"
       : "FLOOR DOSSIER CHECKLIST";
-  const chkTitleSize = 8;
-  page.drawText(chkTitle, {
-    x: x + 6,
-    y: nextSectionTop,
-    size: chkTitleSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  page.drawLine({
-    start: { x: x + 6, y: nextSectionTop - 4 },
-    end: { x: x + width - 6, y: nextSectionTop - 4 },
-    thickness: 0.6,
-    color: COLOR_BORDER,
-  });
 
   const rawItems = isExamPapers
     ? [
@@ -2653,36 +2350,73 @@ function drawQuarterPlacard(params: {
 
   const items = rawItems.map((it) => (/[ \u0600-\u06FF]/.test(it) ? formatArabicForPdf(it) : it));
 
-  const itemsStartY = nextSectionTop - 8;
-  const rowStep = isHead ? 15 : 15;
-  for (let i = 0; i < items.length; i++) {
-    const itemY = itemsStartY - (i + 1) * rowStep;
-    const boxSize = 8.5;
+  // Footer text space for Head / ExamPapers
+  const hasBottomFooter = Boolean(isExamPapers || isHead);
+  const bottomFooterH = hasBottomFooter ? 14 : 0;
+
+  // Bottom edge padding: exactly 4pt from inner y (16pt from slotY), mirroring the 16pt from slot top to logo
+  const chkBottomY = y + 4 + bottomFooterH;
+  const numItems = items.length;
+  const chkRowStep = isHead ? 13.5 : isRoom ? 15.5 : 14.5;
+  const chkBoxSize = 8.5;
+
+  for (let i = 0; i < numItems; i++) {
+    // i = 0 is first item (rendered highest), i = numItems - 1 is last item (rendered lowest)
+    const itemBoxY = chkBottomY + (numItems - 1 - i) * chkRowStep;
     const boxX = x + 8;
-    const boxY = itemY + 1;
 
     page.drawRectangle({
       x: boxX,
-      y: boxY,
-      width: boxSize,
-      height: boxSize,
+      y: itemBoxY,
+      width: chkBoxSize,
+      height: chkBoxSize,
       color: COLOR_WHITE,
       borderColor: COLOR_CHARCOAL,
       borderWidth: 0.8,
     });
 
     page.drawText(items[i], {
-      x: boxX + boxSize + 6,
-      y: boxY + 1.2,
-      size: isHead ? 7.6 : 7.2,
+      x: boxX + chkBoxSize + 6,
+      y: itemBoxY + 1.2,
+      size: isHead ? 7.6 : 7.4,
       font,
       color: COLOR_CHARCOAL,
     });
   }
 
-  // Bottom footer for Head sticker / Exam Papers in Portrait
-  if (isExamPapers || isHead) {
-    const footerY = y + 10;
+  // Divider line under checklist title
+  const highestItemY = chkBottomY + (numItems - 1) * chkRowStep;
+  const chkUnderTitleY = highestItemY + chkBoxSize + 4;
+  page.drawLine({
+    start: { x: x + 6, y: chkUnderTitleY },
+    end: { x: x + width - 6, y: chkUnderTitleY },
+    thickness: 0.6,
+    color: COLOR_BORDER,
+  });
+
+  // Checklist Title
+  const chkTitleSize = 8;
+  const chkTitleY = chkUnderTitleY + 4;
+  page.drawText(chkTitle, {
+    x: x + 6,
+    y: chkTitleY,
+    size: chkTitleSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Top Checklist Divider line separating Checklist from Middle Section
+  const chkDividerY = chkTitleY + chkTitleSize + 5;
+  page.drawLine({
+    start: { x: x + 6, y: chkDividerY },
+    end: { x: x + width - 6, y: chkDividerY },
+    thickness: 0.8,
+    color: COLOR_BORDER,
+  });
+
+  // Optional Footer at very bottom for Head / ExamPapers
+  if (hasBottomFooter) {
+    const footerY = y + 4;
     const footerText = isExamPapers
       ? "OFFICIAL EST EXAMINATION PAPERS • CONFIDENTIAL"
       : "OFFICIAL EST EXAMINATION DOSSIER • BUILDING HEAD";
@@ -2695,6 +2429,399 @@ function drawQuarterPlacard(params: {
       font,
       color: COLOR_MUTED,
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // 2. Middle Section (Subjects / Stats / Floor info / Head info)
+  // Spanning between heroDividerY and chkDividerY
+  // ---------------------------------------------------------------------------
+  const availMidH = heroDividerY - chkDividerY - 10;
+  const midBottomY = chkDividerY + 6;
+
+  if (isRoom) {
+    // Collect structured subjects for crisp, proctor-optimized rendering
+    interface ParsedSubject {
+      name: string;
+      count: string | number;
+    }
+    const parsedSubjects: ParsedSubject[] = [];
+    let roomTotalCandidates: number | undefined = typeof content.totalStudents === "number" && content.totalStudents > 0 ? content.totalStudents : undefined;
+
+    if (content.subjects && content.subjects.length > 0) {
+      let sum = 0;
+      for (const s of content.subjects) {
+        if (s.count > 0 || content.subjects.length <= 3) {
+          parsedSubjects.push({
+            name: expandSubjectName(s.name || s.code),
+            count: s.count,
+          });
+          sum += s.count;
+        }
+      }
+      if (!roomTotalCandidates && sum > 0) roomTotalCandidates = sum;
+    } else if (typeof content.litCount === "number" || typeof content.mathCount === "number") {
+      let sum = 0;
+      if (typeof content.litCount === "number") {
+        parsedSubjects.push({ name: "Literacy", count: content.litCount });
+        sum += content.litCount;
+      }
+      if (typeof content.mathCount === "number") {
+        parsedSubjects.push({ name: "Mathematics", count: content.mathCount });
+        sum += content.mathCount;
+      }
+      if (content.hasEssay || (typeof content.essayCount === "number" && content.essayCount > 0)) {
+        parsedSubjects.push({ name: "Essay", count: content.essayCount ?? 0 });
+        sum += (content.essayCount ?? 0);
+      }
+      if (!roomTotalCandidates && sum > 0) roomTotalCandidates = sum;
+    } else {
+      const subLines = getVerticalSubjectLines(content, true);
+      for (const line of subLines) {
+        const mTot = line.match(/^total\s*(?:candidates|students)?[:\s]+(\d+)/i);
+        if (mTot) {
+          roomTotalCandidates = parseInt(mTot[1], 10);
+          continue;
+        }
+        const m = line.match(/^(.+?):\s*(\d+.*)$/);
+        if (m) {
+          parsedSubjects.push({ name: expandSubjectName(m[1].trim()), count: m[2].trim() });
+        }
+      }
+    }
+
+    if (parsedSubjects.length > 0) {
+      const sCount = parsedSubjects.length;
+      const rowH = sCount <= 2 ? 26 : sCount === 3 ? 24 : sCount === 4 ? 22 : 19;
+      const tblHeaderH = 19;
+      const hasTotalRow = typeof roomTotalCandidates === "number" && roomTotalCandidates > 0;
+      const totRowH = hasTotalRow ? (sCount <= 2 ? 24 : 22) : 0;
+      const tblH = tblHeaderH + sCount * rowH + totRowH;
+
+      const tblW = width - 12;
+      const tblX = x + 6;
+      // Vertically center the table in the middle space!
+      const tblY = Math.max(chkDividerY + 6, midBottomY + (availMidH - tblH) / 2);
+
+      // Outer table border & white background
+      page.drawRectangle({
+        x: tblX,
+        y: tblY,
+        width: tblW,
+        height: tblH,
+        color: COLOR_WHITE,
+        borderColor: COLOR_CHARCOAL,
+        borderWidth: 1,
+      });
+
+      // Table Header Bar
+      const hdrY = tblY + tblH - tblHeaderH;
+      page.drawRectangle({
+        x: tblX,
+        y: hdrY,
+        width: tblW,
+        height: tblHeaderH,
+        color: COLOR_CHARCOAL,
+      });
+      const thSize = 8.5;
+      page.drawText("EXAMINATION SUBJECT", {
+        x: tblX + 8,
+        y: hdrY + (tblHeaderH - thSize) / 2 + 1,
+        size: thSize,
+        font,
+        color: COLOR_WHITE,
+      });
+      const candColText = "CANDIDATES";
+      const candColW = font.widthOfTextAtSize(candColText, thSize);
+      page.drawText(candColText, {
+        x: tblX + tblW - candColW - 10,
+        y: hdrY + (tblHeaderH - thSize) / 2 + 1,
+        size: thSize,
+        font,
+        color: COLOR_WHITE,
+      });
+
+      // Each subject row
+      for (let sIdx = 0; sIdx < sCount; sIdx++) {
+        const s = parsedSubjects[sIdx];
+        const rowY = hdrY - (sIdx + 1) * rowH;
+
+        // Alternating subtle background row
+        if (sIdx % 2 === 1) {
+          page.drawRectangle({
+            x: tblX + 0.5,
+            y: rowY,
+            width: tblW - 1,
+            height: rowH,
+            color: rgb(0.97, 0.97, 0.97),
+          });
+        }
+
+        // Subject Name: Large, bold, unabbreviated!
+        let sNameSize = sCount <= 2 ? 13 : sCount === 3 ? 12 : 11;
+        let sName = s.name;
+        let sW = font.widthOfTextAtSize(sName, sNameSize);
+        if (sW > tblW - 85) {
+          sNameSize = Math.max(9.5, ((tblW - 85) / sW) * sNameSize);
+          sW = font.widthOfTextAtSize(sName, sNameSize);
+        }
+        page.drawText(sName, {
+          x: tblX + 10,
+          y: rowY + (rowH - sNameSize) / 2 + 1,
+          size: sNameSize,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+
+        // Candidate count container badge (Pill)
+        const cBadgeW = 54;
+        const cBadgeH = Math.min(18, rowH - 4);
+        const cBadgeX = tblX + tblW - cBadgeW - 8;
+        const cBadgeY = rowY + (rowH - cBadgeH) / 2;
+        page.drawRectangle({
+          x: cBadgeX,
+          y: cBadgeY,
+          width: cBadgeW,
+          height: cBadgeH,
+          color: rgb(0.93, 0.93, 0.93),
+          borderColor: COLOR_CHARCOAL,
+          borderWidth: 0.6,
+        });
+
+        const cText = `${s.count} Cand.`;
+        let cSize = 9.5;
+        let cW = font.widthOfTextAtSize(cText, cSize);
+        if (cW > cBadgeW - 4) {
+          cSize = Math.max(8, ((cBadgeW - 4) / cW) * cSize);
+          cW = font.widthOfTextAtSize(cText, cSize);
+        }
+        page.drawText(cText, {
+          x: cBadgeX + (cBadgeW - cW) / 2,
+          y: cBadgeY + (cBadgeH - cSize) / 2 + 1,
+          size: cSize,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+
+        // Row divider
+        if (sIdx < sCount - 1 || hasTotalRow) {
+          page.drawLine({
+            start: { x: tblX, y: rowY },
+            end: { x: tblX + tblW, y: rowY },
+            thickness: 0.5,
+            color: rgb(0.82, 0.82, 0.82),
+          });
+        }
+      }
+
+      // Total Row
+      if (hasTotalRow) {
+        page.drawRectangle({
+          x: tblX + 0.5,
+          y: tblY + 0.5,
+          width: tblW - 1,
+          height: totRowH - 0.5,
+          color: rgb(0.89, 0.89, 0.89),
+        });
+        page.drawLine({
+          start: { x: tblX, y: tblY + totRowH },
+          end: { x: tblX + tblW, y: tblY + totRowH },
+          thickness: 0.8,
+          color: COLOR_CHARCOAL,
+        });
+
+        const totTitle = "TOTAL CANDIDATES IN ROOM:";
+        const totTitleSize = 9.5;
+        page.drawText(totTitle, {
+          x: tblX + 10,
+          y: tblY + (totRowH - totTitleSize) / 2 + 1,
+          size: totTitleSize,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+
+        const totValText = `${roomTotalCandidates} CANDIDATES`;
+        const totValSize = 10;
+        const totValW = font.widthOfTextAtSize(totValText, totValSize);
+        page.drawText(totValText, {
+          x: tblX + tblW - totValW - 10,
+          y: tblY + (totRowH - totValSize) / 2 + 1,
+          size: totValSize,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+      }
+    } else {
+      const cardH = 50;
+      const cardW = width - 12;
+      const cardX = x + 6;
+      const cardY = chkDividerY + 6 + (availMidH - cardH) / 2;
+      page.drawRectangle({
+        x: cardX,
+        y: cardY,
+        width: cardW,
+        height: cardH,
+        color: rgb(0.95, 0.95, 0.95),
+        borderColor: COLOR_CHARCOAL,
+        borderWidth: 0.8,
+      });
+      const totCandStr = typeof roomTotalCandidates === "number" && roomTotalCandidates > 0
+        ? `${roomTotalCandidates} REGISTERED CANDIDATES`
+        : "OFFICIAL EXAMINATION ROOM";
+      const candSize = 13;
+      const candW = font.widthOfTextAtSize(totCandStr, candSize);
+      page.drawText(totCandStr, {
+        x: cardX + (cardW - candW) / 2,
+        y: cardY + 28,
+        size: candSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+      const subNote = "PROCTOR ATTENDANCE & DOSSIER";
+      const noteSize = 8.5;
+      const noteW = font.widthOfTextAtSize(subNote, noteSize);
+      page.drawText(subNote, {
+        x: cardX + (cardW - noteW) / 2,
+        y: cardY + 12,
+        size: noteSize,
+        font,
+        color: COLOR_MUTED,
+      });
+    }
+  } else if (isExamPapers) {
+    const childFloorsCount = content.childCount || (content.childNames ? content.childNames.length : 0);
+    const examSubText =
+      typeof content.totalRooms === "number" && content.totalRooms > 0
+        ? `${childFloorsCount > 0 ? `${childFloorsCount} FLOORS  •  ` : ""}${content.totalRooms} ROOMS • SEALED`
+        : typeof content.totalStudents === "number" && content.totalStudents > 0
+          ? `${content.totalStudents} STUDENTS • OFFICIAL PAPERS`
+          : "SEALED EXAMINATION PAPERS";
+
+    let totalSize = 12.5;
+    let totalW = font.widthOfTextAtSize(examSubText, totalSize);
+    if (totalW > width - 16) {
+      totalSize = Math.max(9, ((width - 16) / totalW) * totalSize);
+      totalW = font.widthOfTextAtSize(examSubText, totalSize);
+    }
+    const totalY = chkDividerY + 6 + (availMidH - totalSize) / 2;
+    page.drawText(examSubText, {
+      x: x + (width - totalW) / 2,
+      y: totalY,
+      size: totalSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+  } else if (isHead) {
+    const childFloorsCount = content.childCount || (content.childNames ? content.childNames.length : 0);
+    const headSubText =
+      typeof content.totalRooms === "number" && content.totalRooms > 0
+        ? `${childFloorsCount > 0 ? `${childFloorsCount} FLOORS  •  ` : ""}${content.totalRooms} ROOMS INCLUDED`
+        : childFloorsCount > 0
+          ? `${childFloorsCount} FLOORS INCLUDED`
+          : typeof content.totalStudents === "number" && content.totalStudents > 0
+            ? `${content.totalStudents} STUDENTS TOTAL`
+            : "BUILDING HEAD DOSSIER";
+
+    let totalSize = 12.5;
+    let totalW = font.widthOfTextAtSize(headSubText, totalSize);
+    if (totalW > width - 16) {
+      totalSize = Math.max(9, ((width - 16) / totalW) * totalSize);
+      totalW = font.widthOfTextAtSize(headSubText, totalSize);
+    }
+    const totalY = chkDividerY + 6 + (availMidH - totalSize) / 2;
+    page.drawText(headSubText, {
+      x: x + (width - totalW) / 2,
+      y: totalY,
+      size: totalSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+  } else {
+    // Floor level: Display list of rooms in this floor
+    const rooms = content.childNames || [];
+    const childRoomsCount = content.childCount || rooms.length;
+    const floorHdr = `ASSIGNED ROOMS IN THIS FLOOR (${childRoomsCount} ROOMS):`;
+    const fhSize = 8.5;
+    const fhW = font.widthOfTextAtSize(floorHdr, fhSize);
+
+    if (rooms.length > 0) {
+      const chunks: string[] = [];
+      for (let i = 0; i < rooms.length; i += 4) {
+        chunks.push(rooms.slice(i, i + 4).join("   •   "));
+      }
+      const lineCount = chunks.length;
+      const step = 15;
+      const hasTot = typeof content.totalStudents === "number" && content.totalStudents > 0;
+      const blockH = 16 + lineCount * step + (hasTot ? 24 : 0);
+      const topOffset = Math.max(0, (availMidH - blockH) / 2);
+      const startHdrY = heroDividerY - 14 - topOffset;
+
+      page.drawText(floorHdr, { x: x + (width - fhW) / 2, y: startHdrY, size: fhSize, font, color: COLOR_MUTED });
+
+      const startY = startHdrY - 14;
+      for (let cIdx = 0; cIdx < lineCount; cIdx++) {
+        const chunkText = chunks[cIdx];
+        let cSize = 9.5;
+        let cW = font.widthOfTextAtSize(chunkText, cSize);
+        if (cW > width - 16) {
+          cSize = Math.max(7.5, ((width - 16) / cW) * cSize);
+          cW = font.widthOfTextAtSize(chunkText, cSize);
+        }
+        page.drawText(chunkText, {
+          x: x + (width - cW) / 2,
+          y: startY - cIdx * step,
+          size: cSize,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+      }
+
+      const lastChunkY = startY - (lineCount - 1) * step;
+
+      // Highlight total bar
+      if (hasTot) {
+        const totText = `${content.totalStudents} CANDIDATES TOTAL ACROSS ${childRoomsCount} ROOMS`;
+        const totSize = 8.5;
+        const totW = font.widthOfTextAtSize(totText, totSize);
+        const barY = lastChunkY - 18;
+        page.drawRectangle({
+          x: x + 6,
+          y: barY - 1,
+          width: width - 12,
+          height: 15,
+          color: rgb(0.92, 0.92, 0.92),
+          borderColor: COLOR_CHARCOAL,
+          borderWidth: 0.6,
+        });
+        page.drawText(totText, {
+          x: x + (width - totW) / 2,
+          y: barY + 3,
+          size: totSize,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+      }
+    } else {
+      const floorSubText = typeof content.totalStudents === "number" && content.totalStudents > 0
+        ? `${content.totalStudents} STUDENTS TOTAL`
+        : childRoomsCount > 0
+          ? `${childRoomsCount} ROOMS INCLUDED`
+          : "SENIOR DOSSIER";
+
+      let totalSize = 13;
+      let totalW = font.widthOfTextAtSize(floorSubText, totalSize);
+      if (totalW > width - 16) {
+        totalSize = Math.max(9.5, ((width - 16) / totalW) * totalSize);
+        totalW = font.widthOfTextAtSize(floorSubText, totalSize);
+      }
+      const totalY = chkDividerY + 6 + (availMidH - totalSize) / 2;
+      page.drawText(floorSubText, {
+        x: x + (width - totalW) / 2,
+        y: totalY,
+        size: totalSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+    }
   }
 }
 
