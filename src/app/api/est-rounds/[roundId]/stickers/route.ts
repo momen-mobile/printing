@@ -135,21 +135,16 @@ export async function POST(
 
     // 1. SUBJECT EXAM STICKERS (Quarter-A4, 2 Copies per subject)
     if (type === "exam_stickers") {
-      const roomContents = targetRows.map((r) => ({
-        content: buildRoomStickerContent(r),
-        litCount: r.subjects?.LIT || 0,
-        mathCount: r.subjects?.MATH || r.subjects?.MATH1 || 0,
-        essayCount: r.subjects?.ESSAY || 0,
-        subjects: Object.entries(r.subjects || {})
-          .filter(([_, count]) => count > 0)
-          .map(([code, count]) => ({
-            code,
-            name: code,
-            displayName: `${examPrefix} – ${code}`,
-            count,
-            copies: 2,
-          })),
-      }));
+      const roomContents = targetRows.map((r) => {
+        const roomContent = buildRoomStickerContent(r);
+        return {
+          content: roomContent,
+          litCount: r.subjects?.LIT || 0,
+          mathCount: r.subjects?.MATH || r.subjects?.MATH1 || 0,
+          essayCount: r.subjects?.ESSAY || 0,
+          subjects: roomContent.subjects,
+        };
+      });
 
       const pdfBytes = await generateBatchExamStickersPdf({
         rooms: roomContents,
@@ -522,3 +517,4 @@ export async function POST(
     return jsonError(error);
   }
 }
+

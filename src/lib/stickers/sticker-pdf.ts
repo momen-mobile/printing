@@ -205,7 +205,9 @@ export async function generateBatchStickerPdf(options: BatchStickerPdfOptions): 
 }
 
 function expandSubjectName(codeOrName: string): string {
-  const trimmed = (codeOrName || "").trim();
+  let trimmed = (codeOrName || "").trim();
+  // Strip any "EST I – " or "EST II – " prefix if present
+  trimmed = trimmed.replace(/^EST\s*(?:I|II|1|2)?\s*[-–—:]\s*/i, "").trim();
   const upper = trimmed.toUpperCase();
   if (upper === "LIT" || upper === "LITERACY" || upper === "LITERATURE") return "Literacy";
   if (upper === "MATH" || upper === "MATHEMATICS") return "Mathematics";
@@ -246,24 +248,39 @@ function getVerticalSubjectLines(content: StickerContent, isRoom: boolean): stri
   const lines: string[] = [];
 
   if (content.subjects && content.subjects.length > 0) {
+    let total = 0;
     for (const s of content.subjects) {
       if (s.count > 0 || content.subjects.length <= 3) {
         const name = expandSubjectName(s.name || s.code);
         lines.push(`${name}: ${s.count}`);
+        total += s.count;
       }
     }
-    if (lines.length > 0) return lines;
+    if (lines.length > 0) {
+      const grandTotal = content.totalStudents || total;
+      if (grandTotal > 0 && lines.length > 1) {
+        lines.push(`Total Candidates: ${grandTotal}`);
+      }
+      return lines;
+    }
   }
 
   if (isRoom && (typeof content.litCount === "number" || typeof content.mathCount === "number")) {
+    let roomTotal = 0;
     if (typeof content.litCount === "number") {
       lines.push(`Literacy: ${content.litCount}`);
+      roomTotal += content.litCount;
     }
     if (typeof content.mathCount === "number") {
       lines.push(`Mathematics: ${content.mathCount}`);
+      roomTotal += content.mathCount;
     }
     if (content.hasEssay || (typeof content.essayCount === "number" && content.essayCount > 0)) {
       lines.push(`Essay: ${content.essayCount ?? 0}`);
+      roomTotal += (content.essayCount ?? 0);
+    }
+    if (lines.length > 1 && roomTotal > 0) {
+      lines.push(`Total Candidates: ${content.totalStudents || roomTotal}`);
     }
     if (lines.length > 0) return lines;
   }
@@ -330,41 +347,52 @@ function drawA4PlacardPage(params: {
   // --- HEADER SECTION ---
   let headerBottomY = pageHeight - margin - 20;
 
-  // Left: Large EST 1 / EST 2 Exam Tag based on active folder
-  const examTag = resolveExamTag(content);
-  const cornerTagSize = isLandscape ? 30 : 34;
-  const cornerTagX = margin + 16;
-  const cornerTagY = pageHeight - margin - 15 - (isLandscape ? 28 : 34);
-  page.drawText(examTag, {
-    x: cornerTagX,
-    y: cornerTagY,
-    size: cornerTagSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
+  // Official Logo on the LEFT side (UI/UX Balanced)
+  const logoHeight = isRoom ? (isLandscape ? 68 : 76) : (isLandscape ? 58 : 66);
+  const logoWidth = logoImg ? logoHeight * (logoImg.width / logoImg.height) : 0;
+  const logoX = margin + 20;
+  const logoY = pageHeight - margin - 15 - logoHeight;
 
-  // Top-Right Corner: Exam Papers / Outer Bag Indicator if applicable
-  if (content.isExamDossier) {
-    const badgeText = "★ CONTAINS EXAMINATION PAPERS ★";
-    const badgeSize = isLandscape ? 12 : 13;
-    const badgeW = font.widthOfTextAtSize(badgeText, badgeSize);
-    const badgeX = pageWidth - margin - badgeW - 16;
-    page.drawText(badgeText, {
-      x: badgeX,
-      y: cornerTagY + 4,
-      size: badgeSize,
+  if (logoImg) {
+    page.drawImage(logoImg, {
+      x: logoX,
+      y: logoY,
+      width: logoWidth,
+      height: logoHeight,
+    });
+  } else {
+    page.drawText("EST", {
+      x: logoX,
+      y: logoY + 12,
+      size: 32,
       font,
       color: COLOR_CHARCOAL,
     });
   }
 
-  // Top-Right Corner: Date & Day in English (e.g. "Saturday, December 12, 2026")
+  // Right Side (opposite to the logo): Exam Tag and Official Date & Day in English
+  const examTag = resolveExamTag(content);
+  const examTagSize = isLandscape ? 24 : 28;
+  const examTagW = font.widthOfTextAtSize(examTag, examTagSize);
+  const rightMargin = margin + 20;
+  const examTagX = pageWidth - rightMargin - examTagW;
+  const examTagY = pageHeight - margin - 15 - examTagSize;
+
+  page.drawText(examTag, {
+    x: examTagX,
+    y: examTagY,
+    size: examTagSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Date & Day (English) right under the exam tag on the right side
   const fullDateText = [content.examDay, content.examDate].filter(Boolean).join(", ");
   if (fullDateText) {
-    const dateSize = isLandscape ? 12.5 : 13.5;
+    const dateSize = isLandscape ? 12 : 13;
     const dateW = font.widthOfTextAtSize(fullDateText, dateSize);
-    const dateX = pageWidth - margin - dateW - 16;
-    const dateY = content.isExamDossier ? cornerTagY - 18 : cornerTagY + 4;
+    const dateX = pageWidth - rightMargin - dateW;
+    const dateY = examTagY - 18;
     page.drawText(fullDateText, {
       x: dateX,
       y: dateY,
@@ -374,22 +402,25 @@ function drawA4PlacardPage(params: {
     });
   }
 
-  if (logoImg) {
-    const logoHeight = isRoom ? (isLandscape ? 84 : 92) : (isLandscape ? 66 : 76);
-    const logoWidth = logoHeight * (logoImg.width / logoImg.height);
-    const logoX = (pageWidth - logoWidth) / 2;
-    const logoY = pageHeight - margin - 15 - logoHeight;
-
-    page.drawImage(logoImg, {
-      x: logoX,
-      y: logoY,
-      width: logoWidth,
-      height: logoHeight,
+  // Top-Right Corner: Exam Papers indicator if applicable
+  if (content.isExamDossier) {
+    const badgeText = "★ CONTAINS EXAMINATION PAPERS ★";
+    const badgeSize = isLandscape ? 11 : 12;
+    const badgeW = font.widthOfTextAtSize(badgeText, badgeSize);
+    const badgeX = pageWidth - rightMargin - badgeW;
+    const badgeY = fullDateText ? examTagY - 34 : examTagY - 18;
+    page.drawText(badgeText, {
+      x: badgeX,
+      y: badgeY,
+      size: badgeSize,
+      font,
+      color: COLOR_CHARCOAL,
     });
-    headerBottomY = logoY - 8;
   }
 
-  // Exam Subtitle Badge - skip for room and building stickers as requested (clean header, no "BUILDING EXAMINATION DOSSIER")
+  headerBottomY = Math.min(logoY - 8, examTagY - (fullDateText ? 28 : 16));
+
+  // Exam Subtitle Badge - skip for room and building stickers as requested
   if (!isRoom) {
     const subTitle = isHead
       ? "BUILDING HEAD DOSSIER"
@@ -450,7 +481,6 @@ function drawA4PlacardPage(params: {
       "2. Proctor Report",
       "3. Numbers & Mobile Collection Files",
       "4. Student Misconduct Forms",
-      "5. Draft papers, pens, and IDs",
     ];
 
     if (isLandscape) {
@@ -1159,7 +1189,7 @@ function renderHeroCard(params: {
   const hasDetailLines = Boolean(detailLines && detailLines.length > 0);
   const hasSub = hasDetailLines || Boolean(subText || detailText);
   const subBarHeight = hasDetailLines
-    ? Math.max(50, Math.min(95, detailLines!.length * 22 + 14))
+    ? Math.max(58, Math.min(125, detailLines!.length * 22 + 26))
     : hasSub
       ? detailText && subText
         ? Math.max(46, Math.min(58, height * 0.26))
@@ -1179,27 +1209,106 @@ function renderHeroCard(params: {
     });
 
     if (hasDetailLines) {
-      // Render vertical lines without abbreviations
+      // Render structured, proctor-optimized attendance table
       const lineCount = detailLines!.length;
-      const step = (subBarHeight - 12) / lineCount;
-      const startLineY = subBarY + subBarHeight - step * 0.7 - 4;
-      const lineSize = lineCount <= 2 ? 14 : lineCount === 3 ? 12.5 : 11;
+      const subHeaderH = 18;
+      // Header for proctors
+      page.drawRectangle({
+        x: x + 2,
+        y: subBarY + subBarHeight - subHeaderH,
+        width: width - 4,
+        height: subHeaderH,
+        color: COLOR_CHARCOAL,
+      });
+      const subHeaderTitle = "EXAMINATION SUBJECTS & ATTENDANCE";
+      const shSize = 8.5;
+      const shW = font.widthOfTextAtSize(subHeaderTitle, shSize);
+      page.drawText(subHeaderTitle, {
+        x: x + (width - shW) / 2,
+        y: subBarY + subBarHeight - subHeaderH + 5,
+        size: shSize,
+        font,
+        color: COLOR_WHITE,
+      });
+
+      const availTableH = subBarHeight - subHeaderH - 4;
+      const step = availTableH / lineCount;
+      const baseLineSize = lineCount <= 2 ? 13 : lineCount === 3 ? 11.5 : 10;
 
       for (let i = 0; i < lineCount; i++) {
         const text = detailLines![i];
-        let size = lineSize;
-        let tw = font.widthOfTextAtSize(text, size);
-        if (tw > width - 16) {
-          size = Math.max(8.5, ((width - 16) / tw) * size);
-          tw = font.widthOfTextAtSize(text, size);
+        const rowY = subBarY + subBarHeight - subHeaderH - (i + 1) * step;
+
+        const isTotalLine = /^total/i.test(text);
+
+        if (isTotalLine) {
+          page.drawRectangle({
+            x: x + 4,
+            y: rowY + 1,
+            width: width - 8,
+            height: step - 2,
+            color: rgb(0.90, 0.90, 0.90),
+            borderColor: COLOR_CHARCOAL,
+            borderWidth: 0.8,
+          });
+          const totalSize = Math.max(9.5, baseLineSize);
+          const tw = font.widthOfTextAtSize(text.toUpperCase(), totalSize);
+          page.drawText(text.toUpperCase(), {
+            x: x + (width - tw) / 2,
+            y: rowY + (step - totalSize) / 2 + 1,
+            size: totalSize,
+            font,
+            color: COLOR_CHARCOAL,
+          });
+        } else {
+          const m = text.match(/^(.+?):\s*(\d+.*)$/);
+          if (m) {
+            const subjName = m[1].trim();
+            const countStr = `${m[2].trim()} Cand.`;
+            const subjSize = baseLineSize;
+            const countSize = baseLineSize;
+            const countW = font.widthOfTextAtSize(countStr, countSize);
+
+            page.drawText(subjName, {
+              x: x + 8,
+              y: rowY + (step - subjSize) / 2 + 1,
+              size: subjSize,
+              font,
+              color: COLOR_CHARCOAL,
+            });
+
+            page.drawText(countStr, {
+              x: x + width - countW - 8,
+              y: rowY + (step - countSize) / 2 + 1,
+              size: countSize,
+              font,
+              color: COLOR_CHARCOAL,
+            });
+
+            if (i < lineCount - 1) {
+              page.drawLine({
+                start: { x: x + 8, y: rowY },
+                end: { x: x + width - 8, y: rowY },
+                thickness: 0.4,
+                color: COLOR_BORDER,
+              });
+            }
+          } else {
+            let size = baseLineSize;
+            let tw = font.widthOfTextAtSize(text, size);
+            if (tw > width - 16) {
+              size = Math.max(8, ((width - 16) / tw) * size);
+              tw = font.widthOfTextAtSize(text, size);
+            }
+            page.drawText(text, {
+              x: x + (width - tw) / 2,
+              y: rowY + (step - size) / 2 + 1,
+              size,
+              font,
+              color: COLOR_CHARCOAL,
+            });
+          }
         }
-        page.drawText(text, {
-          x: x + (width - tw) / 2,
-          y: startLineY - i * step,
-          size,
-          font,
-          color: COLOR_CHARCOAL,
-        });
       }
     } else if (detailText && subText) {
       // Line 1: Main count / label (e.g. "35 STUDENTS TOTAL") - Prominent and Large
@@ -1554,7 +1663,7 @@ function drawCustomLabelPage(params: {
     }
     displayItems.push("[ ] Proc Reg  [ ] Senior Rep  [ ] Numbers & Mobile  [ ] Proc Misconduct  [ ] Draft/Pens/IDs");
   } else if (content.level === "room") {
-    displayItems.push("[ ] Reg  [ ] Proctor  [ ] Numbers & Mobile  [ ] Misconduct  [ ] Draft/Pens/IDs");
+    displayItems.push("[ ] Reg  [ ] Proctor  [ ] Numbers & Mobile  [ ] Misconduct");
   }
 
   const remainingHeight = currentY - paddingY;
@@ -1683,9 +1792,10 @@ function drawQuarterPlacard(params: {
 
   if (isLandscapeSlot) {
     // Landscape 2-column layout (NO OUTER BORDER)
+    // Logo on LEFT side for all placards
     const logoH = isRoom ? 32 : isHead ? 26 : 22;
     const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 0;
-    const logoX = isRoom ? x + (width - logoW) / 2 : x + 10;
+    const logoX = x + 10;
     const logoY = y + height - 6 - logoH;
     if (logoImg) {
       page.drawImage(logoImg, { x: logoX, y: logoY, width: logoW, height: logoH });
@@ -1693,22 +1803,22 @@ function drawQuarterPlacard(params: {
       const estText = "EST";
       const estSize = isRoom ? 20 : 16;
       const estW = font.widthOfTextAtSize(estText, estSize);
-      page.drawText(estText, { x: isRoom ? x + (width - estW) / 2 : x + 10, y: logoY + 4, size: estSize, font, color: COLOR_CHARCOAL });
+      page.drawText(estText, { x: logoX, y: logoY + 4, size: estSize, font, color: COLOR_CHARCOAL });
     }
 
     // Left Side: Large EST 1 / EST 2 Tag based on active folder (next to logo)
     const examTag = resolveExamTag(content);
-    if (!isRoom) {
-      const tagStartX = logoImg ? logoX + logoW + 12 : x + 38;
-      const cornerTagSize = 22;
-      page.drawText(examTag, {
-        x: tagStartX,
-        y: logoY + (logoH - cornerTagSize) / 2 + 1,
-        size: cornerTagSize,
-        font,
-        color: COLOR_CHARCOAL,
-      });
+    const tagStartX = logoImg ? logoX + logoW + 8 : x + 44;
+    const cornerTagSize = isRoom ? 18 : 20;
+    page.drawText(examTag, {
+      x: tagStartX,
+      y: logoY + (logoH - cornerTagSize) / 2 + 1,
+      size: cornerTagSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
 
+    if (!isRoom) {
       // Top-Right Corner: Badge indicator
       let cornerBadgeText = "";
       let cornerBadgeColor = COLOR_MUTED;
@@ -1735,13 +1845,13 @@ function drawQuarterPlacard(params: {
       }
     }
 
-    // Top Header: Date & Day in English
+    // Top Header: Date & Day in English (on the RIGHT side opposite logo)
     const dateDayStr = [content.examDay, content.examDate].filter(Boolean).join(", ");
     if (dateDayStr) {
       const dSize = 8.5;
       const dW = font.widthOfTextAtSize(dateDayStr, dSize);
       const dX = x + width - dW - 8;
-      const dY = isRoom ? logoY + (logoH - dSize) / 2 + 1 : logoY - 4;
+      const dY = logoY + (logoH - dSize) / 2 + 1;
       page.drawText(dateDayStr, {
         x: dX,
         y: dY,
@@ -1805,17 +1915,69 @@ function drawQuarterPlacard(params: {
         const availSubjectH = leftDividerY - (bodyBottom + 4);
         const lineCount = subjectLines.length;
         const step = Math.min(22, Math.max(16, (availSubjectH - 6) / lineCount));
-        const startSubjectY = leftDividerY - 18;
-        const baseLineSize = lineCount <= 2 ? 13.5 : lineCount === 3 ? 12 : 10.5;
+        const startSubjectY = leftDividerY - 14;
+        const baseLineSize = lineCount <= 2 ? 12 : lineCount === 3 ? 11 : 9.5;
         for (let sIdx = 0; sIdx < lineCount; sIdx++) {
           const lineText = subjectLines[sIdx];
-          let lineSize = baseLineSize;
-          let lineW = font.widthOfTextAtSize(lineText, lineSize);
-          if (lineW > leftW - 8) {
-            lineSize = Math.max(8.5, ((leftW - 8) / lineW) * lineSize);
-            lineW = font.widthOfTextAtSize(lineText, lineSize);
+          const isTotal = /^total/i.test(lineText);
+          const rowY = startSubjectY - sIdx * step;
+          if (isTotal) {
+            page.drawRectangle({
+              x: leftX + 4,
+              y: rowY - 1,
+              width: leftW - 8,
+              height: step - 2,
+              color: rgb(0.92, 0.92, 0.92),
+              borderColor: COLOR_CHARCOAL,
+              borderWidth: 0.6,
+            });
+            const totSize = Math.max(9, baseLineSize);
+            const totW = font.widthOfTextAtSize(lineText.toUpperCase(), totSize);
+            page.drawText(lineText.toUpperCase(), {
+              x: leftX + (leftW - totW) / 2,
+              y: rowY + (step - 2 - totSize) / 2,
+              size: totSize,
+              font,
+              color: COLOR_CHARCOAL,
+            });
+          } else {
+            const m = lineText.match(/^(.+?):\s*(\d+.*)$/);
+            if (m) {
+              const sName = m[1].trim();
+              const cStr = `${m[2].trim()} Cand.`;
+              const cW = font.widthOfTextAtSize(cStr, baseLineSize);
+              page.drawText(sName, {
+                x: leftX + 6,
+                y: rowY + 1,
+                size: baseLineSize,
+                font,
+                color: COLOR_CHARCOAL,
+              });
+              page.drawText(cStr, {
+                x: leftX + leftW - cW - 6,
+                y: rowY + 1,
+                size: baseLineSize,
+                font,
+                color: COLOR_CHARCOAL,
+              });
+              if (sIdx < lineCount - 1) {
+                page.drawLine({
+                  start: { x: leftX + 6, y: rowY - 2 },
+                  end: { x: leftX + leftW - 6, y: rowY - 2 },
+                  thickness: 0.4,
+                  color: COLOR_BORDER,
+                });
+              }
+            } else {
+              let lineSize = baseLineSize;
+              let lineW = font.widthOfTextAtSize(lineText, lineSize);
+              if (lineW > leftW - 8) {
+                lineSize = Math.max(8, ((leftW - 8) / lineW) * lineSize);
+                lineW = font.widthOfTextAtSize(lineText, lineSize);
+              }
+              page.drawText(lineText, { x: leftX + (leftW - lineW) / 2, y: rowY + 1, size: lineSize, font, color: COLOR_CHARCOAL });
+            }
           }
-          page.drawText(lineText, { x: leftX + (leftW - lineW) / 2, y: startSubjectY - sIdx * step, size: lineSize, font, color: COLOR_CHARCOAL });
         }
       }
     } else if (isExamPapers) {
@@ -1891,7 +2053,6 @@ function drawQuarterPlacard(params: {
             "2. Proctor Report",
             "3. Numbers & Mobile Collection Files",
             "4. Student Misconduct Forms",
-            "5. Draft papers, pens, and IDs",
           ]
           : [
             "1. Proctor Register",
@@ -1917,10 +2078,10 @@ function drawQuarterPlacard(params: {
     return;
   }
 
-  // Header: Logo (Enlarged and centered)
+  // Header: Logo on the LEFT side for all placards
   const logoH = isRoom ? 32 : isHead ? 28 : 24;
   const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 0;
-  const logoX = isRoom ? x + (width - logoW) / 2 : x + 8;
+  const logoX = x + 8;
   const logoY = y + height - 4 - logoH;
 
   if (logoImg) {
@@ -1935,7 +2096,7 @@ function drawQuarterPlacard(params: {
     const estSize = isRoom ? 20 : 16;
     const estW = font.widthOfTextAtSize(estText, estSize);
     page.drawText(estText, {
-      x: isRoom ? x + (width - estW) / 2 : x + 8,
+      x: logoX,
       y: logoY + 4,
       size: estSize,
       font,
@@ -1945,17 +2106,17 @@ function drawQuarterPlacard(params: {
 
   // Left Side: Large EST 1 / EST 2 Tag based on active folder (next to logo)
   const examTag = resolveExamTag(content);
-  if (!isRoom) {
-    const tagStartX = logoImg ? logoX + logoW + 8 : x + 38;
-    const cornerTagSize = 21;
-    page.drawText(examTag, {
-      x: tagStartX,
-      y: logoY + (logoH - cornerTagSize) / 2 + 1,
-      size: cornerTagSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
+  const tagStartX = logoImg ? logoX + logoW + 8 : x + 40;
+  const cornerTagSize = isRoom ? 17 : 20;
+  page.drawText(examTag, {
+    x: tagStartX,
+    y: logoY + (logoH - cornerTagSize) / 2 + 1,
+    size: cornerTagSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
 
+  if (!isRoom) {
     // Top-Right Corner: Badge indicator
     let cornerBadgeText = "";
     let cornerBadgeColor = COLOR_MUTED;
@@ -1982,13 +2143,13 @@ function drawQuarterPlacard(params: {
     }
   }
 
-  // Top Header: Date & Day in English
+  // Top Header: Date & Day in English (on the RIGHT side opposite logo)
   const dateDayStrPortrait = [content.examDay, content.examDate].filter(Boolean).join(", ");
   if (dateDayStrPortrait) {
     const dSize = 7.5;
     const dW = font.widthOfTextAtSize(dateDayStrPortrait, dSize);
     const dX = x + width - dW - 6;
-    const dY = isRoom ? logoY + (logoH - dSize) / 2 + 1 : (isHead || isExamPapers) ? logoY - 8 : logoY + (logoH - dSize) / 2 + 1;
+    const dY = logoY + (logoH - dSize) / 2 + 1;
     page.drawText(dateDayStrPortrait, {
       x: dX,
       y: dY,
@@ -2085,24 +2246,69 @@ function drawQuarterPlacard(params: {
       const lineCount = subjectLines.length;
       const step = 17;
       const startSubjectY = heroDividerY - 14;
-      const baseLineSize = lineCount <= 2 ? 12 : 10.5;
+      const baseLineSize = lineCount <= 2 ? 11 : 9.5;
 
       for (let sIdx = 0; sIdx < lineCount; sIdx++) {
         const lineText = subjectLines[sIdx];
-        let lineSize = baseLineSize;
-        let lineW = font.widthOfTextAtSize(lineText, lineSize);
-        if (lineW > width - 16) {
-          lineSize = Math.max(8.5, ((width - 16) / lineW) * lineSize);
-          lineW = font.widthOfTextAtSize(lineText, lineSize);
+        const isTotal = /^total/i.test(lineText);
+        const rowY = startSubjectY - sIdx * step;
+        if (isTotal) {
+          page.drawRectangle({
+            x: x + 6,
+            y: rowY - 1,
+            width: width - 12,
+            height: step - 2,
+            color: rgb(0.92, 0.92, 0.92),
+            borderColor: COLOR_CHARCOAL,
+            borderWidth: 0.6,
+          });
+          const totSize = Math.max(9, baseLineSize);
+          const totW = font.widthOfTextAtSize(lineText.toUpperCase(), totSize);
+          page.drawText(lineText.toUpperCase(), {
+            x: x + (width - totW) / 2,
+            y: rowY + (step - 2 - totSize) / 2,
+            size: totSize,
+            font,
+            color: COLOR_CHARCOAL,
+          });
+        } else {
+          const m = lineText.match(/^(.+?):\s*(\d+.*)$/);
+          if (m) {
+            const sName = m[1].trim();
+            const cStr = `${m[2].trim()} Cand.`;
+            const cW = font.widthOfTextAtSize(cStr, baseLineSize);
+            page.drawText(sName, {
+              x: x + 8,
+              y: rowY + 1,
+              size: baseLineSize,
+              font,
+              color: COLOR_CHARCOAL,
+            });
+            page.drawText(cStr, {
+              x: x + width - cW - 8,
+              y: rowY + 1,
+              size: baseLineSize,
+              font,
+              color: COLOR_CHARCOAL,
+            });
+            if (sIdx < lineCount - 1) {
+              page.drawLine({
+                start: { x: x + 8, y: rowY - 2 },
+                end: { x: x + width - 8, y: rowY - 2 },
+                thickness: 0.4,
+                color: COLOR_BORDER,
+              });
+            }
+          } else {
+            let lineSize = baseLineSize;
+            let lineW = font.widthOfTextAtSize(lineText, lineSize);
+            if (lineW > width - 16) {
+              lineSize = Math.max(8, ((width - 16) / lineW) * lineSize);
+              lineW = font.widthOfTextAtSize(lineText, lineSize);
+            }
+            page.drawText(lineText, { x: x + (width - lineW) / 2, y: rowY + 1, size: lineSize, font, color: COLOR_CHARCOAL });
+          }
         }
-        const lineY = startSubjectY - sIdx * step;
-        page.drawText(lineText, {
-          x: x + (width - lineW) / 2,
-          y: lineY,
-          size: lineSize,
-          font,
-          color: COLOR_CHARCOAL,
-        });
       }
 
       const lastSubjectY = startSubjectY - (lineCount - 1) * step;
@@ -2263,7 +2469,6 @@ function drawQuarterPlacard(params: {
         "2. Proctor Report",
         "3. Numbers & Mobile Collection Files",
         "4. Student Misconduct Forms",
-        "5. Draft papers, pens, and IDs",
       ]
       : [
         "1. Proctor Register",
@@ -2386,16 +2591,35 @@ function drawQuarterExamSticker(params: {
 
   const isLandscapeSlot = width > height;
 
+  const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(item.subject) || /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(item.examName || "");
+  const examPrefix = isEst2 ? "EST II" : "EST I";
+  const cleanSubj = expandSubjectName(item.subject);
+  const fullSubjTitle = `${examPrefix} – ${cleanSubj}`.toUpperCase();
+
   if (isLandscapeSlot) {
     // Landscape 2-column layout (NO OUTER BORDER)
+    // Logo on LEFT side
     const logoH = 32;
     const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 0;
     const logoX = x + 10;
     const logoY = y + height - 8 - logoH;
     if (logoImg) {
       page.drawImage(logoImg, { x: logoX, y: logoY, width: logoW, height: logoH });
+    } else {
+      page.drawText("EST", { x: logoX, y: logoY + 4, size: 20, font, color: COLOR_CHARCOAL });
     }
 
+    // Left Side: Exam Tag next to logo
+    const tagStartX = logoImg ? logoX + logoW + 8 : x + 44;
+    page.drawText(examPrefix, {
+      x: tagStartX,
+      y: logoY + (logoH - 16) / 2 + 1,
+      size: 16,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    // Right Side: Copy badge at top right
     const copyText = `COPY ${item.copyIndex} OF ${item.totalCopies}`;
     const copySize = 8.5;
     const copyW = font.widthOfTextAtSize(copyText, copySize);
@@ -2405,6 +2629,21 @@ function drawQuarterExamSticker(params: {
     const copyBadgeY = logoY + (logoH - copyBadgeH) / 2;
     page.drawRectangle({ x: copyBadgeX, y: copyBadgeY, width: copyBadgeW, height: copyBadgeH, color: COLOR_CHARCOAL });
     page.drawText(copyText, { x: copyBadgeX + (copyBadgeW - copyW) / 2, y: copyBadgeY + (copyBadgeH - copySize) / 2 + 1, size: copySize, font, color: COLOR_WHITE });
+
+    // Right Side: Date & Day in English next to copy badge
+    const dateDayStr = [item.day, item.date].filter(Boolean).join(", ");
+    if (dateDayStr) {
+      const dSize = 8.5;
+      const dW = font.widthOfTextAtSize(dateDayStr, dSize);
+      const dX = copyBadgeX - dW - 12;
+      page.drawText(dateDayStr, {
+        x: dX,
+        y: logoY + (logoH - dSize) / 2 + 1,
+        size: dSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+    }
 
     const headerBottom = logoY - 5;
     page.drawLine({ start: { x: x + 8, y: headerBottom }, end: { x: x + width - 8, y: headerBottom }, thickness: 1, color: COLOR_CHARCOAL });
@@ -2427,7 +2666,7 @@ function drawQuarterExamSticker(params: {
     const bodyBottom = y + 10;
     const bodyH = bodyTop - bodyBottom;
     const bodyW = width - 16;
-    const leftW = Math.round(bodyW * 0.38);
+    const leftW = Math.round(bodyW * 0.36);
     const leftX = x + 8;
     const dividerX = leftX + leftW + 8;
     const rightX = dividerX + 14;
@@ -2435,53 +2674,106 @@ function drawQuarterExamSticker(params: {
 
     page.drawLine({ start: { x: dividerX, y: bodyBottom + 8 }, end: { x: dividerX, y: bodyTop }, thickness: 1, color: COLOR_BORDER });
 
+    // Left Column: Room Hero
     const roomLabel = "EXAM ROOM";
     const roomLabelSize = 9;
     const roomLabelW = font.widthOfTextAtSize(roomLabel, roomLabelSize);
-    page.drawText(roomLabel, { x: leftX + (leftW - roomLabelW) / 2, y: bodyTop - 16, size: roomLabelSize, font, color: COLOR_MUTED });
+    page.drawText(roomLabel, { x: leftX + (leftW - roomLabelW) / 2, y: bodyTop - 14, size: roomLabelSize, font, color: COLOR_MUTED });
 
     const heroValue = item.room || "";
-    let heroSize = 52;
+    let heroSize = 48;
     let heroW = font.widthOfTextAtSize(heroValue, heroSize);
     if (heroW > leftW - 8) {
       heroSize = Math.max(18, ((leftW - 8) / heroW) * heroSize);
       heroW = font.widthOfTextAtSize(heroValue, heroSize);
     }
-    const heroY = bodyBottom + (bodyH - heroSize) / 2 + 2;
+    const heroY = bodyBottom + (bodyH - heroSize) / 2 + 6;
     page.drawText(heroValue, { x: leftX + (leftW - heroW) / 2, y: heroY, size: heroSize, font, color: COLOR_CHARCOAL });
 
-    const subjSectionY = bodyTop - 6;
-    page.drawText("EXAMINATION SUBJECT:", { x: rightX, y: subjSectionY - 10, size: 8, font, color: COLOR_MUTED });
+    const roomSub = "ROOM PACKET";
+    const roomSubSize = 7.5;
+    const roomSubW = font.widthOfTextAtSize(roomSub, roomSubSize);
+    page.drawText(roomSub, { x: leftX + (leftW - roomSubW) / 2, y: bodyBottom + 4, size: roomSubSize, font, color: COLOR_MUTED });
 
-    const subjText = item.subject.toUpperCase();
-    let subjSize = 25;
-    let subjW = font.widthOfTextAtSize(subjText, subjSize);
-    if (subjW > rightW - 10) {
-      subjSize = Math.max(13, ((rightW - 10) / subjW) * subjSize);
-      subjW = font.widthOfTextAtSize(subjText, subjSize);
+    // Right Column: Subject & Candidates (Proctor High-Contrast Design)
+    const subjSectionY = bodyTop - 2;
+    page.drawText("EXAMINATION SUBJECT:", { x: rightX, y: subjSectionY - 8, size: 8, font, color: COLOR_MUTED });
+
+    // Subject Box
+    const subjBoxH = 42;
+    const subjBoxY = subjSectionY - 14 - subjBoxH;
+    page.drawRectangle({
+      x: rightX,
+      y: subjBoxY,
+      width: rightW,
+      height: subjBoxH,
+      color: COLOR_LIGHT_BG,
+      borderColor: COLOR_CHARCOAL,
+      borderWidth: 1,
+    });
+
+    let subjSize = 22;
+    let subjW = font.widthOfTextAtSize(fullSubjTitle, subjSize);
+    if (subjW > rightW - 12) {
+      subjSize = Math.max(13, ((rightW - 12) / subjW) * subjSize);
+      subjW = font.widthOfTextAtSize(fullSubjTitle, subjSize);
     }
-    page.drawText(subjText, { x: rightX, y: subjSectionY - 38, size: subjSize, font, color: COLOR_CHARCOAL });
+    page.drawText(fullSubjTitle, {
+      x: rightX + (rightW - subjW) / 2,
+      y: subjBoxY + (subjBoxH - subjSize) / 2 + 1,
+      size: subjSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
 
-    const midDividerY = subjSectionY - 56;
-    page.drawLine({ start: { x: rightX, y: midDividerY }, end: { x: rightX + rightW - 4, y: midDividerY }, thickness: 0.8, color: COLOR_BORDER });
+    // Candidates Section
+    const candSectionY = subjBoxY - 10;
+    page.drawText("ASSIGNED CANDIDATES FOR THIS EXAM:", { x: rightX, y: candSectionY - 8, size: 8, font, color: COLOR_MUTED });
 
-    page.drawText("ASSIGNED CANDIDATES FOR THIS EXAM:", { x: rightX, y: midDividerY - 16, size: 8, font, color: COLOR_MUTED });
+    const candBoxH = 42;
+    const candBoxY = candSectionY - 14 - candBoxH;
+    page.drawRectangle({
+      x: rightX,
+      y: candBoxY,
+      width: rightW,
+      height: candBoxH,
+      color: COLOR_WHITE,
+      borderColor: COLOR_CHARCOAL,
+      borderWidth: 1.2,
+    });
 
     const countValue = `${item.studentCount} CANDIDATES`;
-    let countValSize = 24;
+    let countValSize = 22;
     let countValW = font.widthOfTextAtSize(countValue, countValSize);
-    if (countValW > rightW - 10) {
-      countValSize = Math.max(13, ((rightW - 10) / countValW) * countValSize);
+    if (countValW > rightW - 12) {
+      countValSize = Math.max(13, ((rightW - 12) / countValW) * countValSize);
       countValW = font.widthOfTextAtSize(countValue, countValSize);
     }
-    page.drawText(countValue, { x: rightX, y: midDividerY - 44, size: countValSize, font, color: COLOR_CHARCOAL });
+    page.drawText(countValue, {
+      x: rightX + (rightW - countValW) / 2,
+      y: candBoxY + (candBoxH - countValSize) / 2 + 1,
+      size: countValSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    // Proctor verification check
+    const verifyText = "[ ] Booklets Counted & Verified by Proctor";
+    page.drawText(verifyText, {
+      x: rightX + 4,
+      y: candBoxY - 12,
+      size: 7.5,
+      font,
+      color: COLOR_MUTED,
+    });
+
     return;
   }
 
-  // Header: Logo on left, Copy badge on right
+  // Portrait layout: Logo on LEFT, Copy & Date on RIGHT
   const logoH = 32;
   const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 0;
-  const logoX = x + 4;
+  const logoX = x + 6;
   const logoY = y + height - 4 - logoH;
 
   if (logoImg) {
@@ -2500,6 +2792,16 @@ function drawQuarterExamSticker(params: {
       color: COLOR_CHARCOAL,
     });
   }
+
+  // Exam Tag next to logo on left
+  const tagStartX = logoImg ? logoX + logoW + 8 : x + 38;
+  page.drawText(examPrefix, {
+    x: tagStartX,
+    y: logoY + (logoH - 15) / 2 + 1,
+    size: 15,
+    font,
+    color: COLOR_CHARCOAL,
+  });
 
   // Copy badge at top right (Solid Black Pill with Crisp White Text)
   const copyText = `COPY ${item.copyIndex} OF ${item.totalCopies}`;
@@ -2526,14 +2828,14 @@ function drawQuarterExamSticker(params: {
     color: COLOR_WHITE,
   });
 
-  // Date & Day display between logo and copy badge
+  // Date & Day display on the right side next to copy badge
   const dateDayStr = [item.day, item.date].filter(Boolean).join(", ");
   if (dateDayStr) {
-    const dSize = 8;
+    const dSize = 7.5;
     const dW = font.widthOfTextAtSize(dateDayStr, dSize);
-    const dX = logoX + logoW + 8;
+    const dX = copyBadgeX - dW - 8;
     const dY = logoY + (logoH - dSize) / 2 + 1;
-    if (dX + dW < copyBadgeX - 4) {
+    if (dX > tagStartX + 40) {
       page.drawText(dateDayStr, {
         x: dX,
         y: dY,
@@ -2590,7 +2892,7 @@ function drawQuarterExamSticker(params: {
   const roomLabel = "EXAM ROOM";
   const roomLabelSize = 9;
   const roomLabelW = font.widthOfTextAtSize(roomLabel, roomLabelSize);
-  const roomLabelY = locDividerY - 16;
+  const roomLabelY = locDividerY - 14;
   page.drawText(roomLabel, {
     x: x + (width - roomLabelW) / 2,
     y: roomLabelY,
@@ -2600,13 +2902,13 @@ function drawQuarterExamSticker(params: {
   });
 
   const heroValue = item.room || "";
-  let heroSize = 44;
+  let heroSize = 42;
   let heroW = font.widthOfTextAtSize(heroValue, heroSize);
   if (heroW > width - 16) {
     heroSize = Math.max(20, ((width - 16) / heroW) * heroSize);
     heroW = font.widthOfTextAtSize(heroValue, heroSize);
   }
-  const heroY = roomLabelY - 10 - heroSize;
+  const heroY = roomLabelY - 6 - heroSize;
   page.drawText(heroValue, {
     x: x + (width - heroW) / 2,
     y: heroY,
@@ -2616,7 +2918,7 @@ function drawQuarterExamSticker(params: {
   });
 
   // Divider line below room
-  const roomDividerY = heroY - 14;
+  const roomDividerY = heroY - 10;
   page.drawLine({
     start: { x: x + 4, y: roomDividerY },
     end: { x: x + width - 4, y: roomDividerY },
@@ -2624,11 +2926,11 @@ function drawQuarterExamSticker(params: {
     color: COLOR_BORDER,
   });
 
-  // 2. EXAMINATION SUBJECT SECTION
+  // 2. EXAMINATION SUBJECT SECTION (Proctor High-Contrast Design)
   const subjLabel = "EXAMINATION SUBJECT:";
-  const subjLabelSize = 9;
+  const subjLabelSize = 8.5;
   const subjLabelW = font.widthOfTextAtSize(subjLabel, subjLabelSize);
-  const subjLabelY = roomDividerY - 16;
+  const subjLabelY = roomDividerY - 14;
   page.drawText(subjLabel, {
     x: x + (width - subjLabelW) / 2,
     y: subjLabelY,
@@ -2637,24 +2939,35 @@ function drawQuarterExamSticker(params: {
     color: COLOR_MUTED,
   });
 
-  const subjText = item.subject.toUpperCase();
+  // Framed Subject Box
+  const subjBoxH = 46;
+  const subjBoxY = subjLabelY - 8 - subjBoxH;
+  page.drawRectangle({
+    x: x + 6,
+    y: subjBoxY,
+    width: width - 12,
+    height: subjBoxH,
+    color: COLOR_LIGHT_BG,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1,
+  });
+
   let subjSize = 22;
-  let subjW = font.widthOfTextAtSize(subjText, subjSize);
-  if (subjW > width - 16) {
-    subjSize = Math.max(14, ((width - 16) / subjW) * subjSize);
-    subjW = font.widthOfTextAtSize(subjText, subjSize);
+  let subjW = font.widthOfTextAtSize(fullSubjTitle, subjSize);
+  if (subjW > width - 24) {
+    subjSize = Math.max(13, ((width - 24) / subjW) * subjSize);
+    subjW = font.widthOfTextAtSize(fullSubjTitle, subjSize);
   }
-  const subjY = subjLabelY - 8 - subjSize;
-  page.drawText(subjText, {
+  page.drawText(fullSubjTitle, {
     x: x + (width - subjW) / 2,
-    y: subjY,
+    y: subjBoxY + (subjBoxH - subjSize) / 2 + 1,
     size: subjSize,
     font,
     color: COLOR_CHARCOAL,
   });
 
   // Divider line below subject
-  const subjDividerY = subjY - 14;
+  const subjDividerY = subjBoxY - 10;
   page.drawLine({
     start: { x: x + 4, y: subjDividerY },
     end: { x: x + width - 4, y: subjDividerY },
@@ -2662,11 +2975,11 @@ function drawQuarterExamSticker(params: {
     color: COLOR_BORDER,
   });
 
-  // 3. CANDIDATES SECTION
+  // 3. CANDIDATES SECTION (Proctor High-Contrast Design)
   const candLabel = "ASSIGNED CANDIDATES FOR THIS EXAM:";
-  const candLabelSize = 9;
+  const candLabelSize = 8.5;
   const candLabelW = font.widthOfTextAtSize(candLabel, candLabelSize);
-  const candLabelY = subjDividerY - 16;
+  const candLabelY = subjDividerY - 14;
   page.drawText(candLabel, {
     x: x + (width - candLabelW) / 2,
     y: candLabelY,
@@ -2675,29 +2988,53 @@ function drawQuarterExamSticker(params: {
     color: COLOR_MUTED,
   });
 
+  // Framed Candidates Box
+  const candBoxH = 44;
+  const candBoxY = candLabelY - 8 - candBoxH;
+  page.drawRectangle({
+    x: x + 6,
+    y: candBoxY,
+    width: width - 12,
+    height: candBoxH,
+    color: COLOR_WHITE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1.2,
+  });
+
   const countValue = `${item.studentCount} CANDIDATES`;
-  let countValSize = 25;
+  let countValSize = 24;
   let countValW = font.widthOfTextAtSize(countValue, countValSize);
-  if (countValW > width - 16) {
-    countValSize = Math.max(14, ((width - 16) / countValW) * countValSize);
+  if (countValW > width - 24) {
+    countValSize = Math.max(14, ((width - 24) / countValW) * countValSize);
     countValW = font.widthOfTextAtSize(countValue, countValSize);
   }
-  const candY = candLabelY - 8 - countValSize;
   page.drawText(countValue, {
     x: x + (width - countValW) / 2,
-    y: candY,
+    y: candBoxY + (candBoxH - countValSize) / 2 + 1,
     size: countValSize,
     font,
     color: COLOR_CHARCOAL,
   });
 
+  // Proctor verification checkbox
+  const verifyLine = "[ ] Booklets Counted & Verified by Proctor";
+  const verifySize = 7.5;
+  const verifyW = font.widthOfTextAtSize(verifyLine, verifySize);
+  page.drawText(verifyLine, {
+    x: x + (width - verifyW) / 2,
+    y: candBoxY - 12,
+    size: verifySize,
+    font,
+    color: COLOR_MUTED,
+  });
+
   // Footer: Room Packet note
-  const packetText = "ROOM PACKET";
+  const packetText = "★ OFFICIAL EST EXAMINATION ENVELOPE ★";
   const packetSize = 8;
   const packetW = font.widthOfTextAtSize(packetText, packetSize);
   page.drawText(packetText, {
     x: x + (width - packetW) / 2,
-    y: y + 10,
+    y: y + 8,
     size: packetSize,
     font,
     color: COLOR_MUTED,
