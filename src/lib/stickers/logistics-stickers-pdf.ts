@@ -2182,8 +2182,19 @@ function drawQuarterCleanSkinSticker(params: {
     color: COLOR_GOLD,
   });
 
-  // Location ribbon
-  const ribbonH = 16;
+  // Location ribbon broken into clean lines ("نكسر الصف")
+  const center = (options.center || "").trim();
+  const gov = (options.governorate || "").trim();
+  let bld = (options.building || "").trim();
+  if (bld.toLowerCase() === center.toLowerCase()) bld = "";
+
+  const locLines: string[] = [];
+  if (center) locLines.push(center);
+  const sub = [gov, bld].filter(Boolean).join("   •   ");
+  if (sub) locLines.push(sub);
+  if (locLines.length === 0) locLines.push("Examination Center");
+
+  const ribbonH = locLines.length > 1 ? 24 : 16;
   const ribbonY = headerBottom - 6 - ribbonH;
   page.drawRectangle({
     x: x + 4,
@@ -2195,25 +2206,22 @@ function drawQuarterCleanSkinSticker(params: {
     borderWidth: 0.5,
   });
 
-  const locItems = [
-    options.governorate,
-    options.center,
-    options.building,
-  ].filter(Boolean);
-  const locText = locItems.join("  •  ");
-  let locSize = 7.5;
-  let locWidth = font.widthOfTextAtSize(locText, locSize);
-  if (locWidth > width - 20) {
-    locSize = Math.max(6, ((width - 20) / locWidth) * locSize);
-    locWidth = font.widthOfTextAtSize(locText, locSize);
+  let lineY = ribbonY + (locLines.length > 1 ? 13 : 4);
+  for (const line of locLines) {
+    const lSize = 7.5;
+    let lW = font.widthOfTextAtSize(line, lSize);
+    const maxW = width - 20;
+    const effSize = lW > maxW ? Math.max(6, (maxW / lW) * lSize) : lSize;
+    lW = font.widthOfTextAtSize(line, effSize);
+    page.drawText(line, {
+      x: x + (width - lW) / 2,
+      y: lineY,
+      size: effSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+    lineY -= 9.5;
   }
-  page.drawText(locText, {
-    x: x + (width - locWidth) / 2,
-    y: ribbonY + (ribbonH - locSize) / 2 + 1,
-    size: locSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
 
   // Body Layout in Portrait
   const bodyTop = ribbonY - 10;

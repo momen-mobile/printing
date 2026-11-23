@@ -32,7 +32,7 @@ function extractFloorAndRoom(rawRoom) {
 
 async function main() {
   console.log("Seeding initial EST 2 December 2026 round...");
-  
+
   const rows = [];
   const subjectTotals = { MATH1: 0, MATH2: 0, BIO: 0, CHEM: 0 };
   const uniqueGovs = new Set();

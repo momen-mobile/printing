@@ -7,6 +7,8 @@ import {
   generateBatchExamStickersPdf,
   resolveExamTag,
   buildExamStickerItemsForRoom,
+  cleanVenueName,
+  drawQuarterLocationBlock,
 } from "../sticker-pdf";
 import {
   parseEst1FileName,
@@ -947,6 +949,9 @@ describe("generateStickerPdf", () => {
           content: {
             level: "room",
             lines: [],
+            rawLines: ["EST", "Alexandria", "Future International School", "12A"],
+            cleanChain: ["EST", "Alexandria", "Future International School", "12A"],
+            fields: [],
             examName: "EST 2 - December 2026",
             examType: "EST 2",
             room: "12A",
@@ -973,6 +978,33 @@ describe("generateStickerPdf", () => {
         // Period 3: Chemistry (copies 1 & 2)
         expect(items[6].subjectCode).toBe("CHEM");
         expect(items[7].subjectCode).toBe("CHEM");
+      });
+
+      it("cleans venue names and removes duplicate governorate prefixes", () => {
+        expect(cleanVenueName("Alexandria - Future International School", "Alexandria")).toBe("Future International School");
+        expect(cleanVenueName("Future International School", "Alexandria")).toBe("Future International School");
+      });
+
+      it("draws quarter location block across multiple clean rows without overflow", async () => {
+        const doc = await (await import("pdf-lib")).PDFDocument.create();
+        const page = doc.addPage([595.28, 841.89]);
+        const font = await doc.embedFont((await import("pdf-lib")).StandardFonts.Helvetica);
+
+        const dividerY = drawQuarterLocationBlock({
+          page,
+          font,
+          governorate: "Dakahlia",
+          center: "Horus University - Egypt - Faculty of Medicine",
+          building: "Horus University - Egypt - Faculty of Medicine", // duplicate
+          floor: "2nd Floor",
+          x: 12,
+          width: 273.64,
+          headerBottom: 360,
+        });
+
+        // Verifies divider line is placed safely below both rows
+        expect(dividerY).toBeLessThan(340);
+        expect(dividerY).toBeGreaterThan(310);
       });
     });
 

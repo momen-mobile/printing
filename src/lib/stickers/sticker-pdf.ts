@@ -224,7 +224,148 @@ export function expandSubjectName(codeOrName: string): string {
 
 export function isSchoolCenter(centerName?: string): boolean {
   if (!centerName) return false;
-  return /school|مدرسة|اكاديمية|academy|college|lycee|lycée/i.test(centerName);
+  return /school|مدرسة|مدارس|مدرسه|اكاديمية|academy|college|lycee|lycée|university|جامعة/i.test(centerName);
+}
+
+/**
+ * Strips governorate prefix from center name if already present.
+ */
+export function cleanVenueName(center: string, governorate: string): string {
+  let c = (center || "").trim();
+  const g = (governorate || "").trim();
+  if (g) {
+    const escaped = g.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(`^${escaped}\\s*[-_–|•:]\\s*`, "i");
+    c = c.replace(regex, "").trim();
+  }
+  return c || (center || "").trim();
+}
+
+/**
+ * Renders the location block for Quarter-A4 stickers (from Governorate/City down to Floor).
+ * Strictly breaks the row into multiple clear lines ("نكسر الصف") so the font is large,
+ * legible, and text never overflows into adjacent quadrants:
+ * - Line 1: Center / School / Venue Name (9 pt)
+ * - Line 2: Governorate & Floor (and Building if distinct) (8 pt)
+ * Returns the bottom Y coordinate for the divider line below the location block.
+ */
+export function drawQuarterLocationBlock(params: {
+  page: any;
+  font: any;
+  governorate?: string;
+  center?: string;
+  building?: string;
+  floor?: string;
+  x: number;
+  width: number;
+  headerBottom: number;
+}): number {
+  const { page, font, x, width, headerBottom } = params;
+
+  // 1. Clean & Deduplicate
+  const gov = (params.governorate || "").trim();
+  let center = cleanVenueName(params.center || "", gov);
+  let bld = (params.building || "").trim();
+  const fl = (params.floor || "").trim();
+
+  // Deduplicate building if identical to center, or contained in center, or center is school/university
+  if (
+    !bld ||
+    bld.toLowerCase() === center.toLowerCase() ||
+    center.toLowerCase().includes(bld.toLowerCase()) ||
+    bld.toLowerCase().includes(center.toLowerCase()) ||
+    isSchoolCenter(center)
+  ) {
+    bld = "";
+  }
+
+  // If center is empty but building exists, use building as center
+  if (!center && bld) {
+    center = bld;
+    bld = "";
+  }
+
+  // 2. Build Lines
+  const lines: Array<{ text: string; size: number }> = [];
+  const maxW = width - 16;
+
+  // Primary Line: Venue Name (School / Center / University)
+  const venueText = center || bld;
+  if (venueText) {
+    let vSize = 9;
+    let vW = font.widthOfTextAtSize(venueText, vSize);
+    if (vW > maxW) {
+      const scaledSize = (maxW / vW) * vSize;
+      if (scaledSize >= 7.5) {
+        vSize = Math.max(7.5, scaledSize);
+        lines.push({ text: venueText, size: vSize });
+      } else {
+        // Wrap venue text into 2 lines
+        const words = venueText.split(/\s+/);
+        let line1 = "";
+        let line2 = "";
+        for (const w of words) {
+          const test = line1 ? `${line1} ${w}` : w;
+          if (font.widthOfTextAtSize(test, 8) <= maxW) {
+            line1 = test;
+          } else {
+            line2 = line2 ? `${line2} ${w}` : w;
+          }
+        }
+        if (line1) lines.push({ text: line1, size: 8 });
+        if (line2) lines.push({ text: line2, size: 8 });
+      }
+    } else {
+      lines.push({ text: venueText, size: vSize });
+    }
+  }
+
+  // Secondary Line: Governorate (City) & Floor (and distinct Building if any)
+  const subParts: string[] = [];
+  if (gov) subParts.push(gov);
+  if (bld && bld !== venueText) subParts.push(bld);
+  if (fl) subParts.push(fl);
+
+  if (subParts.length > 0) {
+    const subText = subParts.join("   •   ");
+    let sSize = 8;
+    let sW = font.widthOfTextAtSize(subText, sSize);
+    if (sW > maxW) {
+      sSize = Math.max(6.8, (maxW / sW) * sSize);
+    }
+    lines.push({ text: subText, size: sSize });
+  }
+
+  // Fallback: If both empty, show "Examination Center"
+  if (lines.length === 0) {
+    lines.push({ text: "Examination Center", size: 8.5 });
+  }
+
+  // 3. Render lines vertically spaced
+  let currY = headerBottom - 11;
+  for (let i = 0; i < lines.length; i++) {
+    const item = lines[i];
+    const textW = font.widthOfTextAtSize(item.text, item.size);
+    page.drawText(item.text, {
+      x: x + Math.max(8, (width - textW) / 2),
+      y: currY,
+      size: item.size,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+    currY -= (item.size + 3.5);
+  }
+
+  // Draw divider line under location block
+  const locDividerY = currY - 2;
+  page.drawLine({
+    start: { x: x + 4, y: locDividerY },
+    end: { x: x + width - 4, y: locDividerY },
+    thickness: 0.8,
+    color: COLOR_BORDER,
+  });
+
+  return locDividerY;
 }
 
 /**
@@ -1912,22 +2053,17 @@ function drawQuarterPlacard(params: {
     const headerBottom = logoY - 5;
     page.drawLine({ start: { x: x + 8, y: headerBottom }, end: { x: x + width - 8, y: headerBottom }, thickness: 1, color: COLOR_CHARCOAL });
 
-    const isSchool = isSchoolCenter(content.center || content.building);
-    const centerVal = content.center;
-    const buildingVal = (!isSchool && content.building && content.building !== content.center) ? content.building : undefined;
-    const locItems = Array.from(new Set([content.governorate, centerVal, buildingVal, isRoom ? content.floor : undefined].filter(Boolean)));
-    const locText = locItems.join("  •  ");
-    let locSize = 8;
-    let locWidth = font.widthOfTextAtSize(locText, locSize);
-    if (locWidth > width - 24) {
-      locSize = Math.max(6.5, ((width - 24) / locWidth) * locSize);
-      locWidth = font.widthOfTextAtSize(locText, locSize);
-    }
-    const locY = headerBottom - 14;
-    page.drawText(locText, { x: x + (width - locWidth) / 2, y: locY, size: locSize, font, color: COLOR_CHARCOAL });
-
-    const divider2Y = locY - 6;
-    page.drawLine({ start: { x: x + 8, y: divider2Y }, end: { x: x + width - 8, y: divider2Y }, thickness: 1, color: COLOR_CHARCOAL });
+    const divider2Y = drawQuarterLocationBlock({
+      page,
+      font,
+      governorate: content.governorate,
+      center: content.center,
+      building: content.building,
+      floor: isRoom ? content.floor : undefined,
+      x,
+      width,
+      headerBottom,
+    });
 
     const bodyTop = divider2Y - 10;
     const bodyBottom = y + 10;
@@ -2252,39 +2388,17 @@ function drawQuarterPlacard(params: {
     color: COLOR_CHARCOAL,
   });
 
-  // Location string
-  const isSchool = isSchoolCenter(content.center || content.building);
-  const centerVal = content.center;
-  const buildingVal = (!isSchool && content.building && content.building !== content.center) ? content.building : undefined;
-  const locItems = Array.from(new Set([
-    content.governorate,
-    centerVal,
-    buildingVal,
-    isRoom ? content.floor : undefined,
-  ].filter(Boolean)));
-  const locText = locItems.join("  •  ");
-  let locSize = 8;
-  let locWidth = font.widthOfTextAtSize(locText, locSize);
-  if (locWidth > width - 16) {
-    locSize = Math.max(6.5, ((width - 16) / locWidth) * locSize);
-    locWidth = font.widthOfTextAtSize(locText, locSize);
-  }
-  const locY = headerBottom - 14;
-  page.drawText(locText, {
-    x: x + (width - locWidth) / 2,
-    y: locY,
-    size: locSize,
+  // Location block broken into clean, prominent lines ("نكسر الصف")
+  const divider2Y = drawQuarterLocationBlock({
+    page,
     font,
-    color: COLOR_CHARCOAL,
-  });
-
-  // Divider 2 below location
-  const divider2Y = locY - 6;
-  page.drawLine({
-    start: { x: x + 4, y: divider2Y },
-    end: { x: x + width - 4, y: divider2Y },
-    thickness: 0.8,
-    color: COLOR_BORDER,
+    governorate: content.governorate,
+    center: content.center,
+    building: content.building,
+    floor: isRoom ? content.floor : undefined,
+    x,
+    width,
+    headerBottom,
   });
 
   // 1. Room / Floor / Head Section
@@ -2971,19 +3085,17 @@ function drawQuarterExamSticker(params: {
     const headerBottom = logoY - 5;
     page.drawLine({ start: { x: x + 8, y: headerBottom }, end: { x: x + width - 8, y: headerBottom }, thickness: 1, color: COLOR_CHARCOAL });
 
-    const locItems = [item.governorate, item.center, item.building, item.floor].filter(Boolean);
-    const locText = locItems.join("  •  ");
-    let locSize = 8;
-    let locWidth = font.widthOfTextAtSize(locText, locSize);
-    if (locWidth > width - 24) {
-      locSize = Math.max(6.5, ((width - 24) / locWidth) * locSize);
-      locWidth = font.widthOfTextAtSize(locText, locSize);
-    }
-    const locY = headerBottom - 14;
-    page.drawText(locText, { x: x + (width - locWidth) / 2, y: locY, size: locSize, font, color: COLOR_CHARCOAL });
-
-    const divider2Y = locY - 6;
-    page.drawLine({ start: { x: x + 8, y: divider2Y }, end: { x: x + width - 8, y: divider2Y }, thickness: 1, color: COLOR_CHARCOAL });
+    const divider2Y = drawQuarterLocationBlock({
+      page,
+      font,
+      governorate: item.governorate,
+      center: item.center,
+      building: item.building,
+      floor: item.floor,
+      x,
+      width,
+      headerBottom,
+    });
 
     const bodyTop = divider2Y - 10;
     const bodyBottom = y + 10;
@@ -3179,36 +3291,17 @@ function drawQuarterExamSticker(params: {
     color: COLOR_CHARCOAL,
   });
 
-  // Location ribbon
-  const locItems = [
-    item.governorate,
-    item.center,
-    item.building,
-    item.floor,
-  ].filter(Boolean);
-  const locText = locItems.join("  •  ");
-  let locSize = 8;
-  let locWidth = font.widthOfTextAtSize(locText, locSize);
-  if (locWidth > width - 16) {
-    locSize = Math.max(6.5, ((width - 16) / locWidth) * locSize);
-    locWidth = font.widthOfTextAtSize(locText, locSize);
-  }
-  const locY = headerBottom - 14;
-  page.drawText(locText, {
-    x: x + (width - locWidth) / 2,
-    y: locY,
-    size: locSize,
+  // Location block broken into clean, prominent lines ("نكسر الصف")
+  const locDividerY = drawQuarterLocationBlock({
+    page,
     font,
-    color: COLOR_CHARCOAL,
-  });
-
-  // Divider line under location
-  const locDividerY = locY - 6;
-  page.drawLine({
-    start: { x: x + 4, y: locDividerY },
-    end: { x: x + width - 4, y: locDividerY },
-    thickness: 0.8,
-    color: COLOR_BORDER,
+    governorate: item.governorate,
+    center: item.center,
+    building: item.building,
+    floor: item.floor,
+    x,
+    width,
+    headerBottom,
   });
 
   // 1. EXAM ROOM SECTION
