@@ -309,6 +309,30 @@ function getVerticalSubjectLines(content: StickerContent, isRoom: boolean): stri
   return lines;
 }
 
+function getFloorDetailLines(content: StickerContent): string[] {
+  const lines: string[] = [];
+  const rooms = content.childNames || [];
+  const childRoomsCount = content.childCount || rooms.length;
+
+  if (rooms.length > 0) {
+    const maxPerLine = 4;
+    for (let i = 0; i < rooms.length; i += maxPerLine) {
+      const chunk = rooms.slice(i, i + maxPerLine);
+      lines.push(chunk.join("   •   "));
+    }
+  } else if (childRoomsCount > 0) {
+    lines.push(`${childRoomsCount} Rooms Included in this Floor`);
+  }
+
+  if (typeof content.totalStudents === "number" && content.totalStudents > 0) {
+    lines.push(`Total Candidates: ${content.totalStudents} (${childRoomsCount} Rooms)`);
+  } else if (childRoomsCount > 0) {
+    lines.push(`Total: ${childRoomsCount} Rooms`);
+  }
+
+  return lines;
+}
+
 /**
  * Draws a full-page A4 Exam Placard:
  * - Features the official EST Logo (JPEG) at the top of every sticker.
@@ -370,8 +394,21 @@ function drawA4PlacardPage(params: {
     });
   }
 
-  // Right Side (opposite to the logo): Exam Tag and Official Date & Day in English
+  // Exam Tag (EST 1 or EST 2) - displayed on BOTH sides for total clarity
   const examTag = resolveExamTag(content);
+
+  // Left Tag: right next to official logo
+  const leftTagX = logoImg ? logoX + logoWidth + 14 : logoX + 70;
+  const leftTagSize = isLandscape ? 22 : 24;
+  page.drawText(examTag, {
+    x: leftTagX,
+    y: logoY + (logoHeight - leftTagSize) / 2 + 1,
+    size: leftTagSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Right Side (opposite to the logo): Exam Tag and Official Date & Day in English
   const examTagSize = isLandscape ? 24 : 28;
   const examTagW = font.widthOfTextAtSize(examTag, examTagSize);
   const rightMargin = margin + 20;
@@ -515,7 +552,7 @@ function drawA4PlacardPage(params: {
         y: bodyBottom,
         width: leftColWidth,
         height: bottomAreaHeight,
-        badgeText: "ROOM",
+        badgeText: `${examTag} – ROOM`,
         valueText: content.room || "",
         detailLines: subjectLines.length > 0 ? subjectLines : undefined,
       });
@@ -565,7 +602,7 @@ function drawA4PlacardPage(params: {
         y: gridBottom - heroHeight - 10,
         width: bodyWidth,
         height: heroHeight,
-        badgeText: "ROOM",
+        badgeText: `${examTag} – ROOM`,
         valueText: content.room || "",
         detailLines: subjectLines.length > 0 ? subjectLines : undefined,
       });
@@ -609,6 +646,8 @@ function drawA4PlacardPage(params: {
       "5. Draft papers, pens, and IDs",
     ];
 
+    const floorDetailLines = getFloorDetailLines(content);
+
     const subText =
       content.childNames && content.childNames.length > 0
         ? `INCLUDED ROOMS (${childRoomsCount}) : ${content.childNames.join("  •  ")}`
@@ -650,8 +689,9 @@ function drawA4PlacardPage(params: {
         y: bodyBottom,
         width: bodyWidth,
         height: heroBoxHeight,
-        badgeText: "FLOOR",
+        badgeText: `${examTag} – FLOOR`,
         valueText: content.floor || "",
+        detailLines: floorDetailLines.length > 0 ? floorDetailLines : undefined,
         subText,
         accentColor: COLOR_GOLD,
       });
@@ -685,8 +725,9 @@ function drawA4PlacardPage(params: {
         y: bodyBottom,
         width: leftColWidth,
         height: bottomAreaHeight,
-        badgeText: "FLOOR",
+        badgeText: `${examTag} – FLOOR`,
         valueText: content.floor || "",
+        detailLines: floorDetailLines.length > 0 ? floorDetailLines : undefined,
         subText,
         accentColor: COLOR_GOLD,
       });
@@ -734,8 +775,9 @@ function drawA4PlacardPage(params: {
         y: gridBottom - heroHeight - 10,
         width: bodyWidth,
         height: heroHeight,
-        badgeText: "FLOOR",
+        badgeText: `${examTag} – FLOOR`,
         valueText: content.floor || "",
+        detailLines: floorDetailLines.length > 0 ? floorDetailLines : undefined,
         subText,
         accentColor: COLOR_GOLD,
       });
@@ -811,7 +853,7 @@ function drawA4PlacardPage(params: {
       y: bodyBottom,
       width: bodyWidth,
       height: heroBoxHeight,
-      badgeText: "BUILDING",
+      badgeText: `${examTag} – BUILDING`,
       valueText: content.building || "",
       subText,
       accentColor: COLOR_GOLD,
@@ -875,7 +917,7 @@ function drawA4PlacardPage(params: {
       y: bodyBottom,
       width: bodyWidth,
       height: heroBoxHeight,
-      badgeText: "TEST CENTER",
+      badgeText: `${examTag} – TEST CENTER`,
       valueText: content.center || "",
       subText,
       accentColor: COLOR_GOLD,
@@ -914,7 +956,7 @@ function drawA4PlacardPage(params: {
       y: bodyBottom,
       width: bodyWidth,
       height: heroBoxHeight,
-      badgeText: "GOVERNORATE",
+      badgeText: `${examTag} – GOVERNORATE`,
       valueText: content.governorate || "",
       subText,
       accentColor: COLOR_GOLD,
@@ -1220,7 +1262,10 @@ function renderHeroCard(params: {
         height: subHeaderH,
         color: COLOR_CHARCOAL,
       });
-      const subHeaderTitle = "EXAMINATION SUBJECTS & ATTENDANCE";
+      const isFloorHero = badgeText.toUpperCase().includes("FLOOR");
+      const subHeaderTitle = isFloorHero
+        ? "ASSIGNED ROOMS IN THIS FLOOR"
+        : "EXAMINATION SUBJECTS & ATTENDANCE";
       const shSize = 8.5;
       const shW = font.widthOfTextAtSize(subHeaderTitle, shSize);
       page.drawText(subHeaderTitle, {
@@ -1260,7 +1305,7 @@ function renderHeroCard(params: {
             font,
             color: COLOR_CHARCOAL,
           });
-        } else {
+        } else if (!isFloorHero) {
           const m = text.match(/^(.+?):\s*(\d+.*)$/);
           if (m) {
             const subjName = m[1].trim();
@@ -1308,6 +1353,21 @@ function renderHeroCard(params: {
               color: COLOR_CHARCOAL,
             });
           }
+        } else {
+          // For Floor Hero: Center the list of rooms nicely with high contrast
+          let size = Math.min(13, baseLineSize + 1);
+          let tw = font.widthOfTextAtSize(text, size);
+          if (tw > width - 16) {
+            size = Math.max(8, ((width - 16) / tw) * size);
+            tw = font.widthOfTextAtSize(text, size);
+          }
+          page.drawText(text, {
+            x: x + (width - tw) / 2,
+            y: rowY + (step - size) / 2 + 1,
+            size,
+            font,
+            color: COLOR_CHARCOAL,
+          });
         }
       }
     } else if (detailText && subText) {
@@ -1891,8 +1951,8 @@ function drawQuarterPlacard(params: {
     page.drawLine({ start: { x: dividerX, y: bodyBottom + 6 }, end: { x: dividerX, y: bodyTop }, thickness: 1, color: COLOR_BORDER });
 
     // Left Column
-    const badgeText = isExamPapers ? "BUILDING EXAM PAPERS" : isHead ? "BUILDING HEAD" : isRoom ? "EXAM ROOM" : "FLOOR";
-    const badgeSize = 9;
+    const badgeText = isExamPapers ? `${examTag} – EXAM PAPERS` : isHead ? `${examTag} – HEAD` : isRoom ? `${examTag} – ROOM` : `${examTag} – FLOOR`;
+    const badgeSize = 8.5;
     const badgeW = font.widthOfTextAtSize(badgeText, badgeSize);
     page.drawText(badgeText, { x: leftX + (leftW - badgeW) / 2, y: bodyTop - 12, size: badgeSize, font, color: COLOR_MUTED });
 
@@ -2006,17 +2066,71 @@ function drawQuarterPlacard(params: {
       }
       page.drawText(headSubText, { x: leftX + (leftW - totalW) / 2, y: leftDividerY - 20, size: totalSize, font, color: COLOR_CHARCOAL });
     } else {
-      const childRoomsCount = content.childCount || (content.childNames ? content.childNames.length : 0);
-      const floorSubText = typeof content.totalStudents === "number" && content.totalStudents > 0
-        ? `${content.totalStudents} STUDENTS TOTAL`
-        : childRoomsCount > 0 ? `${childRoomsCount} ROOMS INCLUDED` : "SENIOR DOSSIER";
-      let totalSize = 13.5;
-      let totalW = font.widthOfTextAtSize(floorSubText, totalSize);
-      if (totalW > leftW - 8) {
-        totalSize = Math.max(9.5, ((leftW - 8) / totalW) * totalSize);
-        totalW = font.widthOfTextAtSize(floorSubText, totalSize);
+      // Floor level: Display list of rooms in this floor
+      const rooms = content.childNames || [];
+      const childRoomsCount = content.childCount || rooms.length;
+      const floorHeader = `ASSIGNED ROOMS (${childRoomsCount}):`;
+      const fhSize = 8;
+      page.drawText(floorHeader, { x: leftX + 4, y: leftDividerY - 14, size: fhSize, font, color: COLOR_MUTED });
+
+      const availH = leftDividerY - 20 - (bodyBottom + 4);
+      if (rooms.length > 0) {
+        // Chunk into lines of 4 rooms
+        const chunks: string[] = [];
+        for (let i = 0; i < rooms.length; i += 4) {
+          chunks.push(rooms.slice(i, i + 4).join("  •  "));
+        }
+        const lineCount = chunks.length;
+        const step = Math.min(18, Math.max(13, (availH - 18) / lineCount));
+        const startY = leftDividerY - 26;
+        for (let cIdx = 0; cIdx < lineCount; cIdx++) {
+          const chunkText = chunks[cIdx];
+          let cSize = 9.5;
+          let cW = font.widthOfTextAtSize(chunkText, cSize);
+          if (cW > leftW - 10) {
+            cSize = Math.max(7.5, ((leftW - 10) / cW) * cSize);
+            cW = font.widthOfTextAtSize(chunkText, cSize);
+          }
+          page.drawText(chunkText, {
+            x: leftX + (leftW - cW) / 2,
+            y: startY - cIdx * step,
+            size: cSize,
+            font,
+            color: COLOR_CHARCOAL,
+          });
+        }
+
+        // Bottom Total Candidates Bar
+        if (typeof content.totalStudents === "number" && content.totalStudents > 0) {
+          const totText = `${content.totalStudents} CANDIDATES TOTAL`;
+          const totSize = 9;
+          const totW = font.widthOfTextAtSize(totText, totSize);
+          const barY = bodyBottom + 4;
+          page.drawRectangle({
+            x: leftX + 4,
+            y: barY - 1,
+            width: leftW - 8,
+            height: 14,
+            color: rgb(0.92, 0.92, 0.92),
+            borderColor: COLOR_CHARCOAL,
+            borderWidth: 0.6,
+          });
+          page.drawText(totText, {
+            x: leftX + (leftW - totW) / 2,
+            y: barY + 2.5,
+            size: totSize,
+            font,
+            color: COLOR_CHARCOAL,
+          });
+        }
+      } else {
+        const floorSubText = typeof content.totalStudents === "number" && content.totalStudents > 0
+          ? `${content.totalStudents} STUDENTS TOTAL`
+          : childRoomsCount > 0 ? `${childRoomsCount} ROOMS INCLUDED` : "SENIOR DOSSIER";
+        let totalSize = 12;
+        let totalW = font.widthOfTextAtSize(floorSubText, totalSize);
+        page.drawText(floorSubText, { x: leftX + (leftW - totalW) / 2, y: leftDividerY - 24, size: totalSize, font, color: COLOR_CHARCOAL });
       }
-      page.drawText(floorSubText, { x: leftX + (leftW - totalW) / 2, y: leftDividerY - 20, size: totalSize, font, color: COLOR_CHARCOAL });
     }
 
     // Right Column (Checklist)
@@ -2202,8 +2316,8 @@ function drawQuarterPlacard(params: {
   });
 
   // 1. Room / Floor / Head Section
-  const badgeText = isExamPapers ? "BUILDING EXAM PAPERS" : isHead ? "BUILDING HEAD" : isRoom ? "EXAM ROOM" : "FLOOR";
-  const badgeSize = 9.5;
+  const badgeText = isExamPapers ? `${examTag} – EXAM PAPERS` : isHead ? `${examTag} – HEAD` : isRoom ? `${examTag} – ROOM` : `${examTag} – FLOOR`;
+  const badgeSize = 9;
   const badgeW = font.widthOfTextAtSize(badgeText, badgeSize);
   const badgeY = divider2Y - 14;
   page.drawText(badgeText, {
@@ -2388,38 +2502,97 @@ function drawQuarterPlacard(params: {
     });
     nextSectionTop = headDividerY - 10;
   } else {
-    // Floor level
-    const childRoomsCount = content.childCount || (content.childNames ? content.childNames.length : 0);
-    const floorSubText =
-      typeof content.totalStudents === "number" && content.totalStudents > 0
+    // Floor level: Display list of rooms in this floor
+    const rooms = content.childNames || [];
+    const childRoomsCount = content.childCount || rooms.length;
+    const floorHdr = `ASSIGNED ROOMS IN THIS FLOOR (${childRoomsCount} ROOMS):`;
+    const fhSize = 8;
+    const fhW = font.widthOfTextAtSize(floorHdr, fhSize);
+    page.drawText(floorHdr, { x: x + (width - fhW) / 2, y: heroDividerY - 14, size: fhSize, font, color: COLOR_MUTED });
+
+    if (rooms.length > 0) {
+      const chunks: string[] = [];
+      for (let i = 0; i < rooms.length; i += 4) {
+        chunks.push(rooms.slice(i, i + 4).join("   •   "));
+      }
+      const lineCount = chunks.length;
+      const step = 14;
+      const startY = heroDividerY - 28;
+      for (let cIdx = 0; cIdx < lineCount; cIdx++) {
+        const chunkText = chunks[cIdx];
+        let cSize = 9.5;
+        let cW = font.widthOfTextAtSize(chunkText, cSize);
+        if (cW > width - 16) {
+          cSize = Math.max(7.5, ((width - 16) / cW) * cSize);
+          cW = font.widthOfTextAtSize(chunkText, cSize);
+        }
+        page.drawText(chunkText, {
+          x: x + (width - cW) / 2,
+          y: startY - cIdx * step,
+          size: cSize,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+      }
+
+      const lastChunkY = startY - (lineCount - 1) * step;
+
+      // Highlight total bar
+      if (typeof content.totalStudents === "number" && content.totalStudents > 0) {
+        const totText = `${content.totalStudents} CANDIDATES TOTAL ACROSS ${childRoomsCount} ROOMS`;
+        const totSize = 8.5;
+        const totW = font.widthOfTextAtSize(totText, totSize);
+        const barY = lastChunkY - 18;
+        page.drawRectangle({
+          x: x + 6,
+          y: barY - 1,
+          width: width - 12,
+          height: 14,
+          color: rgb(0.92, 0.92, 0.92),
+          borderColor: COLOR_CHARCOAL,
+          borderWidth: 0.6,
+        });
+        page.drawText(totText, {
+          x: x + (width - totW) / 2,
+          y: barY + 2.5,
+          size: totSize,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+        nextSectionTop = barY - 12;
+      } else {
+        nextSectionTop = lastChunkY - 14;
+      }
+    } else {
+      const floorSubText = typeof content.totalStudents === "number" && content.totalStudents > 0
         ? `${content.totalStudents} STUDENTS TOTAL`
         : childRoomsCount > 0
           ? `${childRoomsCount} ROOMS INCLUDED`
           : "SENIOR DOSSIER";
 
-    let totalSize = 13;
-    let totalW = font.widthOfTextAtSize(floorSubText, totalSize);
-    if (totalW > width - 16) {
-      totalSize = Math.max(9.5, ((width - 16) / totalW) * totalSize);
-      totalW = font.widthOfTextAtSize(floorSubText, totalSize);
+      let totalSize = 13;
+      let totalW = font.widthOfTextAtSize(floorSubText, totalSize);
+      if (totalW > width - 16) {
+        totalSize = Math.max(9.5, ((width - 16) / totalW) * totalSize);
+        totalW = font.widthOfTextAtSize(floorSubText, totalSize);
+      }
+      const totalY = heroDividerY - 15;
+      page.drawText(floorSubText, {
+        x: x + (width - totalW) / 2,
+        y: totalY,
+        size: totalSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+      nextSectionTop = totalY - 12;
     }
-    const totalY = heroDividerY - 15;
-    page.drawText(floorSubText, {
-      x: x + (width - totalW) / 2,
-      y: totalY,
-      size: totalSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
 
-    const floorDividerY = totalY - 8;
     page.drawLine({
-      start: { x: x + 6, y: floorDividerY },
-      end: { x: x + width - 6, y: floorDividerY },
+      start: { x: x + 6, y: nextSectionTop + 4 },
+      end: { x: x + width - 6, y: nextSectionTop + 4 },
       thickness: 0.6,
       color: COLOR_BORDER,
     });
-    nextSectionTop = floorDividerY - 10;
   }
 
   // 3. Checklist Section
