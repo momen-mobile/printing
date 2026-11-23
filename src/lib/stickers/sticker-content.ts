@@ -27,6 +27,8 @@ export interface StickerSubfolderInfo {
   hasEssay?: boolean;
   subjects?: RoomSubjectCount[];
   breakdownText?: string;
+  examDate?: string;
+  examDay?: string;
 }
 
 export interface StickerContent {
@@ -58,6 +60,8 @@ export interface StickerContent {
   mathCount?: number;
   essayCount?: number;
   hasEssay?: boolean;
+  examDate?: string;
+  examDay?: string;
 }
 
 /**
@@ -280,6 +284,8 @@ export function buildStickerContent(
   let mathCount = subfolderInfo?.mathCount;
   let essayCount = subfolderInfo?.essayCount;
   let hasEssay = subfolderInfo?.hasEssay;
+  let examDate = subfolderInfo?.examDate;
+  let examDay = subfolderInfo?.examDay;
   let subjects = subfolderInfo?.subjects;
   let breakdownText = subfolderInfo?.breakdownText;
   let examType: "EST 1" | "EST 2" | "EST" | undefined;
@@ -333,5 +339,7 @@ export function buildStickerContent(
     mathCount,
     essayCount,
     hasEssay,
+    examDate,
+    examDay,
   };
 }

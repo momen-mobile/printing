@@ -139,3 +139,23 @@ model CertificateStickerBatch {
   @@index([sourceKey])
   @@index([batchType])
 }
+
+model EstExamRound {
+  id           String    @id @default(cuid())
+  userId       String?
+  name         String
+  examType     String    // "EST 1" | "EST 2"
+  roundDate    DateTime?
+  roundDay     String?   // e.g. "Saturday"
+  cycleName    String?   // e.g. "December 2026"
+  fileName     String?
+  sheetData    Json
+  summaryStats Json?
+  status       String    @default("active")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([examType])
+  @@index([status])
+}

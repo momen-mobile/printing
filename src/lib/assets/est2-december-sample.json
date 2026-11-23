@@ -1,0 +1,1352 @@
+[
+  [
+    "Governorate AR",
+    "Center",
+    "Room",
+    "Students Math 1",
+    "Students Biology",
+    "Students Chemistry",
+    "Students Math 2"
+  ],
+  [
+    "Alexandria",
+    "Future International School",
+    "3rd floor 12A",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Future International School",
+    "3rd floor 12B",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Future International School",
+    "3rd floor 12C",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Future International School",
+    "3rd floor 11A",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Future International School",
+    "3rd floor 11B",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Future International School",
+    "3rd floor 11C",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Future International School",
+    "3rd floor 10B",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Future International School",
+    "3rd floor MathsClass",
+    4,
+    15,
+    0,
+    11
+  ],
+  [
+    "Alexandria",
+    "Taymour English School",
+    "1st floor Room 1",
+    13,
+    15,
+    0,
+    2
+  ],
+  [
+    "Alexandria",
+    "Taymour English School",
+    "1st floor Room 2",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Taymour English School",
+    "1st floor Room 3",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Taymour English School",
+    "3rd floor Room 4",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Taymour English School",
+    "3rd floor Room 5",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Taymour English School",
+    "3rd floor Room 6",
+    0,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Taymour English School",
+    "3rd floor Room 7",
+    0,
+    13,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Pioneers International School",
+    "3rd floor Nebraska",
+    7,
+    14,
+    1,
+    5
+  ],
+  [
+    "Alexandria",
+    "Pioneers International School",
+    "3rd floor Nevada",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Pioneers International School",
+    "3rd floor New Mexico",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Pioneers International School",
+    "3rd floor New Jersey",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Pioneers International School",
+    "3rd floor New york",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Pioneers International School",
+    "3rd floor Colimbia",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Pioneers International School",
+    "3rd floor Carolina",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Pioneers International School",
+    "3rd floor Colorado",
+    10,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Pioneers International School",
+    "3rd floor California",
+    8,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "Pioneers International School",
+    "3rd floor Chicago",
+    0,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "El Zahraa International School - American Division",
+    "1st floor Room 1",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "El Zahraa International School - American Division",
+    "1st floor Room 2",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "El Zahraa International School - American Division",
+    "1st floor Room 3",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "El Zahraa International School - American Division",
+    "1st floor Room 4",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Alexandria",
+    "El Zahraa International School - American Division",
+    "1st floor Room 5",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Rawasy Misr International School",
+    "6A",
+    8,
+    15,
+    0,
+    7
+  ],
+  [
+    "Cairo",
+    "Rawasy Misr International School",
+    "6B",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Rawasy Misr International School",
+    "7A",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Rawasy Misr International School",
+    "8A",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Rawasy Misr International School",
+    "9A",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Rawasy Misr International School",
+    "10A",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Rawasy Misr International School",
+    "11A",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-1",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-2",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-3",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-4",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-5",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-6",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-7",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-8",
+    14,
+    14,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-9",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-10",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-11",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Hotep International School",
+    "Seniors-12",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Integrated Thebes American College in Cairo",
+    "Room No.402",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Integrated Thebes American College in Cairo",
+    "Room No.403",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Integrated Thebes American College in Cairo",
+    "Room No.404",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Integrated Thebes American College in Cairo",
+    "Room No.405",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Integrated Thebes American College in Cairo",
+    "Room No.406",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Integrated Thebes American College in Cairo",
+    "Room No.407",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Integrated Thebes American College in Cairo",
+    "Room No.408",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Al-Andalus International School",
+    "12B",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Al-Andalus International School",
+    "12C",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Al-Andalus International School",
+    "11B",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Al-Andalus International School",
+    "11C",
+    14,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Al-Andalus International School",
+    "10B",
+    0,
+    10,
+    0,
+    0
+  ],
+  [
+    "Damietta",
+    "Horus University - Egypt - Faculty of Medicine",
+    "M2 118 ",
+    21,
+    25,
+    0,
+    4
+  ],
+  [
+    "Damietta",
+    "Horus University - Egypt - Faculty of Medicine",
+    "M2.102 ",
+    25,
+    25,
+    0,
+    0
+  ],
+  [
+    "Damietta",
+    "Horus University - Egypt - Faculty of Medicine",
+    "M2.103 ",
+    25,
+    25,
+    0,
+    0
+  ],
+  [
+    "Damietta",
+    "Horus University - Egypt - Faculty of Medicine",
+    "M2.121 ",
+    24,
+    24,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "2nd floor Room No.1",
+    14,
+    14,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "2nd floor Room No.2",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "2nd floor Room No.3",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "2nd floor Room No.4",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "2nd floor Room No.5",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "2nd floor Room No.6",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "2nd floor Room No.7",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "3rd floor Room No.8",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "3rd floor Room No.9",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "3rd floor Room No.10",
+    8,
+    15,
+    0,
+    7
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "3rd floor Room No.11",
+    7,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "3rd floor Room No.12",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "3rd floor Room No.13",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "3rd floor Room No.14",
+    14,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Pioneer Misr International School",
+    "3rd floor Room No.15",
+    0,
+    14,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 1",
+    11,
+    12,
+    2,
+    1
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 2",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 3",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 4",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 5",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 6",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 7",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 8",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 9",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 10",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 11",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "Map International Schools",
+    "Room 12",
+    12,
+    12,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor Room 1.1",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor Room 1.2",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor Room 1.3",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor Room 1.4",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor Room 1.5",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor Room 1.6",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor Room 1.7",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor  Room 1.8",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor Room 1.9",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor  Room 1.10",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor  Room 1.11",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor  Room 1.12",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor  Room 1.13",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "SUN OF GLORY INTERNATIONAL SCHOOL",
+    "1st floor  Room 1.14",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Mastery International School",
+    202,
+    6,
+    15,
+    1,
+    9
+  ],
+  [
+    "Cairo",
+    "Mastery International School",
+    203,
+    7,
+    15,
+    1,
+    8
+  ],
+  [
+    "Cairo",
+    "Mastery International School",
+    205,
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Mastery International School",
+    214,
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Mastery International School",
+    215,
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Mastery International School",
+    216,
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Cairo",
+    "Mastery International School",
+    217,
+    13,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "1st floor  American B. Room No.1",
+    9,
+    15,
+    0,
+    6
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "1st floor  American B. Room No.2",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "1st floor  American B. Room No.3",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "1st floor  American B. Room No.4",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "1st floor  American B. Room No.5",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "1st floor  American B.Room No.6",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "2nd floor  American B.Room No.7",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "2nd floor  American B.Room No.8",
+    14,
+    14,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "2nd floor  American B.Room No.9",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "2nd floor  American B.Room No.10",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "2nd floor  American B.Room No.11",
+    15,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "2nd floor  American B.Room No.12",
+    4,
+    15,
+    0,
+    0
+  ],
+  [
+    "Giza",
+    "New Vision International School",
+    "2nd floor  American B.Room No.13",
+    0,
+    15,
+    0,
+    0
+  ],
+  [
+    "Minya",
+    "Deraya University - Faculty of Dentistry",
+    "Class 1",
+    16,
+    20,
+    0,
+    4
+  ],
+  [
+    "Minya",
+    "Deraya University - Faculty of Dentistry",
+    "Class 2",
+    20,
+    20,
+    0,
+    0
+  ],
+  [
+    "Minya",
+    "Deraya University - Faculty of Dentistry",
+    "Class 3",
+    20,
+    20,
+    0,
+    0
+  ],
+  [
+    "Minya",
+    "Deraya University - Faculty of Dentistry",
+    "Hall 4",
+    25,
+    24,
+    0,
+    0
+  ],
+  [
+    "Minya",
+    "Deraya University - Faculty of Dentistry",
+    "Hall 5",
+    23,
+    20,
+    0,
+    0
+  ],
+  [
+    "Minya",
+    "Deraya University - Faculty of Dentistry",
+    "Hall 6",
+    25,
+    24,
+    0,
+    0
+  ],
+  [
+    "Minya",
+    "Deraya University - Faculty of Dentistry",
+    "Hall 7",
+    25,
+    24,
+    0,
+    0
+  ],
+  [
+    "Minya",
+    "Deraya University - Faculty of Dentistry",
+    "Hall 8",
+    25,
+    24,
+    0,
+    0
+  ],
+  [
+    "Suez",
+    "St.Fatima Badr International School ",
+    4101,
+    11,
+    12,
+    0,
+    1
+  ],
+  [
+    "Suez",
+    "St.Fatima Badr International School ",
+    4102,
+    11,
+    12,
+    0,
+    0
+  ],
+  [
+    "Suez",
+    "St.Fatima Badr International School ",
+    4103,
+    11,
+    12,
+    0,
+    0
+  ],
+  [
+    "Suez",
+    "St.Fatima Badr International School ",
+    4104,
+    11,
+    11,
+    0,
+    0
+  ],
+  [
+    "Menofia",
+    "Al Ryada University For Science And Technology",
+    "E118",
+    14,
+    16,
+    0,
+    0
+  ],
+  [
+    "Menofia",
+    "Al Ryada University For Science And Technology",
+    "E121",
+    14,
+    17,
+    0,
+    0
+  ],
+  [
+    "Qaliubiya",
+    "Al Alamiya Modern School - International",
+    "G5-C",
+    11,
+    11,
+    0,
+    0
+  ],
+  [
+    "Qaliubiya",
+    "Al Alamiya Modern School - International",
+    "G6-A",
+    10,
+    8,
+    0,
+    0
+  ],
+  [
+    "Menofia",
+    "Irtiqaa International School",
+    "8A",
+    9,
+    5,
+    0,
+    0
+  ],
+  [
+    "Dakahlia",
+    "Tiba Modern International Schools",
+    "AD3A",
+    14,
+    15,
+    0,
+    0
+  ],
+  [
+    "Dakahlia",
+    "Tiba Modern International Schools",
+    "AD4A",
+    14,
+    15,
+    0,
+    0
+  ],
+  [
+    "Dakahlia",
+    "Tiba Modern International Schools",
+    "AD5A",
+    6,
+    6,
+    0,
+    0
+  ],
+  [
+    "Dakahlia",
+    "Mansoura College International School",
+    "Room 1",
+    14,
+    15,
+    0,
+    0
+  ],
+  [
+    "Dakahlia",
+    "Mansoura College International School",
+    "Room 2",
+    12,
+    15,
+    0,
+    1
+  ],
+  [
+    "Total",
+    null,
+    148,
+    2043,
+    2227,
+    null,
+    66
+  ]
+]

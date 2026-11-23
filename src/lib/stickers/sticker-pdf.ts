@@ -358,6 +358,22 @@ function drawA4PlacardPage(params: {
     });
   }
 
+  // Top-Right Corner: Date & Day in English (e.g. "Saturday, December 12, 2026")
+  const fullDateText = [content.examDay, content.examDate].filter(Boolean).join(", ");
+  if (fullDateText) {
+    const dateSize = isLandscape ? 12.5 : 13.5;
+    const dateW = font.widthOfTextAtSize(fullDateText, dateSize);
+    const dateX = pageWidth - margin - dateW - 16;
+    const dateY = content.isExamDossier ? cornerTagY - 18 : cornerTagY + 4;
+    page.drawText(fullDateText, {
+      x: dateX,
+      y: dateY,
+      size: dateSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+  }
+
   if (logoImg) {
     const logoHeight = isRoom ? (isLandscape ? 84 : 92) : (isLandscape ? 66 : 76);
     const logoWidth = logoHeight * (logoImg.width / logoImg.height);
@@ -1719,6 +1735,22 @@ function drawQuarterPlacard(params: {
       }
     }
 
+    // Top Header: Date & Day in English
+    const dateDayStr = [content.examDay, content.examDate].filter(Boolean).join(", ");
+    if (dateDayStr) {
+      const dSize = 8.5;
+      const dW = font.widthOfTextAtSize(dateDayStr, dSize);
+      const dX = x + width - dW - 8;
+      const dY = isRoom ? logoY + (logoH - dSize) / 2 + 1 : logoY - 4;
+      page.drawText(dateDayStr, {
+        x: dX,
+        y: dY,
+        size: dSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+    }
+
     const headerBottom = logoY - 5;
     page.drawLine({ start: { x: x + 8, y: headerBottom }, end: { x: x + width - 8, y: headerBottom }, thickness: 1, color: COLOR_CHARCOAL });
 
@@ -1948,6 +1980,22 @@ function drawQuarterPlacard(params: {
         color: cornerBadgeColor,
       });
     }
+  }
+
+  // Top Header: Date & Day in English
+  const dateDayStrPortrait = [content.examDay, content.examDate].filter(Boolean).join(", ");
+  if (dateDayStrPortrait) {
+    const dSize = 7.5;
+    const dW = font.widthOfTextAtSize(dateDayStrPortrait, dSize);
+    const dX = x + width - dW - 6;
+    const dY = isRoom ? logoY + (logoH - dSize) / 2 + 1 : (isHead || isExamPapers) ? logoY - 8 : logoY + (logoH - dSize) / 2 + 1;
+    page.drawText(dateDayStrPortrait, {
+      x: dX,
+      y: dY,
+      size: dSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
   }
 
   const headerBottom = logoY - 5;
@@ -2288,6 +2336,8 @@ export interface ExamStickerItem {
   studentCount: number;
   copyIndex: number;
   totalCopies: number;
+  date?: string;
+  day?: string;
 }
 
 export interface GenerateExamStickersPdfOptions {
@@ -2475,6 +2525,24 @@ function drawQuarterExamSticker(params: {
     font,
     color: COLOR_WHITE,
   });
+
+  // Date & Day display between logo and copy badge
+  const dateDayStr = [item.day, item.date].filter(Boolean).join(", ");
+  if (dateDayStr) {
+    const dSize = 8;
+    const dW = font.widthOfTextAtSize(dateDayStr, dSize);
+    const dX = logoX + logoW + 8;
+    const dY = logoY + (logoH - dSize) / 2 + 1;
+    if (dX + dW < copyBadgeX - 4) {
+      page.drawText(dateDayStr, {
+        x: dX,
+        y: dY,
+        size: dSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+    }
+  }
 
   const headerBottom = logoY - 6;
 
@@ -2703,6 +2771,8 @@ export function buildExamStickerItemsForRoom(params: {
         studentCount: sub.count,
         copyIndex: c,
         totalCopies,
+        date: content.examDate,
+        day: content.examDay,
       });
     }
   }

@@ -97,6 +97,15 @@ const primaryNav: NavItem[] = [
     bgColor: "bg-emerald-500/10 dark:bg-emerald-500/20",
     activeBg: "bg-emerald-600 text-white shadow-md shadow-emerald-500/25",
   },
+  {
+    href: "/est-rounds",
+    labelKey: "nav.estRounds",
+    icon: GraduationCap,
+    exact: true,
+    color: "text-purple-600 dark:text-purple-400",
+    bgColor: "bg-purple-500/10 dark:bg-purple-500/20",
+    activeBg: "bg-purple-600 text-white shadow-md shadow-purple-500/25",
+  },
 ];
 
 const fileTypesNav: NavItem[] = [
