@@ -34,7 +34,7 @@ async function main() {
   console.log("Seeding initial EST 2 December 2026 round...");
   
   const rows = [];
-  const subjectTotals = { MATH1: 0, BIO: 0, CHEM: 0, MATH2: 0 };
+  const subjectTotals = { MATH1: 0, MATH2: 0, BIO: 0, CHEM: 0 };
   const uniqueGovs = new Set();
   const uniqueCenters = new Set();
   const uniqueFloors = new Set();
@@ -54,18 +54,18 @@ async function main() {
     const m2 = Number(r[6]) || 0;
 
     subjectTotals.MATH1 += m1;
+    subjectTotals.MATH2 += m2;
     subjectTotals.BIO += bio;
     subjectTotals.CHEM += chem;
-    subjectTotals.MATH2 += m2;
 
-    const subjects = { MATH1: m1, BIO: bio, CHEM: chem, MATH2: m2 };
-    const totalStudents = Math.max(m1, bio, chem, m2, 0);
+    const subjects = { MATH1: m1, MATH2: m2, BIO: bio, CHEM: chem };
+    const totalStudents = Math.max(m1, m2, bio, chem, 0);
 
     const breakdownParts = [];
     if (m1 > 0) breakdownParts.push(`Math 1: ${m1}`);
+    if (m2 > 0) breakdownParts.push(`Math 2: ${m2}`);
     if (bio > 0) breakdownParts.push(`Biology: ${bio}`);
     if (chem > 0) breakdownParts.push(`Chemistry: ${chem}`);
-    if (m2 > 0) breakdownParts.push(`Math 2: ${m2}`);
 
     uniqueGovs.add(gov);
     uniqueCenters.add(center);

@@ -3,9 +3,11 @@ import path from "path";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { buildStickerContent, type StickerContent } from "./sticker-content";
-import { type RoomSubjectCount } from "./est-room-data";
+import { type RoomSubjectCount, getSubjectSortKey } from "./est-room-data";
 import { EST_LOGO_BASE64 } from "./est-logo-base64";
 import { formatArabicForPdf } from "./arabic-shaper";
+
+export { getSubjectSortKey };
 
 export interface StickerPdfOptions {
   lines?: string[];
@@ -254,8 +256,11 @@ function getVerticalSubjectLines(content: StickerContent, isRoom: boolean): stri
 
   if (content.subjects && content.subjects.length > 0) {
     let total = 0;
-    for (const s of content.subjects) {
-      if (s.count > 0 || content.subjects.length <= 3) {
+    const sorted = [...content.subjects].sort(
+      (a, b) => getSubjectSortKey(a.code || a.name) - getSubjectSortKey(b.code || b.name)
+    );
+    for (const s of sorted) {
+      if (s.count > 0 || sorted.length <= 3) {
         const name = expandSubjectName(s.name || s.code);
         lines.push(`${name}: ${s.count}`);
         total += s.count;
@@ -2506,6 +2511,8 @@ function drawQuarterPlacard(params: {
     }
 
     if (parsedSubjects.length > 0) {
+      // Strictly enforce canonical chronological exam period ordering on room subjects table
+      parsedSubjects.sort((a, b) => getSubjectSortKey(a.name) - getSubjectSortKey(b.name));
       const sCount = parsedSubjects.length;
       const rowH = sCount <= 2 ? 26 : sCount === 3 ? 24 : sCount === 4 ? 22 : 19;
       const tblHeaderH = 19;
@@ -3403,8 +3410,13 @@ export function buildExamStickerItemsForRoom(params: {
     }
   }
 
+  // Sort subjects strictly by official chronological exam period order
+  const sortedSubjects = [...subjects].sort(
+    (a, b) => getSubjectSortKey(a.code || a.name) - getSubjectSortKey(b.code || b.name)
+  );
+
   // Generate 2 copies for each subject
-  for (const sub of subjects) {
+  for (const sub of sortedSubjects) {
     if (sub.code === "ESSAY" && sub.count <= 0) continue;
     if (sub.count <= 0) continue;
 

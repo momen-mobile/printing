@@ -7,6 +7,7 @@ import {
   generateBatchExamStickersPdf,
   isSchoolCenter,
   expandSubjectName,
+  getSubjectSortKey,
 } from "@/lib/stickers/sticker-pdf";
 import {
   generateBatchFloorSubjectBagsPdf,
@@ -90,6 +91,7 @@ export async function POST(
       const isSchool = isSchoolCenter(row.center);
       const roomSubjects: RoomSubjectCount[] = Object.entries(row.subjects || {})
         .filter(([_, count]) => count > 0)
+        .sort(([codeA], [codeB]) => getSubjectSortKey(codeA) - getSubjectSortKey(codeB))
         .map(([code, count]) => {
           let name = code;
           if (code === "MATH1") name = "Math 1";
@@ -292,14 +294,16 @@ export async function POST(
           });
         }
 
-        const floorSubjectsList: FloorSubjectPlacardData[] = Array.from(subjectMap.entries()).map(([code, data]) => ({
-          subjectCode: code,
-          subjectName: data.name,
-          examType: round.examType as "EST 1" | "EST 2",
-          totalRooms: data.rooms.length,
-          totalCandidates: data.totalCandidates,
-          rooms: data.rooms,
-        }));
+        const floorSubjectsList: FloorSubjectPlacardData[] = Array.from(subjectMap.entries())
+          .sort(([codeA], [codeB]) => getSubjectSortKey(codeA) - getSubjectSortKey(codeB))
+          .map(([code, data]) => ({
+            subjectCode: code,
+            subjectName: data.name,
+            examType: round.examType as "EST 1" | "EST 2",
+            totalRooms: data.rooms.length,
+            totalCandidates: data.totalCandidates,
+            rooms: data.rooms,
+          }));
 
         floorBatches.push({
           floorName: first.floor,

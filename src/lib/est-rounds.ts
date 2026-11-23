@@ -5,6 +5,9 @@ import {
   OFFICIAL_EST_CENTERS,
   stripGovernorateFromName,
 } from "./stickers/est-reference-data";
+import { getSubjectSortKey } from "./stickers/est-room-data";
+
+export { getSubjectSortKey };
 
 export interface EstRoundSubjectItem {
   code: string;
@@ -291,6 +294,11 @@ function detectColumnMapping(headerRow: any[]): ColumnMapping | null {
   if (centerCol === -1 || roomCol === -1 || subjects.length === 0) {
     return null;
   }
+
+  // Strictly enforce canonical chronological exam period order:
+  // EST 1: Literacy (Period 1) -> Math (Period 2) -> Essay (Period 3)
+  // EST 2: Math 1 & Math 2 (Period 1) -> Biology (Period 2) -> Chemistry / Physics (Period 3)
+  subjects.sort((a, b) => getSubjectSortKey(a.code) - getSubjectSortKey(b.code));
 
   return {
     govCol: govCol >= 0 ? govCol : 0,

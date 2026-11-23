@@ -6,6 +6,7 @@ import {
   generateExamStickersPdf,
   generateBatchExamStickersPdf,
   resolveExamTag,
+  buildExamStickerItemsForRoom,
 } from "../sticker-pdf";
 import {
   parseEst1FileName,
@@ -13,6 +14,7 @@ import {
   formatEst1FileName,
   formatEst2FileName,
   getRoomExamCounts,
+  getSubjectSortKey,
 } from "../est-room-data";
 import { generateProctorRegisterPdf } from "../proctor-register-pdf";
 import { generateControlRegisterPdf } from "../control-register-pdf";
@@ -911,6 +913,66 @@ describe("generateStickerPdf", () => {
       it("formats valid EST 2 room file name", () => {
         const formatted = formatEst2FileName("M102", { MATH1: 25, MATH2: 25, BIO: 25, CHEM: 20 });
         expect(formatted).toBe("M102 | MATH1-25 | MATH2-25 | BIO-25 | CHEM-20.pdf");
+      });
+
+      it("strictly orders subjects by canonical exam period order even if written out of order in filename", () => {
+        // Filename has Biology first, Chemistry second, Math 1 third, Math 2 fourth
+        const parsed = parseEstRoomFileName("Room 12A _ BIO-15 _ CHEM-10 _ MATH1-15 _ MATH2-12.pdf");
+        expect(parsed).not.toBeNull();
+        expect(parsed?.subjects).toHaveLength(4);
+        // Period 1: Math 1 & Math 2
+        expect(parsed?.subjects[0].code).toBe("MATH1");
+        expect(parsed?.subjects[1].code).toBe("MATH2");
+        // Period 2: Biology
+        expect(parsed?.subjects[2].code).toBe("BIO");
+        // Period 3: Chemistry
+        expect(parsed?.subjects[3].code).toBe("CHEM");
+        expect(parsed?.breakdownText).toBe("MATH1: 15  |  MATH2: 12  |  BIO: 15  |  CHEM: 10");
+      });
+
+      it("verifies canonical exam period sort key hierarchy for EST 1 and EST 2", () => {
+        // EST 1 Period 1 < Period 2 < Period 3
+        expect(getSubjectSortKey("LIT")).toBeLessThan(getSubjectSortKey("MATH"));
+        expect(getSubjectSortKey("MATH")).toBeLessThan(getSubjectSortKey("ESSAY"));
+
+        // EST 2 Period 1 (Math 1 & 2) < Period 2 (Bio) < Period 3 (Chem / Phy)
+        expect(getSubjectSortKey("MATH1")).toBeLessThan(getSubjectSortKey("MATH2"));
+        expect(getSubjectSortKey("MATH2")).toBeLessThan(getSubjectSortKey("BIO"));
+        expect(getSubjectSortKey("BIO")).toBeLessThan(getSubjectSortKey("CHEM"));
+        expect(getSubjectSortKey("CHEM")).toBeLessThan(getSubjectSortKey("PHY"));
+      });
+
+      it("generates exam envelope sticker items strictly in chronological exam period order", () => {
+        const items = buildExamStickerItemsForRoom({
+          content: {
+            level: "room",
+            lines: [],
+            examName: "EST 2 - December 2026",
+            examType: "EST 2",
+            room: "12A",
+          },
+          subjects: [
+            { code: "BIO", name: "Biology", displayName: "EST II – Biology", count: 15, copies: 2 },
+            { code: "CHEM", name: "Chemistry", displayName: "EST II – Chemistry", count: 10, copies: 2 },
+            { code: "MATH1", name: "Math 1", displayName: "EST II – Math 1", count: 15, copies: 2 },
+            { code: "MATH2", name: "Math 2", displayName: "EST II – Math 2", count: 5, copies: 2 },
+          ],
+        });
+
+        // 4 subjects x 2 copies each = 8 stickers
+        expect(items).toHaveLength(8);
+        // Period 1: Math 1 (copies 1 & 2)
+        expect(items[0].subjectCode).toBe("MATH1");
+        expect(items[1].subjectCode).toBe("MATH1");
+        // Period 1: Math 2 (copies 1 & 2)
+        expect(items[2].subjectCode).toBe("MATH2");
+        expect(items[3].subjectCode).toBe("MATH2");
+        // Period 2: Biology (copies 1 & 2)
+        expect(items[4].subjectCode).toBe("BIO");
+        expect(items[5].subjectCode).toBe("BIO");
+        // Period 3: Chemistry (copies 1 & 2)
+        expect(items[6].subjectCode).toBe("CHEM");
+        expect(items[7].subjectCode).toBe("CHEM");
       });
     });
 

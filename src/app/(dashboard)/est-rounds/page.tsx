@@ -35,6 +35,7 @@ import { useI18n } from "@/components/locale-provider";
 import { cn } from "@/lib/cn";
 import { StickerPreviewModal } from "@/components/sticker-preview-modal";
 import type { EstRoundRow, EstRoundSummaryStats } from "@/lib/est-rounds";
+import { getSubjectSortKey } from "@/lib/stickers/est-room-data";
 
 interface ServerRound {
   id: string;
@@ -307,10 +308,12 @@ export default function EstRoundsPage() {
 
     const isEst2 = activeRound?.examType === "EST 2" || codes.has("MATH1") || codes.has("BIO");
     const priority = isEst2
-      ? ["MATH1", "BIO", "CHEM", "MATH2", "PHY"]
+      ? ["MATH1", "MATH2", "BIO", "CHEM", "PHY"]
       : ["LIT", "MATH", "ESSAY"];
 
     const sorted = Array.from(codes).sort((a, b) => {
+      const diff = getSubjectSortKey(a) - getSubjectSortKey(b);
+      if (diff !== 0) return diff;
       const idxA = priority.indexOf(a);
       const idxB = priority.indexOf(b);
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -812,7 +815,9 @@ export default function EstRoundsPage() {
               <span className="text-xs font-bold text-muted me-1">
                 {isAr ? "إجمالي المواد:" : "Subject Totals:"}
               </span>
-              {Object.entries(activeRound.summaryStats.subjectTotals).map(([code, count]) => (
+              {Object.entries(activeRound.summaryStats.subjectTotals)
+                .sort(([codeA], [codeB]) => getSubjectSortKey(codeA) - getSubjectSortKey(codeB))
+                .map(([code, count]) => (
                 <span
                   key={code}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-surface border border-border px-2.5 py-1 text-xs font-bold text-foreground shadow-2xs"

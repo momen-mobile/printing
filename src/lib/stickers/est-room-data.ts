@@ -9,6 +9,44 @@ export type EstSubjectKey =
   | "PHY"
   | string;
 
+export const EST1_CANONICAL_ORDER = ["LIT", "MATH", "ESSAY"] as const;
+export const EST2_CANONICAL_ORDER = ["MATH1", "MATH2", "BIO", "CHEM", "PHY"] as const;
+
+/**
+ * Returns a sort key based on the official chronological exam period order:
+ *
+ * EST 1:
+ * - Period 1: Literacy (LIT)
+ * - Period 2: Mathematics (MATH)
+ * - Period 3: Essay (ESSAY)
+ *
+ * EST 2:
+ * - Period 1: Math 1 (MATH1) & Math 2 (MATH2)
+ * - Period 2: Biology (BIO)
+ * - Period 3: Chemistry (CHEM) or Physics (PHY)
+ */
+export function getSubjectSortKey(codeOrName: string): number {
+  const upper = (codeOrName || "").trim().toUpperCase();
+
+  // EST 1 Period 1: Literacy
+  if (/\b(?:LIT|LITERACY|READING|WRITING)\b/i.test(upper) || upper === "LIT") return 10;
+  // EST 1 Period 2: General Mathematics (EST 1 math, not math 1 or math 2)
+  if (/\b(?:MATH|MATHEMATICS)\b/i.test(upper) && !/\b(?:MATH|MATHEMATICS)[-_\s]*[12]\b/i.test(upper)) return 20;
+  // EST 1 Period 3: Essay
+  if (/\bESSAY\b/i.test(upper)) return 30;
+
+  // EST 2 Period 1: Math 1 & Math 2
+  if (/\b(?:MATH[-_\s]*1|MATH1|MATHEMATICS[-_\s]*1)\b/i.test(upper)) return 110;
+  if (/\b(?:MATH[-_\s]*2|MATH2|MATHEMATICS[-_\s]*2)\b/i.test(upper)) return 120;
+  // EST 2 Period 2: Biology
+  if (/\b(?:BIO|BIOLOGY)\b/i.test(upper)) return 130;
+  // EST 2 Period 3: Chemistry & Physics
+  if (/\b(?:CHEM|CHEMISTRY)\b/i.test(upper)) return 140;
+  if (/\b(?:PHY|PHYSICS)\b/i.test(upper)) return 150;
+
+  return 999;
+}
+
 export interface RoomSubjectCount {
   code: string;            // e.g. "LIT", "MATH1", "BIO", "CHEM", "PHY"
   name: string;            // e.g. "Literacy", "Math 1", "Biology", "Chemistry", "Physics"
@@ -198,8 +236,11 @@ export function parseEstRoomFileName(fileName: string): Est1RoomExamCounts | nul
     return null;
   }
 
-  // Sort subjects by order of appearance in filename
-  detected.sort((a, b) => a.matchIndex - b.matchIndex);
+  // Sort subjects strictly by official chronological exam period order
+  detected.sort((a, b) => {
+    const diff = getSubjectSortKey(a.code) - getSubjectSortKey(b.code);
+    return diff !== 0 ? diff : a.matchIndex - b.matchIndex;
+  });
 
   // Determine examType
   const hasEst2Subject = detected.some((d) => d.category === "EST 2");

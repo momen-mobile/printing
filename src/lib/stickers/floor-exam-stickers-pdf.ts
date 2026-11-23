@@ -4,7 +4,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { EST_LOGO_BASE64 } from "./est-logo-base64";
 import { getDemoDescendants } from "../demo";
-import { getRoomExamCounts, parseEstRoomFileName } from "./est-room-data";
+import { getRoomExamCounts, parseEstRoomFileName, getSubjectSortKey } from "./est-room-data";
 import { listStickerChildren } from "./drive-hierarchy";
 import type { StickerContent } from "./sticker-content";
 
@@ -88,7 +88,7 @@ export async function generateFloorExamStickersPdf(
   const font = await loadStickerFont(pdfDoc);
   const logoImg = await loadLogoImage(pdfDoc);
 
-  const subjects = options.subjects && options.subjects.length > 0
+  const rawSubjects = options.subjects && options.subjects.length > 0
     ? options.subjects
     : [
         {
@@ -100,6 +100,11 @@ export async function generateFloorExamStickersPdf(
           rooms: [{ roomName: "Room 101", candidateCount: 25 }],
         },
       ];
+
+  // Strictly enforce canonical chronological exam period order
+  const subjects = [...rawSubjects].sort(
+    (a, b) => getSubjectSortKey(a.subjectCode) - getSubjectSortKey(b.subjectCode)
+  );
 
   const totalSubjects = subjects.length;
 
@@ -132,9 +137,12 @@ export async function generateBatchFloorSubjectBagsPdf(
   const logoImg = await loadLogoImage(pdfDoc);
 
   for (const options of floorBatches) {
-    const subjects = options.subjects && options.subjects.length > 0
+    const rawSubjects = options.subjects && options.subjects.length > 0
       ? options.subjects
       : [];
+    const subjects = [...rawSubjects].sort(
+      (a, b) => getSubjectSortKey(a.subjectCode) - getSubjectSortKey(b.subjectCode)
+    );
     const totalSubjects = subjects.length;
 
     for (let idx = 0; idx < totalSubjects; idx++) {
@@ -820,7 +828,9 @@ export async function resolveFloorSubjectsData(params: {
     }
   }
 
-  return Array.from(subjectMap.values()).map((s) => ({
+  return Array.from(subjectMap.values())
+    .sort((a, b) => getSubjectSortKey(a.subjectCode) - getSubjectSortKey(b.subjectCode))
+    .map((s) => ({
     subjectCode: s.subjectCode,
     subjectName: s.subjectName,
     examType: s.examType,
