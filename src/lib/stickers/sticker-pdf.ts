@@ -212,7 +212,7 @@ export function expandSubjectName(codeOrName: string): string {
   trimmed = trimmed.replace(/^EST\s*(?:I|II|1|2)?\s*[-–—:]\s*/i, "").trim();
   const upper = trimmed.toUpperCase();
   if (upper === "LIT" || upper === "LITERACY" || upper === "LITERATURE") return "Literacy";
-  if (upper === "MATH" || upper === "MATHEMATICS") return "Mathematics";
+  if (upper === "MATH" || upper === "MATHEMATICS") return "Math";
   if (upper === "MATH1" || upper === "MATH 1") return "Math 1";
   if (upper === "MATH2" || upper === "MATH 2") return "Math 2";
   if (upper === "ESSAY") return "Essay";
@@ -429,7 +429,7 @@ function getVerticalSubjectLines(content: StickerContent, isRoom: boolean): stri
       lines.push(`Literacy: ${content.litCount}`);
     }
     if (typeof content.mathCount === "number") {
-      lines.push(`Mathematics: ${content.mathCount}`);
+      lines.push(`Math: ${content.mathCount}`);
     }
     if (content.hasEssay || (typeof content.essayCount === "number" && content.essayCount > 0)) {
       lines.push(`Essay: ${content.essayCount ?? 0}`);
@@ -2589,7 +2589,7 @@ function drawQuarterPlacard(params: {
         sum += content.litCount;
       }
       if (typeof content.mathCount === "number") {
-        parsedSubjects.push({ name: "Mathematics", count: content.mathCount });
+        parsedSubjects.push({ name: "Math", count: content.mathCount });
         sum += content.mathCount;
       }
       if (content.hasEssay || (typeof content.essayCount === "number" && content.essayCount > 0)) {

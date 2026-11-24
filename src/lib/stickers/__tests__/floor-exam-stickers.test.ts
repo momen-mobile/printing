@@ -22,7 +22,7 @@ describe("generateFloorExamStickersPdf", () => {
       },
       {
         subjectCode: "MATH",
-        subjectName: "Mathematics 1",
+        subjectName: "Math",
         examType: "EST 1",
         totalRooms: 3,
         totalCandidates: 75,

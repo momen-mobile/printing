@@ -16,7 +16,7 @@ export interface FloorRoomSubjectData {
 
 export interface FloorSubjectPlacardData {
   subjectCode: string; // e.g. "LIT", "MATH", "ESSAY", "MATH1", "MATH2", "BIO", "CHEM", "PHY"
-  subjectName: string; // e.g. "Literacy 1", "Mathematics 1", "Biology", "Chemistry", "Physics", "Essay"
+  subjectName: string; // e.g. "Literacy 1", "Math", "Biology", "Chemistry", "Physics", "Essay"
   examType: "EST 1" | "EST 2" | "EST";
   totalRooms: number;
   totalCandidates: number;
@@ -559,7 +559,7 @@ export async function resolveFloorSubjectsData(params: {
       });
       subjectMap.set("MATH", {
         subjectCode: "MATH",
-        subjectName: "Mathematics 1",
+        subjectName: "Math",
         examType: "EST 1",
         rooms: [{ roomName: "Room 1", candidateCount: 25 }],
       });

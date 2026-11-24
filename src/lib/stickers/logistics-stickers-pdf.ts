@@ -1458,7 +1458,7 @@ export async function generateExamBagChecklistPdf(
     ]
     : [
       { title: "EST I – Literacy", code: "LIT", ...countSubjectRooms("LIT"), isCleanSkin: false },
-      { title: "EST I – Mathematics", code: "MATH", ...countSubjectRooms("MATH"), isCleanSkin: false },
+      { title: "EST I – Math", code: "MATH", ...countSubjectRooms("MATH"), isCleanSkin: false },
       { title: "EST I – Essay", code: "ESSAY", ...countSubjectRooms("ESSAY"), isCleanSkin: false },
       { title: "CLEAN SKIN (Reserve Exam Packets)", code: "CLEAN_SKIN", roomsCount: allRooms.length, candCount: 0, isCleanSkin: true },
     ];
@@ -1869,7 +1869,7 @@ export async function drawMasterBuildingManifestLandscapePage(
   const subjectCols = !isEst2
     ? [
       { code: "LIT", label: "LITERACY [✓]", width: 95 },
-      { code: "MATH", label: "MATHEMATICS [✓]", width: 95 },
+      { code: "MATH", label: "MATH [✓]", width: 95 },
       { code: "ESSAY", label: "ESSAY [✓]", width: 80 },
     ]
     : [
