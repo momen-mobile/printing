@@ -13,7 +13,9 @@ import {
 import {
   generateBatchFloorSubjectBagsPdf,
   generateBuildingCleanSkinBagsPdf,
+  generateBuildingHeadBagPlacardsPdf,
   type BuildingCleanSkinBagOption,
+  type BuildingHeadBagPlacardOption,
   type FloorExamStickersOptions,
   type FloorSubjectPlacardData,
   type FloorRoomSubjectData,
@@ -570,117 +572,43 @@ export async function POST(
       });
     }
 
-    // 5. MASTER BUNDLE: Buildings + Heads + Floors + Rooms
-    if (type === "bundle") {
-      const allBundleContents: StickerContent[] = [];
-
-      // A) Buildings
+    // 5. BUILDING HEAD BAG PLACARDS (A4 Landscape Placard for Head Bag with enclosed supplies list)
+    if (type === "head_bag_placards" || type === "bundle") {
       const centerGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
-        const key = `${r.governorate}::${r.center}`;
+        const bld = (r as any).building || r.center;
+        const key = `${r.governorate}::${r.center}::${bld}`;
         const existing = centerGroups.get(key) || [];
         existing.push(r);
         centerGroups.set(key, existing);
       }
 
+      const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(round.name || "") || round.examType === "EST 2";
+
+      const buildingBatches: BuildingHeadBagPlacardOption[] = [];
+
       for (const [_, rows] of centerGroups.entries()) {
         const first = rows[0];
+        const bld = (first as any).building || first.center;
         const uniqueFloors = Array.from(new Set(rows.map((r) => r.floor)));
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
 
-        allBundleContents.push({
-          level: "building",
-          lines: [round.name, `Governorate : ${first.governorate}`, `Center : ${first.center}`],
-          rawLines: ["EST", first.governorate, first.center, first.center],
-          cleanChain: ["EST", first.governorate, first.center, first.center],
-          examName: round.name || round.examType,
-          examType: round.examType as "EST 1" | "EST 2",
-          examDate: roundDateStr,
-          examDay: roundDayStr,
+        buildingBatches.push({
           governorate: first.governorate,
           center: first.center,
-          building: "",
-          childCount: uniqueFloors.length,
-          childLabel: "Floors",
-          childNames: uniqueFloors,
+          building: bld,
+          examName: round.name || round.examType,
+          examType: isEst2 ? "EST 2" : "EST 1",
+          date: [roundDayStr, roundDateStr].filter(Boolean).join(", "),
+          totalFloors: uniqueFloors.length,
           totalRooms: rows.length,
           totalStudents,
-          fields: [
-            { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Center", labelAr: "السنتر", value: first.center },
-            { key: "building", label: "Building", labelAr: "المبنى", value: first.center },
-          ],
-        });
-
-        // Building Head
-        allBundleContents.push({
-          level: "building_head",
-          isHead: true,
-          lines: [round.name, `Center : ${first.center}`],
-          rawLines: ["EST", first.governorate, first.center, first.center],
-          cleanChain: ["EST", first.governorate, first.center, first.center],
-          examName: round.name || round.examType,
-          examType: round.examType as "EST 1" | "EST 2",
-          examDate: roundDateStr,
-          examDay: roundDayStr,
-          governorate: first.governorate,
-          center: first.center,
-          building: "",
-          fields: [
-            { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Center", labelAr: "السنتر", value: first.center },
-          ],
+          floorNames: uniqueFloors,
         });
       }
 
-      // B) Floors
-      const floorGroups = new Map<string, EstRoundRow[]>();
-      for (const r of targetRows) {
-        const key = `${r.governorate}::${r.center}::${r.floor}`;
-        const existing = floorGroups.get(key) || [];
-        existing.push(r);
-        floorGroups.set(key, existing);
-      }
-
-      for (const [_, rows] of floorGroups.entries()) {
-        const first = rows[0];
-        allBundleContents.push({
-          level: "floor",
-          lines: [round.name, `Floor : ${first.floor}`],
-          rawLines: ["EST", first.governorate, first.center, first.floor],
-          cleanChain: ["EST", first.governorate, first.center, first.floor],
-          examName: round.name || round.examType,
-          examType: round.examType as "EST 1" | "EST 2",
-          examDate: roundDateStr,
-          examDay: roundDayStr,
-          governorate: first.governorate,
-          center: first.center,
-          building: "",
-          floor: first.floor,
-          childCount: rows.length,
-          childLabel: "Rooms",
-          childNames: rows.map((r) => r.room),
-          totalStudents: rows.reduce((s, r) => s + r.totalStudents, 0),
-          fields: [
-            { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Center", labelAr: "السنتر", value: first.center },
-            { key: "floor", label: "Floor", labelAr: "الدور", value: first.floor },
-          ],
-        });
-      }
-
-      // C) Rooms
-      for (const r of targetRows) {
-        allBundleContents.push(buildRoomStickerContent(r));
-      }
-
-      const pdfBytes = await generateBatchStickerPdf({
-        contents: allBundleContents,
-        paperMode: "a4",
-        orientation,
-      });
-
-      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Complete_Logistics_Bundle.pdf`;
+      const pdfBytes = await generateBuildingHeadBagPlacardsPdf(buildingBatches);
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Building_Head_Bag_Placards.pdf`;
 
       return new NextResponse(Buffer.from(pdfBytes), {
         status: 200,

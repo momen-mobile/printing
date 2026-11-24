@@ -488,6 +488,7 @@ export default function EstRoundsPage() {
         | "floor_subject_bags"
         | "building_placards"
         | "head_placards"
+        | "head_bag_placards"
         | "exam_stickers"
         | "bundle"
         | "carton"
@@ -537,7 +538,7 @@ export default function EstRoundsPage() {
         else if (type === "floor_subject_bags") typeLabel = isAr ? "أكياس مواد الأدوار (A4)" : "Floor Subject Bags";
         else if (type === "building_placards") typeLabel = isAr ? "استيكرات المباني (A4)" : "Building Placards";
         else if (type === "head_placards") typeLabel = isAr ? "ملفات رئيس المبنى" : "Building Head Dossiers";
-        else if (type === "bundle") typeLabel = isAr ? "الحزمة الشاملة للهيكل" : "Complete Structure Bundle";
+        else if (type === "head_bag_placards" || type === "bundle") typeLabel = isAr ? "كيس رئيس المبنى (A4 بالعرض)" : "Building Head Bag Placards";
         else if (type === "carton") typeLabel = isAr ? "ستيكر كرتونة المبنى (A4)" : "Building Master Carton";
         else if (type === "carton_driver_manifest") typeLabel = isAr ? "شيت تسليم سيارات التوزيع (الكراتين)" : "Carton Delivery Manifest";
         else if (type === "combined_carton") typeLabel = isAr ? "كرتونة الامتحان المشتركة (EST 1 + EST 2)" : "Combined Master Carton";
@@ -1015,7 +1016,33 @@ export default function EstRoundsPage() {
                   </div>
                 </button>
 
-                {/* 3. Floor Senior Dossiers */}
+                {/* 3. Building Head Bag Placard (A4 Landscape) */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("head_bag_placards")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-purple-500/30 bg-purple-500/5 hover:border-purple-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "طباعة استيكر كيسة رئيس المبنى مقاس A4 بالعرض مع بيان المحتويات والمستلزمات" : "Print A4 Landscape Head Bag Placard with Enclosed Dossiers & Supplies"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold shadow-xs">
+                      {isGenerating && activeActionType === "head_bag_placards" ? <Loader2 className="size-4 animate-spin" /> : <ShoppingBag className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-700 dark:text-purple-300 font-mono">
+                      A4 Landscape
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-purple-600 transition-colors">
+                      {isAr ? "كيس رئيس المبنى (A4 بالعرض)" : "Head Bag Placard"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "بيان محتويات كيس الهيد" : "A4 Landscape Placard"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 4. Floor Senior Dossiers */}
                 <button
                   type="button"
                   onClick={() => void handleGeneratePdf("floor_placards")}
@@ -1041,7 +1068,7 @@ export default function EstRoundsPage() {
                   </div>
                 </button>
 
-                {/* 4. Room Placards */}
+                {/* 5. Room Placards */}
                 <button
                   type="button"
                   onClick={() => void handleGeneratePdf("room_placards")}
@@ -1063,32 +1090,6 @@ export default function EstRoundsPage() {
                     </div>
                     <div className="text-[10px] text-purple-100 mt-0.5">
                       {isAr ? "مع كشوفات وجداول التحقق" : "With student checklist"}
-                    </div>
-                  </div>
-                </button>
-
-                {/* 5. Complete Structure Bundle */}
-                <button
-                  type="button"
-                  onClick={() => void handleGeneratePdf("bundle")}
-                  disabled={isGenerating}
-                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-border bg-surface hover:border-purple-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
-                  title={isAr ? "طباعة حزمة الهيكل بالكامل: المباني + الهيد + الأدوار + القاعات في ملف واحد" : "Print Complete Structure Dossiers Bundle"}
-                >
-                  <div className="flex items-center justify-between w-full mb-2">
-                    <span className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
-                      {isGenerating && activeActionType === "bundle" ? <Loader2 className="size-4 animate-spin" /> : <Package className="size-4" />}
-                    </span>
-                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-surface-soft text-muted font-mono">
-                      All-in-One
-                    </span>
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-foreground group-hover:text-purple-600 transition-colors">
-                      {isAr ? "الحزمة الشاملة للهيكل" : "Structure Bundle"}
-                    </div>
-                    <div className="text-[10px] text-muted mt-0.5">
-                      {isAr ? "المباني + الهيد + الأدوار + القاعات" : "All dossiers combined"}
                     </div>
                   </div>
                 </button>
