@@ -14,6 +14,8 @@ export interface RoomDetail {
   est2Subjects?: string;
   est2Count?: number;
   isAssn?: boolean;
+  subjectsMap?: Record<string, number>;
+  subjects?: Record<string, number>;
 }
 
 export interface FloorRoomsData {
@@ -92,6 +94,7 @@ export interface NormalizedRoom {
   est2Subjects?: string;
   est2Count?: number;
   isAssn?: boolean;
+  subjectsMap?: Record<string, number>;
 }
 
 export interface NormalizedFloor {
@@ -164,6 +167,10 @@ export function normalizeFloorsData(options: LogisticsStickerOptions): Normalize
           }
 
           const isAssn = typeof r === "object" && r !== null ? Boolean(r.isAssn) : false;
+          const sMap =
+            typeof r === "object" && r !== null
+              ? (r.subjectsMap || r.subjects || undefined)
+              : undefined;
 
           entry.roomsMap.set(rKey, {
             room: rName,
@@ -174,6 +181,7 @@ export function normalizeFloorsData(options: LogisticsStickerOptions): Normalize
             est2Count: est2C,
             est2Subjects: est2S,
             isAssn,
+            subjectsMap: sMap,
           });
         }
       }
@@ -1157,8 +1165,10 @@ export async function generateBatchBuildingCartonStickersPdf(
 }
 
 /**
- * 2. Exam Transit Bag Sticker (A4 Portrait)
+ * 2. Exam Transit Bag Sticker (A4 Landscape)
  * Contains the subject checklists with checkboxes [ ] for EST I or EST II.
+ * Formatted in A4 Landscape, clean light header, no heavy black background,
+ * with Clean Skin checkbox included.
  */
 export async function generateExamBagChecklistPdf(
   options: LogisticsStickerOptions,
@@ -1169,9 +1179,9 @@ export async function generateExamBagChecklistPdf(
   const font = await loadStickerFont(pdfDoc);
   const logoImg = await loadLogoImage(pdfDoc);
 
-  // A4 Portrait: 595.28 x 841.89 pt
-  const width = 595.28;
-  const height = 841.89;
+  // A4 Landscape: 841.89 x 595.28 pt
+  const width = 841.89;
+  const height = 595.28;
   const page = pdfDoc.addPage([width, height]);
 
   const margin = 20;
@@ -1188,25 +1198,15 @@ export async function generateExamBagChecklistPdf(
     height: cardH,
     color: COLOR_WHITE,
     borderColor: COLOR_CHARCOAL,
-    borderWidth: 2,
-  });
-
-  // Inner Gold Accent border
-  page.drawRectangle({
-    x: cardX + 3.5,
-    y: cardY + 3.5,
-    width: cardW - 7,
-    height: cardH - 7,
-    borderColor: COLOR_GOLD,
-    borderWidth: 1,
+    borderWidth: 1.5,
   });
 
   // Header Bar
-  const headerH = 60;
+  const headerH = 48;
   const headerY = cardY + cardH - headerH - 8;
-  const logoH = 42;
+  const logoH = 34;
   const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 0;
-  const logoX = cardX + 14;
+  const logoX = cardX + 12;
   const logoY = headerY + (headerH - logoH) / 2;
 
   if (logoImg) {
@@ -1222,231 +1222,454 @@ export async function generateExamBagChecklistPdf(
   const rawExam = options.examName || "EST";
   const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
   const examLabel = isEst2 ? "EST II" : "EST I";
+  const sessionText = toEnglishText(options.date) || "DECEMBER 2026";
 
-  page.drawText(`${examLabel} — EXAM TRANSIT BAG & MANIFEST`, {
+  // Clean concise header: "EST I — EXAM TRANSIT BAG"
+  page.drawText(`${examLabel} — EXAM TRANSIT BAG`, {
     x: textStartX,
-    y: headerY + 34,
-    size: 13,
+    y: headerY + 26,
+    size: 16,
     font,
     color: COLOR_CHARCOAL,
   });
 
-  page.drawText("EXAM TRANSIT BAG MANIFEST & SECURITY VERIFICATION CHECKLIST", {
+  page.drawText(`SECURITY VERIFICATION & TRANSIT MANIFEST — ${sessionText.toUpperCase()}`, {
     x: textStartX,
-    y: headerY + 16,
-    size: 9.5,
+    y: headerY + 12,
+    size: 8.5,
     font,
     color: COLOR_MUTED,
   });
 
-  // Divider Line
-  page.drawLine({
-    start: { x: cardX + 10, y: headerY },
-    end: { x: cardX + cardW - 10, y: headerY },
-    thickness: 1.2,
-    color: COLOR_GOLD,
-  });
+  // Right ID & Security Seal Card
+  const sealBoxW = 270;
+  const sealBoxH = 44;
+  const sealBoxX = cardX + cardW - sealBoxW - 12;
+  const sealBoxY = headerY + (headerH - sealBoxH) / 2;
 
-  // Location Highlight Banner
-  const locY = headerY - 50;
-  const locH = 44;
   page.drawRectangle({
-    x: cardX + 10,
-    y: locY,
-    width: cardW - 20,
-    height: locH,
+    x: sealBoxX,
+    y: sealBoxY,
+    width: sealBoxW,
+    height: sealBoxH,
     color: COLOR_LIGHT_BG,
     borderColor: COLOR_BORDER,
     borderWidth: 0.8,
   });
 
-  page.drawText(`GOVERNORATE: ${options.governorate || "All Governorates"}    •    CENTER: ${options.center || "Main Center"}`, {
-    x: cardX + 18,
-    y: locY + 24,
-    size: 9,
-    font,
-    color: COLOR_MUTED,
-  });
-
-  page.drawText(`BUILDING: ${options.building || "Building HQ"}`, {
-    x: cardX + 18,
-    y: locY + 8,
-    size: 12,
+  page.drawText(`TRANSIT BAG ID: [  __________________  ]`, {
+    x: sealBoxX + 10,
+    y: sealBoxY + 26,
+    size: 7.5,
     font,
     color: COLOR_CHARCOAL,
   });
 
-  // Instructions Box
-  const instrY = locY - 34;
-  const instrH = 26;
-  page.drawRectangle({
-    x: cardX + 10,
-    y: instrY,
-    width: cardW - 20,
-    height: instrH,
-    color: COLOR_WHITE,
-    borderColor: COLOR_GOLD,
-    borderWidth: 1,
+  page.drawText(`SECURITY SEAL #: [  __________________  ]`, {
+    x: sealBoxX + 10,
+    y: sealBoxY + 10,
+    size: 7.5,
+    font,
+    color: COLOR_CHARCOAL,
   });
-  page.drawText("INSTRUCTIONS: Check each subject packet [x] before sealing the transit bag.", {
-    x: cardX + 18,
-    y: instrY + 8,
-    size: 8,
+
+  // Divider Line
+  const div1Y = headerY - 6;
+  page.drawLine({
+    start: { x: cardX + 10, y: div1Y },
+    end: { x: cardX + cardW - 10, y: div1Y },
+    thickness: 1,
+    color: COLOR_BORDER,
+  });
+
+  // Location Highlight Ribbon
+  const locRibbonY = div1Y - 44;
+  const locRibbonH = 40;
+  const ribbonInnerW = cardW - 24;
+
+  page.drawRectangle({
+    x: cardX + 12,
+    y: locRibbonY,
+    width: ribbonInnerW,
+    height: locRibbonH,
+    color: COLOR_LIGHT_BG,
+    borderColor: COLOR_BORDER,
+    borderWidth: 0.8,
+  });
+
+  const { center: cleanCenter, building: cleanBuilding, isCampus } = splitCenterAndBuilding(
+    options.center,
+    options.building,
+  );
+  const govText = toEnglishText(options.governorate) || "All Governorates";
+
+  if (isCampus && cleanBuilding) {
+    const col1W = 150;
+    const colRem = ribbonInnerW - col1W;
+    const col2W = Math.floor(colRem / 2);
+    const col3W = colRem - col2W;
+
+    const c1X = cardX + 12;
+    const c2X = c1X + col1W;
+    const c3X = c2X + col2W;
+
+    page.drawText("GOVERNORATE", { x: c1X + 12, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    drawFittedTextInBox(page, govText, font, COLOR_CHARCOAL, { x: c1X + 12, y: locRibbonY + 4, width: col1W - 24, height: locRibbonH - 16, baseSize: 11, minSize: 8.5 });
+
+    page.drawText("TEST CENTER", { x: c2X + 12, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    drawFittedTextInBox(page, cleanCenter, font, COLOR_CHARCOAL, { x: c2X + 12, y: locRibbonY + 4, width: col2W - 24, height: locRibbonH - 16, baseSize: 11, minSize: 8 });
+
+    page.drawText("BUILDING", { x: c3X + 12, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    drawFittedTextInBox(page, cleanBuilding, font, COLOR_CHARCOAL, { x: c3X + 12, y: locRibbonY + 4, width: col3W - 24, height: locRibbonH - 16, baseSize: 11, minSize: 8 });
+
+    page.drawLine({ start: { x: c2X, y: locRibbonY + 4 }, end: { x: c2X, y: locRibbonY + locRibbonH - 4 }, thickness: 0.5, color: COLOR_BORDER });
+    page.drawLine({ start: { x: c3X, y: locRibbonY + 4 }, end: { x: c3X, y: locRibbonY + locRibbonH - 4 }, thickness: 0.5, color: COLOR_BORDER });
+  } else {
+    const col1W = 160;
+    const col2W = ribbonInnerW - col1W;
+    const c1X = cardX + 12;
+    const c2X = c1X + col1W;
+
+    page.drawText("GOVERNORATE", { x: c1X + 12, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    drawFittedTextInBox(page, govText, font, COLOR_CHARCOAL, { x: c1X + 12, y: locRibbonY + 4, width: col1W - 24, height: locRibbonH - 16, baseSize: 11, minSize: 8.5 });
+
+    page.drawText("EXAMINATION CENTER / SCHOOL", { x: c2X + 14, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    drawFittedTextInBox(page, cleanCenter, font, COLOR_CHARCOAL, { x: c2X + 14, y: locRibbonY + 4, width: col2W - 28, height: locRibbonH - 16, baseSize: 12, minSize: 9 });
+
+    page.drawLine({ start: { x: c2X, y: locRibbonY + 4 }, end: { x: c2X, y: locRibbonY + locRibbonH - 4 }, thickness: 0.5, color: COLOR_BORDER });
+  }
+
+  // Instructions Bar
+  const instrY = locRibbonY - 26;
+  const instrH = 20;
+  page.drawRectangle({
+    x: cardX + 12,
+    y: instrY,
+    width: cardW - 24,
+    height: instrH,
+    color: COLOR_LIGHT_BG,
+    borderColor: COLOR_BORDER,
+    borderWidth: 0.6,
+  });
+  page.drawText("INSTRUCTIONS: Check off [✓] each enclosed examination subject packet before sealing the transit bag.", {
+    x: cardX + 20,
+    y: instrY + 6,
+    size: 7.5,
     font,
     color: COLOR_CHARCOAL,
   });
 
   // Subjects Checklist Table
-  const tableTop = instrY - 14;
-  const tableBottom = cardY + 28;
+  const tableTop = instrY - 8;
+  const footerH = 46;
+  const footerY = cardY + 12;
+  const tableBottom = footerY + footerH + 8;
   const tableH = tableTop - tableBottom;
-  const tableY = tableBottom;
+  const tableX = cardX + 12;
+  const tableW = cardW - 24;
 
+  // Outer Table Box
   page.drawRectangle({
-    x: cardX + 10,
-    y: tableY,
-    width: cardW - 20,
+    x: tableX,
+    y: tableBottom,
+    width: tableW,
     height: tableH,
     color: COLOR_WHITE,
     borderColor: COLOR_CHARCOAL,
-    borderWidth: 1.2,
+    borderWidth: 1,
   });
 
-  // Table Header Row
-  const thH = 30;
-  const thY = tableY + tableH - thH;
+  // Table Header (NO solid black background!)
+  const thH = 24;
+  const thY = tableTop - thH;
   page.drawRectangle({
-    x: cardX + 11,
+    x: tableX,
     y: thY,
-    width: cardW - 22,
-    height: thH - 1,
-    color: COLOR_CHARCOAL,
+    width: tableW,
+    height: thH,
+    color: COLOR_LIGHT_BG,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 0.8,
   });
 
-  page.drawText("PACKED", { x: cardX + 22, y: thY + 11, size: 9, font, color: COLOR_GOLD });
-  page.drawText("EXAMINATION SUBJECT", { x: cardX + 90, y: thY + 11, size: 9, font, color: COLOR_GOLD });
-  page.drawText("ENVELOPES COUNT", { x: cardX + 330, y: thY + 11, size: 9, font, color: COLOR_GOLD });
-  page.drawText("STATUS", { x: cardX + 460, y: thY + 11, size: 9, font, color: COLOR_GOLD });
+  // Columns Widths: Check (55), Subject (260), Rooms (120), Candidates (120), Packets (110), Status (remaining ~135)
+  const colW_chk = 55;
+  const colW_subj = 260;
+  const colW_rooms = 120;
+  const colW_cand = 120;
+  const colW_packs = 110;
+  const colW_status = tableW - (colW_chk + colW_subj + colW_rooms + colW_cand + colW_packs);
 
-  const subjects = isEst2
+  const cX_chk = tableX;
+  const cX_subj = cX_chk + colW_chk;
+  const cX_rooms = cX_subj + colW_subj;
+  const cX_cand = cX_rooms + colW_rooms;
+  const cX_packs = cX_cand + colW_cand;
+  const cX_status = cX_packs + colW_packs;
+
+  const drawTh = (text: string, xPos: number, w: number, alignCenter = true) => {
+    const s = 7.5;
+    const tW = font.widthOfTextAtSize(text, s);
+    page.drawText(text, {
+      x: alignCenter ? xPos + (w - tW) / 2 : xPos + 10,
+      y: thY + 8,
+      size: s,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+  };
+
+  drawTh("CHECK [✓]", cX_chk, colW_chk);
+  drawTh("EXAMINATION COMPONENT / SUBJECT", cX_subj, colW_subj, false);
+  drawTh("ROOMS ALLOCATED", cX_rooms, colW_rooms);
+  drawTh("TOTAL CANDIDATES", cX_cand, colW_cand);
+  drawTh("PACKETS ENCLOSED", cX_packs, colW_packs);
+  drawTh("VERIFICATION & STATUS", cX_status, colW_status, false);
+
+  // Compute subject metrics from options
+  const normalizedFloors = normalizeFloorsData(options);
+  const allRooms = normalizedFloors.flatMap((f) => f.rooms);
+
+  const countSubjectRooms = (code: string): { roomsCount: number; candCount: number } => {
+    let rCount = 0;
+    let cCount = 0;
+    for (const rm of allRooms) {
+      const sm = rm.subjectsMap || {};
+      const count = sm[code] || 0;
+      if (count > 0) {
+        rCount++;
+        cCount += count;
+      }
+    }
+    // Fallback if subjectsMap was not populated for all rooms
+    if (rCount === 0 && allRooms.length > 0) {
+      if (!isEst2) {
+        if (code === "LIT" || code === "MATH") {
+          return { roomsCount: allRooms.length, candCount: options.totalStudents || 0 };
+        }
+      }
+    }
+    return { roomsCount: rCount, candCount: cCount };
+  };
+
+  const checklistItems = isEst2
     ? [
-        { code: "MATH1", title: "EST II – Math 1 (Mathematics Level 1)" },
-        { code: "MATH2", title: "EST II – Math 2 (Mathematics Level 2)" },
-        { code: "BIO", title: "EST II – Biology (E & M)" },
-        { code: "CHEM", title: "EST II – Chemistry" },
-        { code: "PHY", title: "EST II – Physics" },
+        { title: "EST II – Math 1", code: "MATH1", ...countSubjectRooms("MATH1"), isCleanSkin: false },
+        { title: "EST II – Math 2", code: "MATH2", ...countSubjectRooms("MATH2"), isCleanSkin: false },
+        { title: "EST II – Biology", code: "BIO", ...countSubjectRooms("BIO"), isCleanSkin: false },
+        { title: "EST II – Chemistry", code: "CHEM", ...countSubjectRooms("CHEM"), isCleanSkin: false },
+        { title: "EST II – Physics", code: "PHY", ...countSubjectRooms("PHY"), isCleanSkin: false },
+        { title: "CLEAN SKIN (Reserve Exam Packets)", code: "CLEAN_SKIN", roomsCount: allRooms.length, candCount: 0, isCleanSkin: true },
       ]
     : [
-        { code: "LIT", title: "EST I – Literacy (Reading & Writing)" },
-        { code: "MATH", title: "EST I – Mathematics" },
-        { code: "ESSAY", title: "EST I – Essay (Optional Component)" },
+        { title: "EST I – Literacy", code: "LIT", ...countSubjectRooms("LIT"), isCleanSkin: false },
+        { title: "EST I – Mathematics", code: "MATH", ...countSubjectRooms("MATH"), isCleanSkin: false },
+        { title: "EST I – Essay", code: "ESSAY", ...countSubjectRooms("ESSAY"), isCleanSkin: false },
+        { title: "CLEAN SKIN (Reserve Exam Packets)", code: "CLEAN_SKIN", roomsCount: allRooms.length, candCount: 0, isCleanSkin: true },
       ];
 
-  const rowH = (tableH - thH) / subjects.length;
+  const rowCount = checklistItems.length;
+  const rowH = (thY - tableBottom) / rowCount;
 
-  for (let i = 0; i < subjects.length; i++) {
-    const sub = subjects[i];
-    const ry = thY - (i + 1) * rowH;
+  checklistItems.forEach((item, rIdx) => {
+    const rowY = thY - (rIdx + 1) * rowH;
 
-    // Alternating zebra
-    if (i % 2 === 1) {
+    // Zebra striping
+    if (rIdx % 2 === 1) {
       page.drawRectangle({
-        x: cardX + 11,
-        y: ry,
-        width: cardW - 22,
+        x: tableX,
+        y: rowY,
+        width: tableW,
         height: rowH,
         color: COLOR_LIGHT_BG,
       });
     }
 
-    // Row divider
-    if (i > 0) {
-      page.drawLine({
-        start: { x: cardX + 11, y: ry + rowH },
-        end: { x: cardX + cardW - 11, y: ry + rowH },
-        thickness: 0.8,
-        color: COLOR_BORDER,
-      });
-    }
+    // Divider
+    page.drawLine({
+      start: { x: tableX, y: rowY },
+      end: { x: tableX + tableW, y: rowY },
+      thickness: 0.5,
+      color: COLOR_BORDER,
+    });
 
-    // Checkbox Square (Large and clear for pen check)
-    const cbSize = 18;
+    // 1. Large Checkbox
+    const cbSize = 16;
     page.drawRectangle({
-      x: cardX + 26,
-      y: ry + (rowH - cbSize) / 2,
+      x: cX_chk + (colW_chk - cbSize) / 2,
+      y: rowY + (rowH - cbSize) / 2,
       width: cbSize,
       height: cbSize,
       color: COLOR_WHITE,
       borderColor: COLOR_CHARCOAL,
-      borderWidth: 1.4,
+      borderWidth: 1.2,
     });
 
-    // Subject title
-    page.drawText(sub.title, {
-      x: cardX + 90,
-      y: ry + (rowH - 12) / 2 + 1,
-      size: 12,
+    // 2. Subject Title
+    page.drawText(item.title, {
+      x: cX_subj + 12,
+      y: rowY + (rowH - 10) / 2 + 1,
+      size: 10.5,
       font,
       color: COLOR_CHARCOAL,
     });
 
-    // Envelopes fill-in box
-    page.drawText("[ ________ ] Envelopes", {
-      x: cardX + 330,
-      y: ry + (rowH - 11) / 2 + 1,
-      size: 11,
+    // 3. Rooms Allocated
+    const rmStr = item.isCleanSkin ? "Control Reserve" : `${item.roomsCount} Rooms`;
+    const rmW = font.widthOfTextAtSize(rmStr, 8.5);
+    page.drawText(rmStr, {
+      x: cX_rooms + (colW_rooms - rmW) / 2,
+      y: rowY + (rowH - 8.5) / 2 + 1,
+      size: 8.5,
+      font,
+      color: item.isCleanSkin ? COLOR_MUTED : COLOR_CHARCOAL,
+    });
+
+    // 4. Candidates Count
+    const candStr = item.isCleanSkin ? "Emergency Pool" : `${item.candCount} Candidates`;
+    const cdW = font.widthOfTextAtSize(candStr, 8.5);
+    page.drawText(candStr, {
+      x: cX_cand + (colW_cand - cdW) / 2,
+      y: rowY + (rowH - 8.5) / 2 + 1,
+      size: 8.5,
+      font,
+      color: item.isCleanSkin ? COLOR_MUTED : COLOR_CHARCOAL,
+    });
+
+    // 5. Packets Enclosed Entry Box
+    page.drawText("[   ______   ] Envelopes", {
+      x: cX_packs + 8,
+      y: rowY + (rowH - 8.5) / 2 + 1,
+      size: 8.5,
       font,
       color: COLOR_CHARCOAL,
     });
 
-    // Verified checkbox
-    page.drawRectangle({
-      x: cardX + 460,
-      y: ry + (rowH - 14) / 2,
-      width: 14,
-      height: 14,
-      color: COLOR_WHITE,
-      borderColor: COLOR_CHARCOAL,
-      borderWidth: 1,
-    });
-    page.drawText("Verified", {
-      x: cardX + 482,
-      y: ry + (rowH - 9) / 2 + 1,
-      size: 9,
+    // 6. Status & Verification
+    page.drawText("[  ] Verified & Sealed", {
+      x: cX_status + 10,
+      y: rowY + (rowH - 8.5) / 2 + 1,
+      size: 8.5,
       font,
-      color: COLOR_MUTED,
+      color: COLOR_CHARCOAL,
     });
-  }
+  });
 
-  // Footer Note
-  const footerNote = "CONFIDENTIAL & STRICTLY CONTROLLED — TRANSIT BAG MANIFEST";
-  const noteW = font.widthOfTextAtSize(footerNote, 7.5);
-  page.drawText(footerNote, {
-    x: cardX + (cardW - noteW) / 2,
-    y: cardY + 10,
-    size: 7.5,
+  // Vertical column dividers
+  const vCols = [cX_subj, cX_rooms, cX_cand, cX_packs, cX_status];
+  vCols.forEach((vx) => {
+    page.drawLine({
+      start: { x: vx, y: tableBottom },
+      end: { x: vx, y: tableTop },
+      thickness: 0.5,
+      color: COLOR_BORDER,
+    });
+  });
+
+  // Footer Sign-Off Boxes
+  page.drawRectangle({
+    x: tableX,
+    y: footerY,
+    width: tableW,
+    height: footerH,
+    color: COLOR_WHITE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 0.8,
+  });
+
+  const signColW = tableW / 2;
+  page.drawText("PACKED & VERIFIED BY (CONTROL CHIEF)", {
+    x: tableX + 12,
+    y: footerY + footerH - 14,
+    size: 7,
     font,
     color: COLOR_MUTED,
+  });
+  page.drawText("Full Name: ________________________________   Signature: ______________________", {
+    x: tableX + 12,
+    y: footerY + 12,
+    size: 7.5,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  page.drawLine({
+    start: { x: tableX + signColW, y: footerY + 4 },
+    end: { x: tableX + signColW, y: footerY + footerH - 4 },
+    thickness: 0.5,
+    color: COLOR_BORDER,
+  });
+
+  page.drawText("TRANSIT CUSTODY (CARRIER / SECURITY OFFICER)", {
+    x: tableX + signColW + 12,
+    y: footerY + footerH - 14,
+    size: 7,
+    font,
+    color: COLOR_MUTED,
+  });
+  page.drawText("Full Name: ________________________________   Signature: ______________________", {
+    x: tableX + signColW + 12,
+    y: footerY + 12,
+    size: 7.5,
+    font,
+    color: COLOR_CHARCOAL,
   });
 
   return await pdfDoc.save();
 }
 
 /**
- * 3a-1. Master Center & Building Examination Manifest Page (A4 Portrait)
- * Comprehensive single-page blueprint detailing all floors, rooms, subjects for EST 1 & EST 2,
- * and candidate counts.
+ * Helper to extract subject candidate count from a NormalizedRoom.
  */
-export async function drawMasterBuildingManifestPage(
+function getRoomSubjectCount(rm: NormalizedRoom, code: string, isEst2: boolean): number {
+  if (rm.subjectsMap && typeof rm.subjectsMap[code] === "number") {
+    return rm.subjectsMap[code];
+  }
+
+  // Parse from subjects text if present
+  const text = (isEst2 ? rm.est2Subjects : rm.est1Subjects) || rm.subjectsText || "";
+  if (text) {
+    let re: RegExp | null = null;
+    if (code === "LIT") re = /(\d+)\s*(?:Literacy|Lit)/i;
+    else if (code === "MATH") re = /(\d+)\s*(?:Mathematics|Math\b)/i;
+    else if (code === "ESSAY") re = /(\d+)\s*Essay/i;
+    else if (code === "MATH1") re = /(\d+)\s*(?:Math\s*1|Math1)/i;
+    else if (code === "MATH2") re = /(\d+)\s*(?:Math\s*2|Math2)/i;
+    else if (code === "BIO") re = /(\d+)\s*(?:Biology|Bio)/i;
+    else if (code === "CHEM") re = /(\d+)\s*(?:Chemistry|Chem)/i;
+    else if (code === "PHY") re = /(\d+)\s*(?:Physics|Phy)/i;
+
+    if (re) {
+      const m = text.match(re);
+      if (m && m[1]) return parseInt(m[1], 10);
+    }
+  }
+
+  // Fallbacks
+  if (!isEst2) {
+    if (code === "LIT" || code === "MATH") {
+      return rm.est1Count ?? rm.studentCount ?? 0;
+    }
+    return 0;
+  }
+  return 0;
+}
+
+/**
+ * 3a-1. Master Room Manifest Landscape Page (A4 Landscape: 841.89 x 595.28 pt)
+ * Concise title, clean header, per-building pagination, dynamic subject columns with checkboxes per room.
+ */
+export async function drawMasterBuildingManifestLandscapePage(
   pdfDoc: PDFDocument,
   font: any,
   logoImg: any,
   options: LogisticsStickerOptions,
+  pageRooms: { room: NormalizedRoom; floorName: string }[],
   pageIndex = 1,
-  totalPages = 2,
+  totalPages = 1,
 ): Promise<any> {
-  const width = 595.28;
-  const height = 841.89;
+  const width = 841.89;
+  const height = 595.28;
   const page = pdfDoc.addPage([width, height]);
 
   const margin = 20;
@@ -1455,7 +1678,7 @@ export async function drawMasterBuildingManifestPage(
   const cardW = width - margin * 2;
   const cardH = height - margin * 2;
 
-  // Outer framing card with Charcoal/Gold double border
+  // Outer framing card
   page.drawRectangle({
     x: cardX,
     y: cardY,
@@ -1466,35 +1689,13 @@ export async function drawMasterBuildingManifestPage(
     borderWidth: 1.5,
   });
 
-  page.drawRectangle({
-    x: cardX + 3,
-    y: cardY + 3,
-    width: cardW - 6,
-    height: cardH - 6,
-    borderColor: COLOR_GOLD,
-    borderWidth: 0.75,
-  });
-
-  const innerCardW = cardW - 12;
-  const innerCardX = cardX + 6;
-
-  // 1. Top Header Banner
-  const headerH = 58;
+  // 1. Header Banner
+  const headerH = 46;
   const headerY = cardY + cardH - headerH - 8;
 
-  page.drawRectangle({
-    x: innerCardX,
-    y: headerY,
-    width: innerCardW,
-    height: headerH,
-    color: COLOR_LIGHT_BG,
-    borderColor: COLOR_BORDER,
-    borderWidth: 0.75,
-  });
-
-  const logoH = 40;
+  const logoH = 34;
   const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 0;
-  const logoX = innerCardX + 10;
+  const logoX = cardX + 12;
   const logoY = headerY + (headerH - logoH) / 2;
 
   if (logoImg) {
@@ -1506,36 +1707,33 @@ export async function drawMasterBuildingManifestPage(
     });
   }
 
-  const textStartX = logoImg ? logoX + logoW + 10 : innerCardX + 12;
+  const textStartX = logoImg ? logoX + logoW + 12 : cardX + 14;
+  const rawExam = options.examName || "EST";
+  const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
+  const examLabel = isEst2 ? "EST II" : "EST I";
+  const sessionText = toEnglishText(options.date) || "DECEMBER 2026";
 
-  page.drawText("EGYPTIAN SCHOLASTIC TEST (EST) — OFFICIAL LOGISTICS", {
+  // Concise Title: e.g. "EST I — MASTER ROOM MANIFEST"
+  page.drawText(`${examLabel} — MASTER ROOM MANIFEST`, {
     x: textStartX,
-    y: headerY + 41,
-    size: 7.5,
-    font,
-    color: COLOR_GOLD,
-  });
-
-  page.drawText("MASTER CENTER & BUILDING EXAMINATION MANIFEST", {
-    x: textStartX,
-    y: headerY + 24,
-    size: 12.5,
+    y: headerY + 25,
+    size: 16,
     font,
     color: COLOR_CHARCOAL,
   });
 
-  page.drawText("CONTROL ROOM BLUEPRINT • ROOM-BY-ROOM ALLOCATION & CANDIDATE BREAKDOWN (EST I & EST II)", {
+  page.drawText(`EXAM CONTROL ROOM DIRECTORY — ${sessionText.toUpperCase()}`, {
     x: textStartX,
     y: headerY + 11,
-    size: 7,
+    size: 8.5,
     font,
     color: COLOR_MUTED,
   });
 
-  // Right Badge Box
-  const badgeW = 120;
-  const badgeH = 44;
-  const badgeX = innerCardX + innerCardW - badgeW - 8;
+  // Top-Right Corner Identifier
+  const badgeW = 160;
+  const badgeH = 40;
+  const badgeX = cardX + cardW - badgeW - 12;
   const badgeY = headerY + (headerH - badgeH) / 2;
 
   page.drawRectangle({
@@ -1543,8 +1741,8 @@ export async function drawMasterBuildingManifestPage(
     y: badgeY,
     width: badgeW,
     height: badgeH,
-    color: COLOR_WHITE,
-    borderColor: COLOR_CHARCOAL,
+    color: COLOR_LIGHT_BG,
+    borderColor: COLOR_BORDER,
     borderWidth: 0.8,
   });
 
@@ -1552,407 +1750,475 @@ export async function drawMasterBuildingManifestPage(
   const bText1W = font.widthOfTextAtSize(bText1, 7.5);
   page.drawText(bText1, {
     x: badgeX + (badgeW - bText1W) / 2,
-    y: badgeY + 28,
+    y: badgeY + 24,
     size: 7.5,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  const bText2 = "CHIEF PROCTOR DOSSIER";
-  const bText2W = font.widthOfTextAtSize(bText2, 6.5);
-  page.drawText(bText2, {
-    x: badgeX + (badgeW - bText2W) / 2,
-    y: badgeY + 16,
-    size: 6.5,
     font,
     color: COLOR_MUTED,
   });
 
-  const bText3 = `PAGE ${pageIndex} OF ${totalPages}`;
-  const bText3W = font.widthOfTextAtSize(bText3, 7);
-  page.drawText(bText3, {
-    x: badgeX + (badgeW - bText3W) / 2,
-    y: badgeY + 5,
-    size: 7,
+  const bText2 = `PAGE ${pageIndex} OF ${totalPages}`;
+  const bText2W = font.widthOfTextAtSize(bText2, 10.5);
+  page.drawText(bText2, {
+    x: badgeX + (badgeW - bText2W) / 2,
+    y: badgeY + 8,
+    size: 10.5,
     font,
-    color: COLOR_GOLD,
+    color: COLOR_CHARCOAL,
   });
 
-  // 2. Location & Session Info Bar
-  const metaH = 28;
-  const metaY = headerY - metaH - 5;
+  // 2. Location Highlight Ribbon
+  const locRibbonY = headerY - 44;
+  const locRibbonH = 38;
+  const ribbonInnerW = cardW - 24;
+
   page.drawRectangle({
-    x: innerCardX,
-    y: metaY,
-    width: innerCardW,
-    height: metaH,
+    x: cardX + 12,
+    y: locRibbonY,
+    width: ribbonInnerW,
+    height: locRibbonH,
     color: COLOR_LIGHT_BG,
     borderColor: COLOR_BORDER,
-    borderWidth: 0.6,
-  });
-
-  const colMetaW = innerCardW / 4;
-  const metaFields = [
-    { label: "EXAMINATION CYCLE", val: options.date || "December 2026" },
-    { label: "GOVERNORATE", val: options.governorate || "All Governorates" },
-    { label: "CENTER / SCHOOL", val: options.center || options.building || "Main Center" },
-    { label: "BUILDING", val: options.building || "Building HQ" },
-  ];
-
-  metaFields.forEach((mf, i) => {
-    const fx = innerCardX + i * colMetaW + 8;
-    page.drawText(mf.label, {
-      x: fx,
-      y: metaY + 16,
-      size: 5.5,
-      font,
-      color: COLOR_MUTED,
-    });
-    let displayVal = mf.val;
-    if (displayVal.length > 28) displayVal = displayVal.slice(0, 26) + "...";
-    page.drawText(displayVal, {
-      x: fx,
-      y: metaY + 6,
-      size: 8,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-    if (i < 3) {
-      page.drawLine({
-        start: { x: innerCardX + (i + 1) * colMetaW, y: metaY + 4 },
-        end: { x: innerCardX + (i + 1) * colMetaW, y: metaY + metaH - 4 },
-        thickness: 0.5,
-        color: COLOR_BORDER,
-      });
-    }
-  });
-
-  // 3. Metric KPI Badges Bar
-  const normalizedFloors = normalizeFloorsData(options);
-  const totalFloors = normalizedFloors.length;
-  const allRooms = normalizedFloors.flatMap((f) => f.rooms);
-  const totalRooms = allRooms.length;
-  const totalEst1 = normalizedFloors.reduce(
-    (sum, f) => sum + (f.est1Students ?? f.rooms.reduce((s, r) => s + (r.est1Count || 0), 0)),
-    0,
-  );
-  const totalEst2 = normalizedFloors.reduce(
-    (sum, f) => sum + (f.est2Students ?? f.rooms.reduce((s, r) => s + (r.est2Count || 0), 0)),
-    0,
-  );
-  const grandTotal = totalEst1 + totalEst2;
-
-  const kpiH = 26;
-  const kpiY = metaY - kpiH - 5;
-  const kpiColW = innerCardW / 5;
-
-  const kpiItems = [
-    { label: "TOTAL FLOORS", val: `${totalFloors} Floors` },
-    { label: "ENCLOSED ROOMS", val: `${totalRooms} Rooms` },
-    { label: "EST I CANDIDATES", val: totalEst1 > 0 ? `${totalEst1} Candidates` : "0 (Pending)" },
-    { label: "EST II CANDIDATES", val: totalEst2 > 0 ? `${totalEst2} Candidates` : "0 (Pending)" },
-    { label: "TOTAL ALLOCATIONS", val: grandTotal > 0 ? `${grandTotal} Sessions` : "0 Sessions" },
-  ];
-
-  kpiItems.forEach((item, i) => {
-    const kx = innerCardX + i * kpiColW;
-    page.drawRectangle({
-      x: kx,
-      y: kpiY,
-      width: kpiColW - 3,
-      height: kpiH,
-      color: COLOR_LIGHT_BG,
-      borderColor: COLOR_BORDER,
-      borderWidth: 0.6,
-    });
-    const lW = font.widthOfTextAtSize(item.label, 5.5);
-    page.drawText(item.label, {
-      x: kx + (kpiColW - 3 - lW) / 2,
-      y: kpiY + 15,
-      size: 5.5,
-      font,
-      color: COLOR_MUTED,
-    });
-    const vW = font.widthOfTextAtSize(item.val, 7.5);
-    page.drawText(item.val, {
-      x: kx + (kpiColW - 3 - vW) / 2,
-      y: kpiY + 4.5,
-      size: 7.5,
-      font,
-      color: i === 4 ? COLOR_GOLD : COLOR_CHARCOAL,
-    });
-  });
-
-  // 4. Bottom Sign-Off Footer
-  const footerH = 46;
-  const footerY = cardY + 22;
-  page.drawRectangle({
-    x: innerCardX,
-    y: footerY,
-    width: innerCardW,
-    height: footerH,
-    color: COLOR_WHITE,
-    borderColor: COLOR_CHARCOAL,
     borderWidth: 0.8,
   });
 
-  const signColW = innerCardW / 3;
-  // Sign Box 1
-  page.drawText("CHIEF PROCTOR VERIFICATION", { x: innerCardX + 8, y: footerY + 32, size: 6.5, font, color: COLOR_MUTED });
-  page.drawText("Name: _______________________________", { x: innerCardX + 8, y: footerY + 18, size: 7, font, color: COLOR_CHARCOAL });
-  page.drawText("Signature: __________________________", { x: innerCardX + 8, y: footerY + 6, size: 7, font, color: COLOR_CHARCOAL });
+  const { center: cleanCenter, building: cleanBuilding, isCampus } = splitCenterAndBuilding(
+    options.center,
+    options.building,
+  );
+  const govText = toEnglishText(options.governorate) || "All Governorates";
 
-  // Divider 1
-  page.drawLine({
-    start: { x: innerCardX + signColW, y: footerY + 4 },
-    end: { x: innerCardX + signColW, y: footerY + footerH - 4 },
-    thickness: 0.5,
-    color: COLOR_BORDER,
-  });
+  if (isCampus && cleanBuilding) {
+    const col1W = 160;
+    const colRem = ribbonInnerW - col1W;
+    const col2W = Math.floor(colRem / 2);
+    const col3W = colRem - col2W;
 
-  // Sign Box 2
-  page.drawText("CONTROL ROOM SUPERVISOR", { x: innerCardX + signColW + 8, y: footerY + 32, size: 6.5, font, color: COLOR_MUTED });
-  page.drawText("Name: _______________________________", { x: innerCardX + signColW + 8, y: footerY + 18, size: 7, font, color: COLOR_CHARCOAL });
-  page.drawText("Signature: __________________________", { x: innerCardX + signColW + 8, y: footerY + 6, size: 7, font, color: COLOR_CHARCOAL });
+    const c1X = cardX + 12;
+    const c2X = c1X + col1W;
+    const c3X = c2X + col2W;
 
-  // Divider 2
-  page.drawLine({
-    start: { x: innerCardX + signColW * 2, y: footerY + 4 },
-    end: { x: innerCardX + signColW * 2, y: footerY + footerH - 4 },
-    thickness: 0.5,
-    color: COLOR_BORDER,
-  });
+    page.drawText("GOVERNORATE", { x: c1X + 10, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    drawFittedTextInBox(page, govText, font, COLOR_CHARCOAL, {
+      x: c1X + 10,
+      y: locRibbonY + 3,
+      width: col1W - 20,
+      height: locRibbonH - 15,
+      baseSize: 11,
+      minSize: 8,
+      maxLines: 1,
+    });
 
-  // Sign Box 3
-  page.drawText("SECURITY SEAL & DISPATCH", { x: innerCardX + signColW * 2 + 8, y: footerY + 32, size: 6.5, font, color: COLOR_MUTED });
-  page.drawText(`Seal ID: [ ${options.securitySeal || "EST-OFFICIAL-SEAL"} ]`, { x: innerCardX + signColW * 2 + 8, y: footerY + 18, size: 7, font, color: COLOR_CHARCOAL });
-  page.drawText("Custody Timestamp: __________________", { x: innerCardX + signColW * 2 + 8, y: footerY + 6, size: 7, font, color: COLOR_CHARCOAL });
+    page.drawText("TEST CENTER", { x: c2X + 10, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    drawFittedTextInBox(page, cleanCenter, font, COLOR_CHARCOAL, {
+      x: c2X + 10,
+      y: locRibbonY + 3,
+      width: col2W - 20,
+      height: locRibbonH - 15,
+      baseSize: 11,
+      minSize: 8,
+      maxLines: 2,
+    });
 
-  // Watermark text at the very bottom
-  page.drawText("EST OFFICIAL LOGISTICS • MASTER CENTER & BUILDING MANIFEST • CONTROL ROOM CUSTODY ONLY", {
-    x: cardX + 10,
-    y: cardY + 8,
-    size: 6.5,
-    font,
-    color: COLOR_MUTED,
-  });
+    page.drawText("BUILDING", { x: c3X + 10, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    drawFittedTextInBox(page, cleanBuilding, font, COLOR_CHARCOAL, {
+      x: c3X + 10,
+      y: locRibbonY + 3,
+      width: col3W - 20,
+      height: locRibbonH - 15,
+      baseSize: 11,
+      minSize: 8,
+      maxLines: 2,
+    });
 
-  const btmPageInfo = `PAGE ${pageIndex} OF ${totalPages}`;
-  const btmInfoW = font.widthOfTextAtSize(btmPageInfo, 6.5);
-  page.drawText(btmPageInfo, {
-    x: cardX + cardW - btmInfoW - 10,
-    y: cardY + 8,
-    size: 6.5,
-    font,
-    color: COLOR_CHARCOAL,
-  });
+    page.drawLine({ start: { x: c2X, y: locRibbonY + 3 }, end: { x: c2X, y: locRibbonY + locRibbonH - 3 }, thickness: 0.5, color: COLOR_BORDER });
+    page.drawLine({ start: { x: c3X, y: locRibbonY + 3 }, end: { x: c3X, y: locRibbonY + locRibbonH - 3 }, thickness: 0.5, color: COLOR_BORDER });
+  } else {
+    const col1W = 180;
+    const col2W = ribbonInnerW - col1W;
+    const c1X = cardX + 12;
+    const c2X = c1X + col1W;
 
-  // 5. Main Directory Table
-  const tableTop = kpiY - 6;
+    page.drawText("GOVERNORATE", { x: c1X + 10, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    drawFittedTextInBox(page, govText, font, COLOR_CHARCOAL, {
+      x: c1X + 10,
+      y: locRibbonY + 3,
+      width: col1W - 20,
+      height: locRibbonH - 15,
+      baseSize: 11,
+      minSize: 8,
+      maxLines: 1,
+    });
+
+    page.drawText("TEST CENTER / SCHOOL", { x: c2X + 10, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    drawFittedTextInBox(page, cleanCenter, font, COLOR_CHARCOAL, {
+      x: c2X + 10,
+      y: locRibbonY + 3,
+      width: col2W - 20,
+      height: locRibbonH - 15,
+      baseSize: 11,
+      minSize: 8,
+      maxLines: 2,
+    });
+
+    page.drawLine({ start: { x: c2X, y: locRibbonY + 3 }, end: { x: c2X, y: locRibbonY + locRibbonH - 3 }, thickness: 0.5, color: COLOR_BORDER });
+  }
+
+  // 3. Table Column Allocations
+  const footerH = 44;
+  const footerY = cardY + 12;
   const tableBottom = footerY + footerH + 6;
-  const availableTableH = tableTop - tableBottom;
-  const tableX = innerCardX;
-  const tableW = innerCardW;
+  const tableTop = locRibbonY - 8;
+  const tableX = cardX + 12;
+  const tableW = cardW - 24;
+
+  const subjectCols = !isEst2
+    ? [
+        { code: "LIT", label: "LITERACY [✓]", width: 95 },
+        { code: "MATH", label: "MATHEMATICS [✓]", width: 95 },
+        { code: "ESSAY", label: "ESSAY [✓]", width: 80 },
+      ]
+    : [
+        { code: "MATH1", label: "MATH 1 [✓]", width: 68 },
+        { code: "MATH2", label: "MATH 2 [✓]", width: 68 },
+        { code: "BIO", label: "BIO [✓]", width: 68 },
+        { code: "CHEM", label: "CHEM [✓]", width: 68 },
+        { code: "PHY", label: "PHY [✓]", width: 68 },
+      ];
+
+  const colW_room = 50;
+  const colW_floor = !isEst2 ? 75 : 70;
+  const colW_total = 50;
+  const colW_status = !isEst2 ? 80 : 70;
+  const subjectsTotalW = subjectCols.reduce((sum, s) => sum + s.width, 0);
+  const colW_sig = tableW - (colW_room + colW_floor + subjectsTotalW + colW_total + colW_status);
+
+  const cols: { key: string; label: string; width: number; x: number }[] = [];
+  let curX = tableX;
+
+  cols.push({ key: "room", label: "ROOM #", width: colW_room, x: curX });
+  curX += colW_room;
+
+  cols.push({ key: "floor", label: "FLOOR", width: colW_floor, x: curX });
+  curX += colW_floor;
+
+  for (const s of subjectCols) {
+    cols.push({ key: s.code, label: s.label, width: s.width, x: curX });
+    curX += s.width;
+  }
+
+  cols.push({ key: "total", label: "TOTAL", width: colW_total, x: curX });
+  curX += colW_total;
+
+  cols.push({ key: "sig", label: "PROCTOR SIGNATURE", width: colW_sig, x: curX });
+  curX += colW_sig;
+
+  cols.push({ key: "status", label: "VERIFIED [✓]", width: colW_status, x: curX });
+
+  // 4. Table Header
+  const thH = 22;
+  const thY = tableTop - thH;
 
   // Outer Table Box
   page.drawRectangle({
     x: tableX,
     y: tableBottom,
     width: tableW,
-    height: availableTableH,
+    height: tableTop - tableBottom,
     color: COLOR_WHITE,
     borderColor: COLOR_CHARCOAL,
     borderWidth: 1,
   });
 
-  // Column headers
-  const colHeaderH = 18;
-  const colHeaderY = tableTop - colHeaderH;
-
+  // Header background
   page.drawRectangle({
     x: tableX,
-    y: colHeaderY,
+    y: thY,
     width: tableW,
-    height: colHeaderH,
-    color: COLOR_CHARCOAL,
+    height: thH,
+    color: COLOR_LIGHT_BG,
+    borderColor: COLOR_BORDER,
+    borderWidth: 0.5,
   });
 
-  // Column width allocations (Total = tableW)
-  const colW_room = 46;
-  const colW_est1Subj = 175;
-  const colW_est1Cand = 54;
-  const colW_est2Subj = 175;
-  const colW_est2Cand = 54;
-  const colW_total = tableW - (colW_room + colW_est1Subj + colW_est1Cand + colW_est2Subj + colW_est2Cand);
-
-  const cX_room = tableX;
-  const cX_est1Subj = cX_room + colW_room;
-  const cX_est1Cand = cX_est1Subj + colW_est1Subj;
-  const cX_est2Subj = cX_est1Cand + colW_est1Cand;
-  const cX_est2Cand = cX_est2Subj + colW_est2Subj;
-  const cX_total = cX_est2Cand + colW_est2Cand;
-
-  const drawColHeaderText = (text: string, startX: number, w: number, color = COLOR_GOLD) => {
-    const tW = font.widthOfTextAtSize(text, 6.8);
-    page.drawText(text, {
-      x: startX + (w - tW) / 2,
-      y: colHeaderY + 5.5,
-      size: 6.8,
+  for (const col of cols) {
+    const tw = font.widthOfTextAtSize(col.label, 7.5);
+    page.drawText(col.label, {
+      x: col.x + (col.width - tw) / 2,
+      y: thY + 7,
+      size: 7.5,
       font,
-      color,
+      color: COLOR_CHARCOAL,
     });
-  };
+  }
 
-  drawColHeaderText("ROOM #", cX_room, colW_room);
-  page.drawText("EST I EXAMINATION & SUBJECTS", { x: cX_est1Subj + 8, y: colHeaderY + 5.5, size: 6.8, font, color: COLOR_GOLD });
-  drawColHeaderText("EST I", cX_est1Cand, colW_est1Cand);
-  page.drawText("EST II EXAMINATION & SUBJECTS", { x: cX_est2Subj + 8, y: colHeaderY + 5.5, size: 6.8, font, color: COLOR_GOLD });
-  drawColHeaderText("EST II", cX_est2Cand, colW_est2Cand);
-  drawColHeaderText("TOTAL", cX_total, colW_total);
+  // 5. Room Rows
+  const rowsCount = Math.max(1, pageRooms.length);
+  const rowH = Math.min(26, Math.max(20, (thY - tableBottom) / rowsCount));
 
-  // Calculate dynamic row height so all floors and rooms fit comfortably
-  const floorHeaderH = 16;
-  const totalFloorHeadersH = normalizedFloors.length * floorHeaderH;
-  const roomRowsSpace = colHeaderY - tableBottom - totalFloorHeadersH;
-  const calculatedRowH = Math.min(22, Math.max(12, roomRowsSpace / Math.max(1, totalRooms)));
-  const fontSize = calculatedRowH < 14 ? 6 : calculatedRowH < 17 ? 6.5 : 7.2;
+  pageRooms.forEach((item, idx) => {
+    const rowY = thY - (idx + 1) * rowH;
 
-  let currentY = colHeaderY;
-  let globalRoomIdx = 0;
+    // Alternate row zebra striping
+    if (idx % 2 === 1) {
+      page.drawRectangle({
+        x: tableX + 0.5,
+        y: rowY + 0.5,
+        width: tableW - 1,
+        height: rowH - 0.5,
+        color: COLOR_LIGHT_BG,
+      });
+    }
 
-  for (const fl of normalizedFloors) {
-    // Floor Sub-header banner
-    currentY -= floorHeaderH;
-    page.drawRectangle({
-      x: tableX,
-      y: currentY,
-      width: tableW,
-      height: floorHeaderH,
-      color: COLOR_LIGHT_BG,
-      borderColor: COLOR_BORDER,
-      borderWidth: 0.5,
+    // Row bottom line
+    page.drawLine({
+      start: { x: tableX, y: rowY },
+      end: { x: tableX + tableW, y: rowY },
+      thickness: 0.5,
+      color: COLOR_BORDER,
     });
 
-    const floorEst1 = fl.est1Students ?? fl.rooms.reduce((s, r) => s + (r.est1Count || 0), 0);
-    const floorEst2 = fl.est2Students ?? fl.rooms.reduce((s, r) => s + (r.est2Count || 0), 0);
-    const floorText =
-      floorEst1 > 0 || floorEst2 > 0
-        ? `${fl.floor.toUpperCase()}  —  ${fl.rooms.length} ROOMS  ( ${floorEst1} EST I  •  ${floorEst2} EST II )`
-        : `${fl.floor.toUpperCase()}  —  ${fl.rooms.length} ROOMS  ( Pending File Upload )`;
-
-    page.drawText(floorText, {
-      x: tableX + 10,
-      y: currentY + 4.5,
-      size: 7,
+    // Col: Room
+    const rCol = cols.find((c) => c.key === "room")!;
+    const rw = font.widthOfTextAtSize(item.room.room, 10);
+    page.drawText(item.room.room, {
+      x: rCol.x + (rCol.width - rw) / 2,
+      y: rowY + (rowH - 10) / 2 + 1,
+      size: 10,
       font,
       color: COLOR_CHARCOAL,
     });
 
-    // Rooms for this floor
-    for (const rm of fl.rooms) {
-      currentY -= calculatedRowH;
-      globalRoomIdx++;
+    // Col: Floor
+    const fCol = cols.find((c) => c.key === "floor")!;
+    const flText = toEnglishText(item.floorName).replace(/^Floor\s*/i, "").trim() || item.floorName;
+    const fw = font.widthOfTextAtSize(flText, 8.5);
+    page.drawText(flText, {
+      x: fCol.x + (fCol.width - fw) / 2,
+      y: rowY + (rowH - 8.5) / 2 + 1,
+      size: 8.5,
+      font,
+      color: COLOR_CHARCOAL,
+    });
 
-      // Zebra striping
-      if (globalRoomIdx % 2 === 1) {
+    // Subject columns
+    for (const sub of subjectCols) {
+      const sCol = cols.find((c) => c.key === sub.code)!;
+      const count = getRoomSubjectCount(item.room, sub.code, isEst2);
+
+      if (count > 0) {
+        // Checkbox square
+        const cbSize = 10;
+        const cbX = sCol.x + 8;
+        const cbY = rowY + (rowH - cbSize) / 2;
         page.drawRectangle({
-          x: tableX + 0.5,
-          y: currentY + 0.5,
-          width: tableW - 1,
-          height: calculatedRowH - 0.5,
-          color: COLOR_LIGHT_BG,
+          x: cbX,
+          y: cbY,
+          width: cbSize,
+          height: cbSize,
+          color: COLOR_WHITE,
+          borderColor: COLOR_CHARCOAL,
+          borderWidth: 1,
+        });
+
+        // Candidate count
+        const cntStr = String(count);
+        page.drawText(cntStr, {
+          x: cbX + cbSize + 6,
+          y: rowY + (rowH - 9) / 2 + 1,
+          size: 9,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+      } else {
+        const dash = "—";
+        const dw = font.widthOfTextAtSize(dash, 9);
+        page.drawText(dash, {
+          x: sCol.x + (sCol.width - dw) / 2,
+          y: rowY + (rowH - 9) / 2 + 1,
+          size: 9,
+          font,
+          color: COLOR_MUTED,
         });
       }
-
-      // Horizontal border
-      page.drawLine({
-        start: { x: tableX, y: currentY },
-        end: { x: tableX + tableW, y: currentY },
-        thickness: 0.4,
-        color: COLOR_BORDER,
-      });
-
-      // 1. Room Name (Centered)
-      const rName = rm.room;
-      const rW = font.widthOfTextAtSize(rName, fontSize + 0.5);
-      page.drawText(rName, {
-        x: cX_room + (colW_room - rW) / 2,
-        y: currentY + (calculatedRowH - fontSize) / 2 + 1,
-        size: fontSize + 0.5,
-        font,
-        color: COLOR_CHARCOAL,
-      });
-
-      // 2. EST 1 Subjects (Real parsed subjects only, or "—" if not uploaded yet)
-      let e1Subj = rm.est1Subjects || "—";
-      if (e1Subj.length > 34) e1Subj = e1Subj.slice(0, 32) + "...";
-      page.drawText(e1Subj, {
-        x: cX_est1Subj + 6,
-        y: currentY + (calculatedRowH - fontSize) / 2 + 1,
-        size: fontSize,
-        font,
-        color: rm.est1Subjects ? COLOR_CHARCOAL : COLOR_MUTED,
-      });
-
-      // 3. EST 1 Count (Centered - Real count or "—" if empty)
-      const e1Cnt = rm.est1Count !== undefined && rm.est1Count > 0 ? String(rm.est1Count) : "—";
-      const e1W = font.widthOfTextAtSize(e1Cnt, fontSize + 0.5);
-      page.drawText(e1Cnt, {
-        x: cX_est1Cand + (colW_est1Cand - e1W) / 2,
-        y: currentY + (calculatedRowH - fontSize) / 2 + 1,
-        size: fontSize + 0.5,
-        font,
-        color: rm.est1Count ? COLOR_CHARCOAL : COLOR_MUTED,
-      });
-
-      // 4. EST 2 Subjects (Real parsed subjects only, or "—" if not uploaded yet)
-      let e2Subj = rm.est2Subjects || "—";
-      if (e2Subj.length > 34) e2Subj = e2Subj.slice(0, 32) + "...";
-      page.drawText(e2Subj, {
-        x: cX_est2Subj + 6,
-        y: currentY + (calculatedRowH - fontSize) / 2 + 1,
-        size: fontSize,
-        font,
-        color: rm.est2Subjects ? COLOR_CHARCOAL : COLOR_MUTED,
-      });
-
-      // 5. EST 2 Count (Centered - Real count or "—" if empty)
-      const e2Cnt = rm.est2Count !== undefined && rm.est2Count > 0 ? String(rm.est2Count) : "—";
-      const e2W = font.widthOfTextAtSize(e2Cnt, fontSize + 0.5);
-      page.drawText(e2Cnt, {
-        x: cX_est2Cand + (colW_est2Cand - e2W) / 2,
-        y: currentY + (calculatedRowH - fontSize) / 2 + 1,
-        size: fontSize + 0.5,
-        font,
-        color: rm.est2Count ? COLOR_CHARCOAL : COLOR_MUTED,
-      });
-
-      // 6. Total Count (Centered - Real combined allocations or "—" if 0)
-      const rSum = (rm.est1Count || 0) + (rm.est2Count || 0);
-      const rTotal = rSum > 0 ? String(rSum) : "—";
-      const totW = font.widthOfTextAtSize(rTotal, fontSize + 0.5);
-      page.drawText(rTotal, {
-        x: cX_total + (colW_total - totW) / 2,
-        y: currentY + (calculatedRowH - fontSize) / 2 + 1,
-        size: fontSize + 0.5,
-        font,
-        color: rSum > 0 ? COLOR_GOLD : COLOR_MUTED,
-      });
     }
-  }
 
-  // Draw Vertical Column Lines across the entire table
-  const colLines = [cX_est1Subj, cX_est1Cand, cX_est2Subj, cX_est2Cand, cX_total];
-  for (const lineX of colLines) {
+    // Col: Total
+    const totCol = cols.find((c) => c.key === "total")!;
+    const totStr = String(item.room.studentCount || 0);
+    const tw = font.widthOfTextAtSize(totStr, 10);
+    page.drawText(totStr, {
+      x: totCol.x + (totCol.width - tw) / 2,
+      y: rowY + (rowH - 10) / 2 + 1,
+      size: 10,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    // Col: Proctor Signature
+    const sigCol = cols.find((c) => c.key === "sig")!;
     page.drawLine({
-      start: { x: lineX, y: colHeaderY + colHeaderH },
-      end: { x: lineX, y: tableBottom },
+      start: { x: sigCol.x + 8, y: rowY + 6 },
+      end: { x: sigCol.x + sigCol.width - 8, y: rowY + 6 },
+      thickness: 0.5,
+      color: COLOR_BORDER,
+    });
+    page.drawText("Sign:", {
+      x: sigCol.x + 8,
+      y: rowY + 8,
+      size: 6.5,
+      font,
+      color: COLOR_MUTED,
+    });
+
+    // Col: Verified Checkbox
+    const stCol = cols.find((c) => c.key === "status")!;
+    const cbSize = 13;
+    page.drawRectangle({
+      x: stCol.x + (stCol.width - cbSize) / 2,
+      y: rowY + (rowH - cbSize) / 2,
+      width: cbSize,
+      height: cbSize,
+      color: COLOR_WHITE,
+      borderColor: COLOR_CHARCOAL,
+      borderWidth: 1.2,
+    });
+  });
+
+  // Vertical column dividers
+  for (let i = 1; i < cols.length; i++) {
+    const vx = cols[i].x;
+    page.drawLine({
+      start: { x: vx, y: tableTop },
+      end: { x: vx, y: tableBottom },
       thickness: 0.5,
       color: COLOR_BORDER,
     });
   }
 
+  // 6. Bottom Summary & Verification Footer
+  const allRooms = normalizeFloorsData(options).flatMap((f) => f.rooms);
+  const totRooms = allRooms.length;
+  const totCand = allRooms.reduce((s, r) => s + (r.studentCount || 0), 0);
+
+  page.drawText(`BUILDING TOTALS: ${totRooms} ROOMS   •   ${totCand} TOTAL CANDIDATES`, {
+    x: cardX + 16,
+    y: footerY + 26,
+    size: 8.5,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  if (!isEst2) {
+    const litSum = allRooms.reduce((s, r) => s + getRoomSubjectCount(r, "LIT", false), 0);
+    const mathSum = allRooms.reduce((s, r) => s + getRoomSubjectCount(r, "MATH", false), 0);
+    const essaySum = allRooms.reduce((s, r) => s + getRoomSubjectCount(r, "ESSAY", false), 0);
+    page.drawText(`SUMMARY: Literacy: ${litSum}   •   Math: ${mathSum}   •   Essay: ${essaySum}`, {
+      x: cardX + 16,
+      y: footerY + 12,
+      size: 7.5,
+      font,
+      color: COLOR_MUTED,
+    });
+  } else {
+    const m1Sum = allRooms.reduce((s, r) => s + getRoomSubjectCount(r, "MATH1", true), 0);
+    const m2Sum = allRooms.reduce((s, r) => s + getRoomSubjectCount(r, "MATH2", true), 0);
+    const bioSum = allRooms.reduce((s, r) => s + getRoomSubjectCount(r, "BIO", true), 0);
+    const chemSum = allRooms.reduce((s, r) => s + getRoomSubjectCount(r, "CHEM", true), 0);
+    const phySum = allRooms.reduce((s, r) => s + getRoomSubjectCount(r, "PHY", true), 0);
+    page.drawText(`SUMMARY: Math 1: ${m1Sum}  •  Math 2: ${m2Sum}  •  Bio: ${bioSum}  •  Chem: ${chemSum}  •  Phy: ${phySum}`, {
+      x: cardX + 16,
+      y: footerY + 12,
+      size: 7.5,
+      font,
+      color: COLOR_MUTED,
+    });
+  }
+
+  // Right Sign-Off Card
+  const signCardW = 380;
+  const signCardX = cardX + cardW - signCardW - 12;
+  page.drawRectangle({
+    x: signCardX,
+    y: footerY,
+    width: signCardW,
+    height: footerH,
+    color: COLOR_WHITE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 0.8,
+  });
+
+  const signColW = signCardW / 2;
+  page.drawText("CONTROL ROOM SUPERVISOR", {
+    x: signCardX + 10,
+    y: footerY + footerH - 14,
+    size: 6.5,
+    font,
+    color: COLOR_MUTED,
+  });
+  page.drawText("Name: ______________________  Sig: _____________", {
+    x: signCardX + 10,
+    y: footerY + 10,
+    size: 7,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  page.drawLine({
+    start: { x: signCardX + signColW, y: footerY + 3 },
+    end: { x: signCardX + signColW, y: footerY + footerH - 3 },
+    thickness: 0.5,
+    color: COLOR_BORDER,
+  });
+
+  page.drawText("CHIEF PROCTOR / VERIFICATION", {
+    x: signCardX + signColW + 10,
+    y: footerY + footerH - 14,
+    size: 6.5,
+    font,
+    color: COLOR_MUTED,
+  });
+  page.drawText("Verified: [  ]   Seal ID: _____________________", {
+    x: signCardX + signColW + 10,
+    y: footerY + 10,
+    size: 7,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
   return page;
+}
+
+/**
+ * Backwards-compatible single/multi-page drawing function.
+ */
+export async function drawMasterBuildingManifestPage(
+  pdfDoc: PDFDocument,
+  font: any,
+  logoImg: any,
+  options: LogisticsStickerOptions,
+  pageIndex = 1,
+  totalPages = 1,
+): Promise<any> {
+  const normalizedFloors = normalizeFloorsData(options);
+  const flattenedRooms: { room: NormalizedRoom; floorName: string }[] = [];
+  for (const fl of normalizedFloors) {
+    for (const rm of fl.rooms) {
+      flattenedRooms.push({ room: rm, floorName: fl.floor });
+    }
+  }
+
+  const rowsPerPage = 14;
+  const pageRooms = flattenedRooms.slice((pageIndex - 1) * rowsPerPage, pageIndex * rowsPerPage);
+
+  return await drawMasterBuildingManifestLandscapePage(
+    pdfDoc,
+    font,
+    logoImg,
+    options,
+    pageRooms,
+    pageIndex,
+    totalPages,
+  );
 }
 
 /**
@@ -2033,23 +2299,23 @@ export async function drawCleanSkinDispatchLogPage(
   const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
   const examLabel = isEst2 ? "EST II" : "EST I";
 
-  page.drawText(`${examLabel} — OFFICIAL EMERGENCY RESERVE (CLEAN SKIN)`, {
+  page.drawText(`${examLabel} — CLEAN SKIN INCIDENT LOG`, {
     x: textStartX,
     y: headerY + 44,
-    size: 11.5,
-    font,
-    color: COLOR_EMERGENCY_RED,
-  });
-
-  page.drawText("EMERGENCY & RESERVE EXAM PAPERS PACKET — CONTROL MASTER CUSTODY", {
-    x: textStartX,
-    y: headerY + 27,
-    size: 8.5,
+    size: 13,
     font,
     color: COLOR_CHARCOAL,
   });
 
-  page.drawText("STRICTLY CONFIDENTIAL — FOR EMERGENCY REPLACEMENTS ONLY", {
+  page.drawText(`INCIDENT RECORD & REPLACEMENT LOG — ${toEnglishText(options.date || "DECEMBER 2026").toUpperCase()}`, {
+    x: textStartX,
+    y: headerY + 27,
+    size: 8.5,
+    font,
+    color: COLOR_MUTED,
+  });
+
+  page.drawText("CONTROL ROOM CUSTODY ONLY — FOR EMERGENCY REPLACEMENTS IN ROOMS", {
     x: textStartX,
     y: headerY + 12,
     size: 7,
@@ -2057,25 +2323,27 @@ export async function drawCleanSkinDispatchLogPage(
     color: COLOR_MUTED,
   });
 
-  // Warning Banner
-  const warnH = 22;
+  // Clean Information Note
+  const warnH = 20;
   const warnY = headerY - warnH - 6;
   page.drawRectangle({
     x: innerCardX,
     y: warnY,
     width: innerCardW,
     height: warnH,
-    color: COLOR_CHARCOAL,
+    color: COLOR_LIGHT_BG,
+    borderColor: COLOR_BORDER,
+    borderWidth: 0.8,
   });
 
-  const warnText = "ATTENTION: DO NOT OPEN EXCEPT UPON CHIEF PROCTOR APPROVAL FOR ACTIVE INCIDENTS";
-  const warnW = font.widthOfTextAtSize(warnText, 7.5);
+  const warnText = "SECURITY NOTICE: USE ONLY UPON CHIEF PROCTOR APPROVAL FOR REPLACEMENTS";
+  const warnW = font.widthOfTextAtSize(warnText, 7);
   page.drawText(warnText, {
     x: innerCardX + (innerCardW - warnW) / 2,
-    y: warnY + 7,
-    size: 7.5,
+    y: warnY + 6.5,
+    size: 7,
     font,
-    color: COLOR_GOLD,
+    color: COLOR_CHARCOAL,
   });
 
   // Location details
@@ -2298,7 +2566,7 @@ export async function generateCleanSkinMasterPdf(
 }
 
 /**
- * Standalone Master Center & Building Examination Manifest (Single Page A4 Portrait)
+ * Standalone Master Room Manifest (A4 Landscape, Paginated per Building)
  */
 export async function generateMasterBuildingManifestPdf(
   options: LogisticsStickerOptions,
@@ -2309,7 +2577,29 @@ export async function generateMasterBuildingManifestPdf(
   const font = await loadStickerFont(pdfDoc);
   const logoImg = await loadLogoImage(pdfDoc);
 
-  await drawMasterBuildingManifestPage(pdfDoc, font, logoImg, options, 1, 1);
+  const normalizedFloors = normalizeFloorsData(options);
+  const flattenedRooms: { room: NormalizedRoom; floorName: string }[] = [];
+  for (const fl of normalizedFloors) {
+    for (const rm of fl.rooms) {
+      flattenedRooms.push({ room: rm, floorName: fl.floor });
+    }
+  }
+
+  const rowsPerPage = 14;
+  const totalPages = Math.max(1, Math.ceil(flattenedRooms.length / rowsPerPage));
+
+  for (let pageIdx = 1; pageIdx <= totalPages; pageIdx++) {
+    const pageRooms = flattenedRooms.slice((pageIdx - 1) * rowsPerPage, pageIdx * rowsPerPage);
+    await drawMasterBuildingManifestLandscapePage(
+      pdfDoc,
+      font,
+      logoImg,
+      options,
+      pageRooms,
+      pageIdx,
+      totalPages,
+    );
+  }
 
   return await pdfDoc.save();
 }

@@ -650,6 +650,8 @@ export async function POST(
                 est1Subjects: r.est1Subjects || (isCurrentEst1 ? r.breakdownText : ""),
                 est2Count: e2Count,
                 est2Subjects: r.est2Subjects || (!isCurrentEst1 ? r.breakdownText : ""),
+                subjectsMap: r.subjects || {},
+                subjects: r.subjects || {},
               };
             });
 
