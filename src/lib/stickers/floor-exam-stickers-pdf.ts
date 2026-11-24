@@ -601,13 +601,13 @@ function drawBuildingCleanSkinPlacardPage(params: {
   const govText = toEnglishText(building.governorate);
   const bldText = cleanBuilding && cleanBuilding !== cleanCenter ? cleanBuilding : "";
 
-  // Combine all subjects for this building into one single line: CLEAN SKIN • Subject 1 • Subject 2 ...
+  // Combine all subjects for this building into one single line: CLEAN SKIN   [ • Subject 1  •  Subject 2 ... ]
   const allSubjNames = building.subjects && building.subjects.length > 0
     ? building.subjects.map((s) => s.name).join("  •  ")
     : isEst2
       ? "Math 1  •  Math 2  •  Biology  •  Chemistry  •  Physics"
       : "Literacy  •  Math";
-  const cleanSkinLine = `CLEAN SKIN • ${allSubjNames}`;
+  const cleanSkinLine = `CLEAN SKIN   [ • ${allSubjNames} ]`;
 
   interface StackedRow {
     text: string;
