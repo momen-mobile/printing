@@ -196,13 +196,13 @@ function drawFloorSubjectPlacardPage(params: {
     borderWidth: 1.5,
   });
 
-  // Top Header Bar
-  const headerH = 60;
-  const headerY = cardY + cardH - headerH - 10;
-  const logoH = 44;
-  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 0;
-  const logoX = cardX + 20;
-  const logoY = headerY + (headerH - logoH) / 2;
+  const centerX = width / 2;
+
+  // 1. TOP HEADER: Official Centered Logo & Session Date Title
+  const logoH = 46;
+  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 66;
+  const logoX = centerX - logoW / 2;
+  const logoY = cardY + cardH - logoH - 16;
 
   if (logoImg) {
     page.drawImage(logoImg, {
@@ -213,134 +213,198 @@ function drawFloorSubjectPlacardPage(params: {
     });
   }
 
-  const textStartX = logoImg ? logoX + logoW + 18 : cardX + 20;
   const rawExam = options.examName || subject.examType || "EST";
   const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam) || subject.examType === "EST 2";
   const examLabel = isEst2 ? "EST II" : "EST I";
+  const sessionDateText = toEnglishText(options.date) || "DECEMBER 2026";
+  const examDateHeader = `${examLabel}: ${sessionDateText}`;
 
-  // Exam Title in Header - Prominent, clean (No subtitle, No right badge!)
-  page.drawText(examLabel, {
-    x: textStartX,
-    y: headerY + (headerH - 24) / 2,
-    size: 26,
+  // Exam Title with Date (Centered, bold, underlined matching photo layout)
+  const headerFontSize = 20;
+  const headerTextW = font.widthOfTextAtSize(examDateHeader, headerFontSize);
+  const headerY = logoY - 26;
+  page.drawText(examDateHeader, {
+    x: centerX - headerTextW / 2,
+    y: headerY,
+    size: headerFontSize,
     font,
     color: COLOR_CHARCOAL,
   });
 
-  // Top Divider Line
+  // Underline under Exam Title
   page.drawLine({
-    start: { x: cardX + 16, y: headerY },
-    end: { x: cardX + cardW - 16, y: headerY },
+    start: { x: centerX - (headerTextW + 20) / 2, y: headerY - 4 },
+    end: { x: centerX + (headerTextW + 20) / 2, y: headerY - 4 },
     thickness: 1.2,
-    color: COLOR_BORDER,
+    color: COLOR_CHARCOAL,
   });
 
-  // ----------------------------------------------------
-  // CENTERED & VERTICALLY STACKED CONTENT
-  // Location -> Floor -> Subject -> Total Rooms
-  // ----------------------------------------------------
-  const centerX = width / 2;
-
-  const { center: cleanCenter, building: cleanBuilding, isCampus } = splitCenterAndBuilding(
-    options.center,
-    options.building,
-  );
-  const govText = toEnglishText(options.governorate) || "All Governorates";
-  const floorText = toEnglishText(options.floorName) || "Floor";
-  const hasDiffBuilding = isCampus && Boolean(cleanBuilding);
-
-  // Helper to draw centered text with optional max width scaling
-  const drawCentered = (text: string, y: number, size: number, color = COLOR_CHARCOAL, maxW = cardW - 60) => {
-    let effSize = size;
-    let textW = font.widthOfTextAtSize(text, effSize);
-    if (textW > maxW) {
-      effSize = Math.max(9, (maxW / textW) * effSize);
-      textW = font.widthOfTextAtSize(text, effSize);
-    }
-    page.drawText(text, {
-      x: centerX - textW / 2,
-      y,
-      size: effSize,
-      font,
-      color,
-    });
-    return effSize;
-  };
-
-  // Dynamic vertical layout based on whether building exists
-  let curY = headerY - 34;
-
-  // 1. Governorate
-  drawCentered(govText.toUpperCase(), curY, 14, COLOR_MUTED);
-  curY -= 32;
-
-  // 2. Test Center (Enlarged & Prominent)
-  drawCentered(cleanCenter.toUpperCase(), curY, 24, COLOR_CHARCOAL);
-  curY -= 28;
-
-  // 3. Building (Only if distinct campus building)
-  if (hasDiffBuilding) {
-    drawCentered(cleanBuilding.toUpperCase(), curY, 18, COLOR_CHARCOAL);
-    curY -= 28;
-  }
-
-  // 4. Floor (Prominent & High-Visibility)
-  drawCentered(floorText.toUpperCase(), curY, 32, COLOR_CHARCOAL);
-  curY -= 30;
-
-  // Central Divider Separator
-  const sepW = 420;
+  // Subtle clean divider below header
   page.drawLine({
-    start: { x: centerX - sepW / 2, y: curY },
-    end: { x: centerX + sepW / 2, y: curY },
+    start: { x: cardX + 24, y: headerY - 18 },
+    end: { x: cardX + cardW - 24, y: headerY - 18 },
     thickness: 0.8,
     color: COLOR_BORDER,
   });
-  curY -= 34;
 
-  // 5. Exam Subject Section (The Hero Identity of the Bag!)
-  drawCentered("EXAM SUBJECT", curY, 12, COLOR_MUTED);
-  curY -= 48;
+  // ----------------------------------------------------
+  // LOCATION & DETAILS (UI/UX Optimized per Director's Spec)
+  // Row 1: City & Test Center Side-by-Side
+  // Row 2: Building & Floor Side-by-Side
+  // Row 3: EXAM SUBJECT
+  // Row 4: Rooms
+  // ----------------------------------------------------
+  const { center: cleanCenter, building: cleanBuilding } = splitCenterAndBuilding(
+    options.center,
+    options.building,
+  );
+  const govText = toEnglishText(options.governorate) || "Alexandria";
+  const floorText = toEnglishText(options.floorName) || "Floor";
+  const bldText = cleanBuilding || cleanCenter;
 
-  const rawSubjName = subject.subjectName || subject.subjectCode;
-  const subjDisplayName = toEnglishText(rawSubjName).toUpperCase();
-  drawCentered(subjDisplayName, curY, 44, COLOR_CHARCOAL, cardW - 80);
-  curY -= 32;
+  // Layout boundaries
+  const contentW = 730;
+  const contentStartX = centerX - contentW / 2;
+  const row1Col1W = 290;
+  const row1Col2W = 420;
+  const gap = 20;
 
-  // Subject Code e.g. [ MATH 1 ] or [ LIT 1 ]
-  if (subject.subjectCode && !subjDisplayName.includes(subject.subjectCode.toUpperCase())) {
-    drawCentered(`[ ${subject.subjectCode.toUpperCase()} ]`, curY, 18, COLOR_MUTED);
-    curY -= 36;
-  } else {
-    curY -= 12;
-  }
+  // Helper to draw text with clean underline
+  const drawFieldWithUnderline = (params: {
+    label: string;
+    value: string;
+    x: number;
+    y: number;
+    maxW: number;
+    baseSize: number;
+  }) => {
+    const fullText = `${params.label}: ${params.value}`;
+    let effSize = params.baseSize;
+    let textW = font.widthOfTextAtSize(fullText, effSize);
+    if (textW > params.maxW) {
+      effSize = Math.max(12, (params.maxW / textW) * effSize);
+      textW = font.widthOfTextAtSize(fullText, effSize);
+    }
+    page.drawText(fullText, {
+      x: params.x,
+      y: params.y,
+      size: effSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+    // Underline
+    page.drawLine({
+      start: { x: params.x, y: params.y - 4 },
+      end: { x: params.x + Math.min(params.maxW, textW + 8), y: params.y - 4 },
+      thickness: 1.1,
+      color: COLOR_CHARCOAL,
+    });
+  };
 
-  // 6. Total Rooms Summary Card (Bottom Centered, NO student counts, NO room directory!)
-  const roomsBoxW = 320;
-  const roomsBoxH = 46;
-  const roomsBoxX = centerX - roomsBoxW / 2;
-  const roomsBoxY = Math.max(cardY + 28, curY - 24);
-
-  page.drawRectangle({
-    x: roomsBoxX,
-    y: roomsBoxY,
-    width: roomsBoxW,
-    height: roomsBoxH,
-    color: COLOR_LIGHT_BG,
-    borderColor: COLOR_BORDER,
-    borderWidth: 1,
+  // 2. ROW 1: City & Test Center Side-by-Side
+  const row1Y = headerY - 56;
+  drawFieldWithUnderline({
+    label: "City",
+    value: govText,
+    x: contentStartX,
+    y: row1Y,
+    maxW: row1Col1W,
+    baseSize: 19,
   });
 
-  const roomsLabel =
-    subject.totalRooms === 1
-      ? "TOTAL ENCLOSED ROOMS : 1 ROOM"
-      : `TOTAL ENCLOSED ROOMS : ${subject.totalRooms} ROOMS`;
-  const rTextW = font.widthOfTextAtSize(roomsLabel, 13);
-  page.drawText(roomsLabel, {
-    x: roomsBoxX + (roomsBoxW - rTextW) / 2,
-    y: roomsBoxY + (roomsBoxH - 13) / 2 + 1,
-    size: 13,
+  drawFieldWithUnderline({
+    label: "Test Center",
+    value: cleanCenter,
+    x: contentStartX + row1Col1W + gap,
+    y: row1Y,
+    maxW: row1Col2W,
+    baseSize: 19,
+  });
+
+  // 3. ROW 2: Building & Floor Side-by-Side
+  const row2Y = row1Y - 54;
+  const row2Col1W = 430;
+  const row2Col2W = 280;
+
+  drawFieldWithUnderline({
+    label: "Building",
+    value: bldText,
+    x: contentStartX,
+    y: row2Y,
+    maxW: row2Col1W,
+    baseSize: 19,
+  });
+
+  drawFieldWithUnderline({
+    label: "Floor",
+    value: floorText,
+    x: contentStartX + row2Col1W + gap,
+    y: row2Y,
+    maxW: row2Col2W,
+    baseSize: 21,
+  });
+
+  // 4. ROW 3: EXAM SUBJECT (Centered Hero)
+  const row3Y = row2Y - 74;
+  const rawSubjName = subject.subjectName || subject.subjectCode;
+  const subjDisplayName = toEnglishText(rawSubjName);
+  const subjFullText = `Subject: ${subjDisplayName}`;
+
+  let subjSize = 34;
+  let subjW = font.widthOfTextAtSize(subjFullText, subjSize);
+  if (subjW > contentW) {
+    subjSize = Math.max(20, (contentW / subjW) * subjSize);
+    subjW = font.widthOfTextAtSize(subjFullText, subjSize);
+  }
+
+  page.drawText(subjFullText, {
+    x: centerX - subjW / 2,
+    y: row3Y,
+    size: subjSize,
     font,
+    color: COLOR_CHARCOAL,
+  });
+
+  page.drawLine({
+    start: { x: centerX - (subjW + 24) / 2, y: row3Y - 6 },
+    end: { x: centerX + (subjW + 24) / 2, y: row3Y - 6 },
+    thickness: 1.5,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Optional Subject Code (e.g. [ MATH 1 ]) if not redundant
+  let nextY = row3Y - 26;
+  if (subject.subjectCode && !subjDisplayName.toLowerCase().includes(subject.subjectCode.toLowerCase())) {
+    const codeText = `[ ${subject.subjectCode.toUpperCase()} ]`;
+    const codeW = font.widthOfTextAtSize(codeText, 14);
+    page.drawText(codeText, {
+      x: centerX - codeW / 2,
+      y: nextY,
+      size: 14,
+      font,
+      color: COLOR_MUTED,
+    });
+    nextY -= 28;
+  }
+
+  // 5. ROW 4: Rooms (Centered, Underlined)
+  const roomsY = Math.max(cardY + 36, nextY - 32);
+  const roomsFullText = `Rooms: ${subject.totalRooms}`;
+  const roomsSize = 28;
+  const roomsW = font.widthOfTextAtSize(roomsFullText, roomsSize);
+
+  page.drawText(roomsFullText, {
+    x: centerX - roomsW / 2,
+    y: roomsY,
+    size: roomsSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  page.drawLine({
+    start: { x: centerX - (roomsW + 20) / 2, y: roomsY - 6 },
+    end: { x: centerX + (roomsW + 20) / 2, y: roomsY - 6 },
+    thickness: 1.3,
     color: COLOR_CHARCOAL,
   });
 }
