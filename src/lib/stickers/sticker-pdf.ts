@@ -1333,7 +1333,7 @@ function renderHeroCard(params: {
   y: number;
   width: number;
   height: number;
-  badgeText: string;
+  badgeText?: string;
   valueText: string;
   subText?: string;
   detailText?: string;
@@ -1354,30 +1354,33 @@ function renderHeroCard(params: {
   });
 
   // Top header banner in hero box
-  const bannerHeight = Math.max(30, Math.min(38, height * 0.20));
+  const hasBadge = Boolean(badgeText && badgeText.trim());
+  const bannerHeight = hasBadge ? Math.max(30, Math.min(38, height * 0.20)) : 0;
   const bannerY = y + height - bannerHeight;
   const bannerBgColor = rgb(0.92, 0.92, 0.92);
   const bannerTextColor = COLOR_CHARCOAL;
 
-  page.drawRectangle({
-    x: x + 2,
-    y: bannerY,
-    width: width - 4,
-    height: bannerHeight - 2,
-    color: bannerBgColor,
-  });
+  if (hasBadge) {
+    page.drawRectangle({
+      x: x + 2,
+      y: bannerY,
+      width: width - 4,
+      height: bannerHeight - 2,
+      color: bannerBgColor,
+    });
 
-  // Header text
-  const badgeTitle = badgeText.toUpperCase();
-  const titleSize = Math.max(12, Math.min(16, bannerHeight * 0.52));
-  const titleWidth = font.widthOfTextAtSize(badgeTitle, titleSize);
-  page.drawText(badgeTitle, {
-    x: x + (width - titleWidth) / 2,
-    y: bannerY + (bannerHeight - titleSize) / 2 - 2,
-    size: titleSize,
-    font,
-    color: bannerTextColor,
-  });
+    // Header text
+    const badgeTitle = badgeText!.toUpperCase();
+    const titleSize = Math.max(12, Math.min(16, bannerHeight * 0.52));
+    const titleWidth = font.widthOfTextAtSize(badgeTitle, titleSize);
+    page.drawText(badgeTitle, {
+      x: x + (width - titleWidth) / 2,
+      y: bannerY + (bannerHeight - titleSize) / 2 - 2,
+      size: titleSize,
+      font,
+      color: bannerTextColor,
+    });
+  }
 
   // Bottom Sub-Text banner (Vertical subjects or single text)
   const hasDetailLines = Boolean(detailLines && detailLines.length > 0);
@@ -1414,7 +1417,7 @@ function renderHeroCard(params: {
         height: subHeaderH,
         color: COLOR_CHARCOAL,
       });
-      const isFloorHero = badgeText.toUpperCase().includes("FLOOR");
+      const isFloorHero = Boolean(badgeText && badgeText.toUpperCase().includes("FLOOR"));
       const subHeaderTitle = isFloorHero
         ? "ASSIGNED ROOMS IN THIS FLOOR"
         : "EXAMINATION SUBJECTS & ATTENDANCE";
