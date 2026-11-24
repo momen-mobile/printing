@@ -888,32 +888,13 @@ function drawFloorSeniorBagPlacardPage(params: {
 
   // Divider line below header
   page.drawLine({
-    start: { x: cardX + 24, y: headerY - 16 },
-    end: { x: cardX + cardW - 24, y: headerY - 16 },
+    start: { x: cardX + 24, y: headerY - 18 },
+    end: { x: cardX + cardW - 24, y: headerY - 18 },
     thickness: 0.8,
     color: COLOR_BORDER,
   });
 
-  // 2. SENIOR DOSSIER TAG (Centered Prominent Banner)
-  const tagText = "FLOOR SENIOR SUPERVISOR DOSSIER & SUPPLIES BAG";
-  const tagSize = 15;
-  const tagW = font.widthOfTextAtSize(tagText, tagSize);
-  const tagY = headerY - 36;
-  page.drawText(tagText, {
-    x: centerX - tagW / 2,
-    y: tagY,
-    size: tagSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-  page.drawLine({
-    start: { x: centerX - (tagW + 20) / 2, y: tagY - 4 },
-    end: { x: centerX + (tagW + 20) / 2, y: tagY - 4 },
-    thickness: 1.1,
-    color: COLOR_CHARCOAL,
-  });
-
-  // 3. VERTICALLY STACKED LOCATION & FLOOR DETAILS
+  // 2. VERTICALLY STACKED LOCATION & FLOOR DETAILS (Centered, Prominent, Underlined)
   const { center: cleanCenter, building: cleanBuilding } = splitCenterAndBuilding(
     floorData.center,
     floorData.building,
@@ -930,15 +911,15 @@ function drawFloorSeniorBagPlacardPage(params: {
 
   const rows: StackedRow[] = [];
   if (govText) {
-    rows.push({ text: `City: ${govText}`, size: 20, underlineThickness: 1.1 });
+    rows.push({ text: `City: ${govText}`, size: 22, underlineThickness: 1.1 });
   }
   if (cleanCenter) {
-    rows.push({ text: `Test Center: ${cleanCenter}`, size: 21, underlineThickness: 1.2 });
+    rows.push({ text: `Test Center: ${cleanCenter}`, size: 24, underlineThickness: 1.2 });
   }
   if (bldText) {
-    rows.push({ text: `Building: ${bldText}`, size: 20, underlineThickness: 1.1 });
+    rows.push({ text: `Building: ${bldText}`, size: 22, underlineThickness: 1.1 });
   }
-  rows.push({ text: `Floor: ${floorText}`, size: 26, underlineThickness: 1.4 });
+  rows.push({ text: `Floor: ${floorText}`, size: 30, underlineThickness: 1.5 });
 
   const statsText = [
     floorData.totalRooms > 0 ? `${floorData.totalRooms} Rooms` : null,
@@ -946,18 +927,18 @@ function drawFloorSeniorBagPlacardPage(params: {
   ].filter(Boolean).join("   •   ");
 
   if (statsText) {
-    rows.push({ text: statsText, size: 21, underlineThickness: 1.3 });
+    rows.push({ text: statsText, size: 24, underlineThickness: 1.3 });
   }
 
   if (floorData.roomNames && floorData.roomNames.length > 0) {
     const roomsJoined = floorData.roomNames.join(", ");
-    rows.push({ text: `Assigned Rooms: ${roomsJoined}`, size: 16.5, underlineThickness: 1.0 });
+    rows.push({ text: `Assigned Rooms: ${roomsJoined}`, size: 19, underlineThickness: 1.1 });
   }
 
-  const startY = tagY - 36;
-  const bottomY = cardY + 152;
+  const startY = headerY - 56;
+  const bottomY = cardY + 48;
   const totalSpan = startY - bottomY;
-  const stepY = rows.length > 1 ? totalSpan / (rows.length - 1) : 40;
+  const stepY = rows.length > 1 ? totalSpan / (rows.length - 1) : 56;
 
   for (let idx = 0; idx < rows.length; idx++) {
     const r = rows[idx];
@@ -984,80 +965,6 @@ function drawFloorSeniorBagPlacardPage(params: {
       start: { x: centerX - (textW + linePadding) / 2, y: rowY - 5 },
       end: { x: centerX + (textW + linePadding) / 2, y: rowY - 5 },
       thickness: r.underlineThickness,
-      color: COLOR_CHARCOAL,
-    });
-  }
-
-  // 4. BAG ENCLOSED FLOOR SUPPLIES (WITHOUT CHECKBOXES per user specification)
-  const boxW = 730;
-  const boxH = 108;
-  const boxX = centerX - boxW / 2;
-  const boxY = cardY + 28;
-
-  page.drawRectangle({
-    x: boxX,
-    y: boxY,
-    width: boxW,
-    height: boxH,
-    color: rgb(0.97, 0.97, 0.98),
-    borderColor: COLOR_CHARCOAL,
-    borderWidth: 1.2,
-  });
-
-  const boxTitle = "ENCLOSED FLOOR DOSSIERS & SUPERVISOR SUPPLIES (COMPLETE ENCLOSURE)";
-  const boxTitleSize = 10.5;
-  const boxTitleW = font.widthOfTextAtSize(boxTitle, boxTitleSize);
-  page.drawText(boxTitle, {
-    x: centerX - boxTitleW / 2,
-    y: boxY + boxH - 20,
-    size: boxTitleSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  page.drawLine({
-    start: { x: boxX + 16, y: boxY + boxH - 26 },
-    end: { x: boxX + boxW - 16, y: boxY + boxH - 26 },
-    thickness: 0.8,
-    color: COLOR_BORDER,
-  });
-
-  // 2 Columns of contents WITHOUT checkboxes (bulleted clean list)
-  const col1X = boxX + 28;
-  const col2X = centerX + 16;
-  const itemSize = 9.5;
-  const lineSpacing = 20;
-
-  const col1Items = [
-    "• Senior Floor Attendance Register",
-    "• Room Distribution & Proctor Assignments",
-    "• Floor Incident & Replacement Reports",
-  ];
-
-  const col2Items = [
-    "• Room Hallway Numbers & Signage Files",
-    "• Extra Proctor Badges & Hallway Passes",
-    "• Floor Stationary, Staplers & Supplies",
-  ];
-
-  for (let i = 0; i < col1Items.length; i++) {
-    const itemY = boxY + boxH - 48 - i * lineSpacing;
-    page.drawText(col1Items[i], {
-      x: col1X,
-      y: itemY,
-      size: itemSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-  }
-
-  for (let i = 0; i < col2Items.length; i++) {
-    const itemY = boxY + boxH - 48 - i * lineSpacing;
-    page.drawText(col2Items[i], {
-      x: col2X,
-      y: itemY,
-      size: itemSize,
-      font,
       color: COLOR_CHARCOAL,
     });
   }
