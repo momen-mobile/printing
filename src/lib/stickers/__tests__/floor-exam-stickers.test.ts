@@ -89,7 +89,7 @@ describe("generateFloorExamStickersPdf", () => {
     expect(doc.getPageCount()).toBe(1);
   });
 
-  it("generates Building Clean Skin Bag Placards in A4 Landscape for each subject in building", async () => {
+  it("generates Building Clean Skin Bag Placards in A4 Landscape with all subjects combined for the complete building", async () => {
     const pdfBytes = await generateBuildingCleanSkinBagsPdf([
       {
         governorate: "Alexandria",
@@ -106,7 +106,7 @@ describe("generateFloorExamStickersPdf", () => {
     ]);
 
     const doc = await PDFDocument.load(pdfBytes);
-    expect(doc.getPageCount()).toBe(2);
+    expect(doc.getPageCount()).toBe(1); // Exactly 1 placard per building with all subjects combined
 
     const page1 = doc.getPage(0);
     const { width, height } = page1.getSize();

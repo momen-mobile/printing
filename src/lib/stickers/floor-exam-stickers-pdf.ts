@@ -511,18 +511,15 @@ export interface BuildingCleanSkinBagOption {
 
 /**
  * Draws a single Clean Skin Emergency Reserve Bag Placard (A4 Landscape)
- * for a building and subject, placed on the outside of the bag.
+ * for the complete building with all its subjects combined in one single sticker.
  */
 function drawBuildingCleanSkinPlacardPage(params: {
   pdfDoc: PDFDocument;
   font: any;
   logoImg: any;
   building: BuildingCleanSkinBagOption;
-  subject: { code: string; name: string };
-  subjectIndex: number;
-  totalSubjects: number;
 }) {
-  const { pdfDoc, font, logoImg, building, subject } = params;
+  const { pdfDoc, font, logoImg, building } = params;
 
   // A4 Landscape: 841.89 x 595.28 pt
   const width = 841.89;
@@ -590,32 +587,13 @@ function drawBuildingCleanSkinPlacardPage(params: {
 
   // Divider line below header
   page.drawLine({
-    start: { x: cardX + 24, y: headerY - 16 },
-    end: { x: cardX + cardW - 24, y: headerY - 16 },
+    start: { x: cardX + 24, y: headerY - 18 },
+    end: { x: cardX + cardW - 24, y: headerY - 18 },
     thickness: 0.8,
     color: COLOR_BORDER,
   });
 
-  // 2. CLEAN SKIN TAG (Centered Prominent Emergency Banner)
-  const tagText = "CLEAN SKIN • EMERGENCY RESERVE BAG";
-  const tagSize = 14;
-  const tagW = font.widthOfTextAtSize(tagText, tagSize);
-  const tagY = headerY - 36;
-  page.drawText(tagText, {
-    x: centerX - tagW / 2,
-    y: tagY,
-    size: tagSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-  page.drawLine({
-    start: { x: centerX - (tagW + 16) / 2, y: tagY - 4 },
-    end: { x: centerX + (tagW + 16) / 2, y: tagY - 4 },
-    thickness: 1,
-    color: COLOR_CHARCOAL,
-  });
-
-  // 3. VERTICALLY STACKED LOCATION & SUBJECT DETAILS
+  // 2. VERTICALLY STACKED LOCATION & COMBINED CLEAN SKIN SUBJECTS
   const { center: cleanCenter, building: cleanBuilding } = splitCenterAndBuilding(
     building.center,
     building.building,
@@ -623,29 +601,38 @@ function drawBuildingCleanSkinPlacardPage(params: {
   const govText = toEnglishText(building.governorate);
   const bldText = cleanBuilding && cleanBuilding !== cleanCenter ? cleanBuilding : "";
 
+  // Combine all subjects for this building into one single line: CLEAN SKIN • Subject 1 • Subject 2 ...
+  const allSubjNames = building.subjects && building.subjects.length > 0
+    ? building.subjects.map((s) => s.name).join("  •  ")
+    : isEst2
+      ? "Math 1  •  Math 2  •  Biology  •  Chemistry  •  Physics"
+      : "Literacy  •  Math";
+  const cleanSkinLine = `CLEAN SKIN • ${allSubjNames}`;
+
   interface StackedRow {
     text: string;
     size: number;
     underlineThickness: number;
-    isSubject?: boolean;
+    isHero?: boolean;
   }
 
   const rows: StackedRow[] = [];
   if (govText) {
-    rows.push({ text: `City: ${govText}`, size: 21, underlineThickness: 1.1 });
+    rows.push({ text: `City: ${govText}`, size: 22, underlineThickness: 1.1 });
   }
   if (cleanCenter) {
-    rows.push({ text: `Test Center: ${cleanCenter}`, size: 22, underlineThickness: 1.2 });
+    rows.push({ text: `Test Center: ${cleanCenter}`, size: 23, underlineThickness: 1.2 });
   }
   if (bldText) {
-    rows.push({ text: `Building: ${bldText}`, size: 21, underlineThickness: 1.1 });
+    rows.push({ text: `Building: ${bldText}`, size: 22, underlineThickness: 1.1 });
   }
-  rows.push({ text: `Subject: ${subject.name}`, size: 34, underlineThickness: 1.6, isSubject: true });
+  // CLEAN SKIN with all subjects together - prominent hero row
+  rows.push({ text: cleanSkinLine, size: 30, underlineThickness: 1.6, isHero: true });
 
-  const startY = tagY - 42;
-  const bottomY = cardY + 98;
+  const startY = headerY - 58;
+  const bottomY = cardY + 68;
   const totalSpan = startY - bottomY;
-  const stepY = rows.length > 1 ? totalSpan / (rows.length - 1) : 52;
+  const stepY = rows.length > 1 ? totalSpan / (rows.length - 1) : 70;
 
   for (let idx = 0; idx < rows.length; idx++) {
     const r = rows[idx];
@@ -675,49 +662,11 @@ function drawBuildingCleanSkinPlacardPage(params: {
       color: COLOR_CHARCOAL,
     });
   }
-
-  // 4. BOTTOM CONTROL ROOM VERIFICATION CARD
-  const boxW = 660;
-  const boxH = 56;
-  const boxX = centerX - boxW / 2;
-  const boxY = cardY + 22;
-
-  page.drawRectangle({
-    x: boxX,
-    y: boxY,
-    width: boxW,
-    height: boxH,
-    color: rgb(0.97, 0.97, 0.98),
-    borderColor: COLOR_CHARCOAL,
-    borderWidth: 1,
-  });
-
-  const boxTitle = "FOR BUILDING CONTROL ROOM USE ONLY";
-  const boxTitleSize = 10;
-  const boxTitleW = font.widthOfTextAtSize(boxTitle, boxTitleSize);
-  page.drawText(boxTitle, {
-    x: centerX - boxTitleW / 2,
-    y: boxY + boxH - 16,
-    size: boxTitleSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  const notesText = "[  ] Sealed Question Packets       [  ] Reserve Answer Sheets       Control Signature: __________________";
-  const notesSize = 9.5;
-  const notesW = font.widthOfTextAtSize(notesText, notesSize);
-  page.drawText(notesText, {
-    x: centerX - notesW / 2,
-    y: boxY + 14,
-    size: notesSize,
-    font,
-    color: COLOR_MUTED,
-  });
 }
 
 /**
- * Generates the PDF containing A4 Landscape Clean Skin Bag Placards
- * for each building and for each subject present.
+ * Generates the PDF containing A4 Landscape Clean Skin Bag Placards.
+ * Generates exactly ONE single placard per building containing all its subjects combined.
  */
 export async function generateBuildingCleanSkinBagsPdf(
   batches: BuildingCleanSkinBagOption[],
@@ -729,18 +678,12 @@ export async function generateBuildingCleanSkinBagsPdf(
   const logoImg = await loadLogoImage(pdfDoc);
 
   for (const bld of batches) {
-    for (let sIdx = 0; sIdx < bld.subjects.length; sIdx++) {
-      const subj = bld.subjects[sIdx];
-      drawBuildingCleanSkinPlacardPage({
-        pdfDoc,
-        font,
-        logoImg,
-        building: bld,
-        subject: subj,
-        subjectIndex: sIdx + 1,
-        totalSubjects: bld.subjects.length,
-      });
-    }
+    drawBuildingCleanSkinPlacardPage({
+      pdfDoc,
+      font,
+      logoImg,
+      building: bld,
+    });
   }
 
   return await pdfDoc.save();
