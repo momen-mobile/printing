@@ -248,165 +248,83 @@ function drawFloorSubjectPlacardPage(params: {
   });
 
   // ----------------------------------------------------
-  // LOCATION & DETAILS (UI/UX Optimized per Director's Spec)
-  // Row 1: City & Test Center Side-by-Side
-  // Row 2: Building & Floor Side-by-Side
-  // Row 3: EXAM SUBJECT
-  // Row 4: Rooms
+  // LOCATION & DETAILS (Vertically Stacked with Fixed, Clear Spacing per User Spec)
+  // 1. City (if present)
+  // 2. Test Center
+  // 3. Building (if distinct campus building)
+  // 4. Floor
+  // 5. Subject (Large, prominent)
+  // 6. Rooms
   // ----------------------------------------------------
   const { center: cleanCenter, building: cleanBuilding } = splitCenterAndBuilding(
     options.center,
     options.building,
   );
-  const govText = toEnglishText(options.governorate) || "Alexandria";
+  const govText = toEnglishText(options.governorate);
   const floorText = toEnglishText(options.floorName) || "Floor";
-  const bldText = cleanBuilding || cleanCenter;
+  const bldText = cleanBuilding && cleanBuilding !== cleanCenter ? cleanBuilding : "";
 
-  // Layout boundaries
-  const contentW = 730;
-  const contentStartX = centerX - contentW / 2;
-  const row1Col1W = 290;
-  const row1Col2W = 420;
-  const gap = 20;
+  const rawSubjName = subject.subjectName || subject.subjectCode;
+  const subjDisplayName = toEnglishText(rawSubjName);
 
-  // Helper to draw text with clean underline
-  const drawFieldWithUnderline = (params: {
-    label: string;
-    value: string;
-    x: number;
-    y: number;
-    maxW: number;
-    baseSize: number;
-  }) => {
-    const fullText = `${params.label}: ${params.value}`;
-    let effSize = params.baseSize;
-    let textW = font.widthOfTextAtSize(fullText, effSize);
-    if (textW > params.maxW) {
-      effSize = Math.max(12, (params.maxW / textW) * effSize);
-      textW = font.widthOfTextAtSize(fullText, effSize);
+  interface StackedRow {
+    text: string;
+    size: number;
+    underlineThickness: number;
+    isSubject?: boolean;
+  }
+
+  const rows: StackedRow[] = [];
+  if (govText) {
+    rows.push({ text: `City: ${govText}`, size: 21, underlineThickness: 1.1 });
+  }
+  if (cleanCenter) {
+    rows.push({ text: `Test Center: ${cleanCenter}`, size: 22, underlineThickness: 1.2 });
+  }
+  if (bldText) {
+    rows.push({ text: `Building: ${bldText}`, size: 21, underlineThickness: 1.1 });
+  }
+  if (floorText) {
+    rows.push({ text: `Floor: ${floorText}`, size: 22, underlineThickness: 1.2 });
+  }
+  rows.push({ text: `Subject: ${subjDisplayName}`, size: 32, underlineThickness: 1.5, isSubject: true });
+  rows.push({ text: `Rooms: ${subject.totalRooms}`, size: 26, underlineThickness: 1.3 });
+
+  // Calculate vertical positions: evenly distributed from startY to bottomY with fixed, comfortable spacing
+  const startY = headerY - 46;
+  const bottomY = cardY + 44;
+  const totalSpan = startY - bottomY;
+  const stepY = rows.length > 1 ? totalSpan / (rows.length - 1) : 52;
+
+  for (let idx = 0; idx < rows.length; idx++) {
+    const r = rows[idx];
+    const rowY = startY - idx * stepY;
+
+    let effSize = r.size;
+    let textW = font.widthOfTextAtSize(r.text, effSize);
+    const maxW = 730;
+    if (textW > maxW) {
+      effSize = Math.max(14, (maxW / textW) * effSize);
+      textW = font.widthOfTextAtSize(r.text, effSize);
     }
-    page.drawText(fullText, {
-      x: params.x,
-      y: params.y,
+
+    page.drawText(r.text, {
+      x: centerX - textW / 2,
+      y: rowY,
       size: effSize,
       font,
       color: COLOR_CHARCOAL,
     });
-    // Underline
+
+    // Clean underline directly beneath each text line
+    const linePadding = 18;
     page.drawLine({
-      start: { x: params.x, y: params.y - 4 },
-      end: { x: params.x + Math.min(params.maxW, textW + 8), y: params.y - 4 },
-      thickness: 1.1,
+      start: { x: centerX - (textW + linePadding) / 2, y: rowY - 5 },
+      end: { x: centerX + (textW + linePadding) / 2, y: rowY - 5 },
+      thickness: r.underlineThickness,
       color: COLOR_CHARCOAL,
     });
-  };
-
-  // 2. ROW 1: City & Test Center Side-by-Side
-  const row1Y = headerY - 56;
-  drawFieldWithUnderline({
-    label: "City",
-    value: govText,
-    x: contentStartX,
-    y: row1Y,
-    maxW: row1Col1W,
-    baseSize: 19,
-  });
-
-  drawFieldWithUnderline({
-    label: "Test Center",
-    value: cleanCenter,
-    x: contentStartX + row1Col1W + gap,
-    y: row1Y,
-    maxW: row1Col2W,
-    baseSize: 19,
-  });
-
-  // 3. ROW 2: Building & Floor Side-by-Side
-  const row2Y = row1Y - 54;
-  const row2Col1W = 430;
-  const row2Col2W = 280;
-
-  drawFieldWithUnderline({
-    label: "Building",
-    value: bldText,
-    x: contentStartX,
-    y: row2Y,
-    maxW: row2Col1W,
-    baseSize: 19,
-  });
-
-  drawFieldWithUnderline({
-    label: "Floor",
-    value: floorText,
-    x: contentStartX + row2Col1W + gap,
-    y: row2Y,
-    maxW: row2Col2W,
-    baseSize: 21,
-  });
-
-  // 4. ROW 3: EXAM SUBJECT (Centered Hero)
-  const row3Y = row2Y - 74;
-  const rawSubjName = subject.subjectName || subject.subjectCode;
-  const subjDisplayName = toEnglishText(rawSubjName);
-  const subjFullText = `Subject: ${subjDisplayName}`;
-
-  let subjSize = 34;
-  let subjW = font.widthOfTextAtSize(subjFullText, subjSize);
-  if (subjW > contentW) {
-    subjSize = Math.max(20, (contentW / subjW) * subjSize);
-    subjW = font.widthOfTextAtSize(subjFullText, subjSize);
   }
-
-  page.drawText(subjFullText, {
-    x: centerX - subjW / 2,
-    y: row3Y,
-    size: subjSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  page.drawLine({
-    start: { x: centerX - (subjW + 24) / 2, y: row3Y - 6 },
-    end: { x: centerX + (subjW + 24) / 2, y: row3Y - 6 },
-    thickness: 1.5,
-    color: COLOR_CHARCOAL,
-  });
-
-  // Optional Subject Code (e.g. [ MATH 1 ]) if not redundant
-  let nextY = row3Y - 26;
-  if (subject.subjectCode && !subjDisplayName.toLowerCase().includes(subject.subjectCode.toLowerCase())) {
-    const codeText = `[ ${subject.subjectCode.toUpperCase()} ]`;
-    const codeW = font.widthOfTextAtSize(codeText, 14);
-    page.drawText(codeText, {
-      x: centerX - codeW / 2,
-      y: nextY,
-      size: 14,
-      font,
-      color: COLOR_MUTED,
-    });
-    nextY -= 28;
-  }
-
-  // 5. ROW 4: Rooms (Centered, Underlined)
-  const roomsY = Math.max(cardY + 36, nextY - 32);
-  const roomsFullText = `Rooms: ${subject.totalRooms}`;
-  const roomsSize = 28;
-  const roomsW = font.widthOfTextAtSize(roomsFullText, roomsSize);
-
-  page.drawText(roomsFullText, {
-    x: centerX - roomsW / 2,
-    y: roomsY,
-    size: roomsSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  page.drawLine({
-    start: { x: centerX - (roomsW + 20) / 2, y: roomsY - 6 },
-    end: { x: centerX + (roomsW + 20) / 2, y: roomsY - 6 },
-    thickness: 1.3,
-    color: COLOR_CHARCOAL,
-  });
 }
 
 /**
@@ -576,4 +494,254 @@ export async function resolveFloorSubjectsData(params: {
     totalCandidates: s.rooms.reduce((acc, r) => acc + r.candidateCount, 0),
     rooms: s.rooms,
   }));
+}
+
+export interface BuildingCleanSkinBagOption {
+  governorate: string;
+  center: string;
+  building?: string;
+  examName?: string;
+  examType?: "EST 1" | "EST 2" | "EST";
+  date?: string;
+  subjects: Array<{
+    code: string;
+    name: string;
+  }>;
+}
+
+/**
+ * Draws a single Clean Skin Emergency Reserve Bag Placard (A4 Landscape)
+ * for a building and subject, placed on the outside of the bag.
+ */
+function drawBuildingCleanSkinPlacardPage(params: {
+  pdfDoc: PDFDocument;
+  font: any;
+  logoImg: any;
+  building: BuildingCleanSkinBagOption;
+  subject: { code: string; name: string };
+  subjectIndex: number;
+  totalSubjects: number;
+}) {
+  const { pdfDoc, font, logoImg, building, subject } = params;
+
+  // A4 Landscape: 841.89 x 595.28 pt
+  const width = 841.89;
+  const height = 595.28;
+  const page = pdfDoc.addPage([width, height]);
+
+  const margin = 24;
+  const cardX = margin;
+  const cardY = margin;
+  const cardW = width - margin * 2;
+  const cardH = height - margin * 2;
+
+  // Clean White Background with Crisp Border - ZERO black fill!
+  page.drawRectangle({
+    x: cardX,
+    y: cardY,
+    width: cardW,
+    height: cardH,
+    color: COLOR_WHITE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1.5,
+  });
+
+  const centerX = width / 2;
+
+  // 1. TOP HEADER: Centered Official Logo & Session Date
+  const logoH = 46;
+  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 66;
+  const logoX = centerX - logoW / 2;
+  const logoY = cardY + cardH - logoH - 16;
+
+  if (logoImg) {
+    page.drawImage(logoImg, {
+      x: logoX,
+      y: logoY,
+      width: logoW,
+      height: logoH,
+    });
+  }
+
+  const rawExam = building.examName || building.examType || "EST";
+  const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam) || building.examType === "EST 2";
+  const examLabel = isEst2 ? "EST II" : "EST I";
+  const sessionDateText = toEnglishText(building.date) || "DECEMBER 2026";
+  const examDateHeader = `${examLabel}: ${sessionDateText}`;
+
+  const headerFontSize = 20;
+  const headerTextW = font.widthOfTextAtSize(examDateHeader, headerFontSize);
+  const headerY = logoY - 26;
+  page.drawText(examDateHeader, {
+    x: centerX - headerTextW / 2,
+    y: headerY,
+    size: headerFontSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Underline under Exam Title
+  page.drawLine({
+    start: { x: centerX - (headerTextW + 20) / 2, y: headerY - 4 },
+    end: { x: centerX + (headerTextW + 20) / 2, y: headerY - 4 },
+    thickness: 1.2,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Divider line below header
+  page.drawLine({
+    start: { x: cardX + 24, y: headerY - 16 },
+    end: { x: cardX + cardW - 24, y: headerY - 16 },
+    thickness: 0.8,
+    color: COLOR_BORDER,
+  });
+
+  // 2. CLEAN SKIN TAG (Centered Prominent Emergency Banner)
+  const tagText = "CLEAN SKIN • EMERGENCY RESERVE BAG";
+  const tagSize = 14;
+  const tagW = font.widthOfTextAtSize(tagText, tagSize);
+  const tagY = headerY - 36;
+  page.drawText(tagText, {
+    x: centerX - tagW / 2,
+    y: tagY,
+    size: tagSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+  page.drawLine({
+    start: { x: centerX - (tagW + 16) / 2, y: tagY - 4 },
+    end: { x: centerX + (tagW + 16) / 2, y: tagY - 4 },
+    thickness: 1,
+    color: COLOR_CHARCOAL,
+  });
+
+  // 3. VERTICALLY STACKED LOCATION & SUBJECT DETAILS
+  const { center: cleanCenter, building: cleanBuilding } = splitCenterAndBuilding(
+    building.center,
+    building.building,
+  );
+  const govText = toEnglishText(building.governorate);
+  const bldText = cleanBuilding && cleanBuilding !== cleanCenter ? cleanBuilding : "";
+
+  interface StackedRow {
+    text: string;
+    size: number;
+    underlineThickness: number;
+    isSubject?: boolean;
+  }
+
+  const rows: StackedRow[] = [];
+  if (govText) {
+    rows.push({ text: `City: ${govText}`, size: 21, underlineThickness: 1.1 });
+  }
+  if (cleanCenter) {
+    rows.push({ text: `Test Center: ${cleanCenter}`, size: 22, underlineThickness: 1.2 });
+  }
+  if (bldText) {
+    rows.push({ text: `Building: ${bldText}`, size: 21, underlineThickness: 1.1 });
+  }
+  rows.push({ text: `Subject: ${subject.name}`, size: 34, underlineThickness: 1.6, isSubject: true });
+
+  const startY = tagY - 42;
+  const bottomY = cardY + 98;
+  const totalSpan = startY - bottomY;
+  const stepY = rows.length > 1 ? totalSpan / (rows.length - 1) : 52;
+
+  for (let idx = 0; idx < rows.length; idx++) {
+    const r = rows[idx];
+    const rowY = startY - idx * stepY;
+
+    let effSize = r.size;
+    let textW = font.widthOfTextAtSize(r.text, effSize);
+    const maxW = 730;
+    if (textW > maxW) {
+      effSize = Math.max(14, (maxW / textW) * effSize);
+      textW = font.widthOfTextAtSize(r.text, effSize);
+    }
+
+    page.drawText(r.text, {
+      x: centerX - textW / 2,
+      y: rowY,
+      size: effSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    const linePadding = 18;
+    page.drawLine({
+      start: { x: centerX - (textW + linePadding) / 2, y: rowY - 5 },
+      end: { x: centerX + (textW + linePadding) / 2, y: rowY - 5 },
+      thickness: r.underlineThickness,
+      color: COLOR_CHARCOAL,
+    });
+  }
+
+  // 4. BOTTOM CONTROL ROOM VERIFICATION CARD
+  const boxW = 660;
+  const boxH = 56;
+  const boxX = centerX - boxW / 2;
+  const boxY = cardY + 22;
+
+  page.drawRectangle({
+    x: boxX,
+    y: boxY,
+    width: boxW,
+    height: boxH,
+    color: rgb(0.97, 0.97, 0.98),
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1,
+  });
+
+  const boxTitle = "FOR BUILDING CONTROL ROOM USE ONLY";
+  const boxTitleSize = 10;
+  const boxTitleW = font.widthOfTextAtSize(boxTitle, boxTitleSize);
+  page.drawText(boxTitle, {
+    x: centerX - boxTitleW / 2,
+    y: boxY + boxH - 16,
+    size: boxTitleSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  const notesText = "[  ] Sealed Question Packets       [  ] Reserve Answer Sheets       Control Signature: __________________";
+  const notesSize = 9.5;
+  const notesW = font.widthOfTextAtSize(notesText, notesSize);
+  page.drawText(notesText, {
+    x: centerX - notesW / 2,
+    y: boxY + 14,
+    size: notesSize,
+    font,
+    color: COLOR_MUTED,
+  });
+}
+
+/**
+ * Generates the PDF containing A4 Landscape Clean Skin Bag Placards
+ * for each building and for each subject present.
+ */
+export async function generateBuildingCleanSkinBagsPdf(
+  batches: BuildingCleanSkinBagOption[],
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+
+  const font = await loadStickerFont(pdfDoc);
+  const logoImg = await loadLogoImage(pdfDoc);
+
+  for (const bld of batches) {
+    for (let sIdx = 0; sIdx < bld.subjects.length; sIdx++) {
+      const subj = bld.subjects[sIdx];
+      drawBuildingCleanSkinPlacardPage({
+        pdfDoc,
+        font,
+        logoImg,
+        building: bld,
+        subject: subj,
+        subjectIndex: sIdx + 1,
+        totalSubjects: bld.subjects.length,
+      });
+    }
+  }
+
+  return await pdfDoc.save();
 }

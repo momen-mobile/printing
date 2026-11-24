@@ -12,6 +12,8 @@ import {
 } from "@/lib/stickers/sticker-pdf";
 import {
   generateBatchFloorSubjectBagsPdf,
+  generateBuildingCleanSkinBagsPdf,
+  type BuildingCleanSkinBagOption,
   type FloorExamStickersOptions,
   type FloorSubjectPlacardData,
   type FloorRoomSubjectData,
@@ -339,6 +341,82 @@ export async function POST(
       const pdfBytes = await generateBatchFloorSubjectBagsPdf(floorBatches);
 
       const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Floor_Subject_Bags.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 2.6 BUILDING CLEAN SKIN BAG PLACARDS (A4 Landscape Placard per Building per Subject)
+    if (type === "clean_skin_bags") {
+      const buildingGroups = new Map<string, EstRoundRow[]>();
+      for (const r of targetRows) {
+        const bld = (r as any).building || r.center;
+        const key = `${r.governorate}::${r.center}::${bld}`;
+        const existing = buildingGroups.get(key) || [];
+        existing.push(r);
+        buildingGroups.set(key, existing);
+      }
+
+      const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(round.name || "") || round.examType === "EST 2";
+
+      const buildingBatches: BuildingCleanSkinBagOption[] = [];
+
+      for (const [_, rows] of buildingGroups.entries()) {
+        const first = rows[0];
+        const bld = (first as any).building || first.center;
+
+        const presentCodes = new Set<string>();
+        for (const r of rows) {
+          for (const [code, count] of Object.entries(r.subjects || {})) {
+            if (count > 0) presentCodes.add(code.toUpperCase());
+          }
+        }
+
+        let subjects: Array<{ code: string; name: string }> = [];
+
+        if (isEst2) {
+          const defaultEst2 = [
+            { code: "MATH1", name: "Math 1" },
+            { code: "MATH2", name: "Math 2" },
+            { code: "BIO", name: "Biology" },
+            { code: "CHEM", name: "Chemistry" },
+            { code: "PHY", name: "Physics" },
+          ];
+          subjects = presentCodes.size > 0
+            ? defaultEst2.filter((s) => presentCodes.has(s.code))
+            : defaultEst2;
+          if (subjects.length === 0) subjects = defaultEst2;
+        } else {
+          const defaultEst1 = [
+            { code: "LIT", name: "Literacy" },
+            { code: "MATH", name: "Math" },
+          ];
+          if (presentCodes.has("ESSAY") || rows.some((r) => ((r as any).essayCount && (r as any).essayCount > 0))) {
+            defaultEst1.push({ code: "ESSAY", name: "Essay" });
+          }
+          subjects = defaultEst1;
+        }
+
+        buildingBatches.push({
+          governorate: first.governorate,
+          center: first.center,
+          building: bld,
+          examName: round.name || round.examType,
+          examType: isEst2 ? "EST 2" : "EST 1",
+          date: [roundDayStr, roundDateStr].filter(Boolean).join(", "),
+          subjects,
+        });
+      }
+
+      const pdfBytes = await generateBuildingCleanSkinBagsPdf(buildingBatches);
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Clean_Skin_Building_Bags.pdf`;
 
       return new NextResponse(Buffer.from(pdfBytes), {
         status: 200,

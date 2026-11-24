@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { PDFDocument } from "pdf-lib";
 import {
   generateFloorExamStickersPdf,
+  generateBuildingCleanSkinBagsPdf,
   type FloorSubjectPlacardData,
 } from "../floor-exam-stickers-pdf";
 
@@ -86,6 +87,31 @@ describe("generateFloorExamStickersPdf", () => {
 
     const doc = await PDFDocument.load(pdfBytes);
     expect(doc.getPageCount()).toBe(1);
+  });
+
+  it("generates Building Clean Skin Bag Placards in A4 Landscape for each subject in building", async () => {
+    const pdfBytes = await generateBuildingCleanSkinBagsPdf([
+      {
+        governorate: "Alexandria",
+        center: "Future University",
+        building: "Business",
+        examName: "EST 1",
+        examType: "EST 1",
+        date: "Friday, December 11, 2026",
+        subjects: [
+          { code: "LIT", name: "Literacy" },
+          { code: "MATH", name: "Math" },
+        ],
+      },
+    ]);
+
+    const doc = await PDFDocument.load(pdfBytes);
+    expect(doc.getPageCount()).toBe(2);
+
+    const page1 = doc.getPage(0);
+    const { width, height } = page1.getSize();
+    expect(width).toBeCloseTo(841.89, 1);
+    expect(height).toBeCloseTo(595.28, 1);
   });
 });
 

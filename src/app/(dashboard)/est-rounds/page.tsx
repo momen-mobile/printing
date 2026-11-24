@@ -498,7 +498,8 @@ export default function EstRoundsPage() {
         | "manifest"
         | "clean_skin_master"
         | "clean_skin_log"
-        | "clean_skin_subjects",
+        | "clean_skin_subjects"
+        | "clean_skin_bags",
     ) => {
       if (!activeRoundId) return;
 
@@ -546,6 +547,7 @@ export default function EstRoundsPage() {
         else if (type === "clean_skin_master") typeLabel = isAr ? "كيس طوارئ الكنترول (باقة 2 صفحة)" : "Emergency Reserve Master Packet";
         else if (type === "clean_skin_log") typeLabel = isAr ? "سجل صرف الطوارئ" : "Clean Skin Incident Log";
         else if (type === "clean_skin_subjects") typeLabel = isAr ? "ستيكرات الكلين سكين" : "Clean Skin Stickers";
+        else if (type === "clean_skin_bags") typeLabel = isAr ? "أكياس الكلين سكين للمبنى (A4 بالعرض)" : "Building Clean Skin Bag Placards";
 
         setPreviewTitle(
           `${activeRound?.name || "EST"} - ${typeLabel} (${targetRowIds.length} ${isAr ? "قاعة" : "rooms"})`,
@@ -1114,7 +1116,7 @@ export default function EstRoundsPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {/* 1. Exam Subject Envelopes */}
                 <button
                   type="button"
@@ -1163,6 +1165,32 @@ export default function EstRoundsPage() {
                     </div>
                     <div className="text-[11px] text-muted line-clamp-1">
                       {isAr ? "استيكر كيس المادة لكل دور مع جدول تفصيلي بالقاعات وأعداد طلابها" : "Dedicated A4 Landscape placard per floor per subject with room breakdown"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 3. Building Clean Skin Bags Placards */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("clean_skin_bags")}
+                  disabled={isGenerating}
+                  className="flex items-center gap-3.5 p-3.5 rounded-xl border border-rose-500/40 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "طباعة استيكرات أكياس الكلين سكين (طوارئ الكنترول) لكل مبنى بالحجم الكبير A4 بالعرض حسب مواد الامتحان" : "Print A4 Landscape Clean Skin Bag Placards per Building per Subject"}
+                >
+                  <span className="size-10 rounded-xl bg-rose-500/20 text-rose-700 dark:text-rose-300 flex items-center justify-center font-bold shrink-0">
+                    {isGenerating && activeActionType === "clean_skin_bags" ? <Loader2 className="size-5 animate-spin" /> : <ShieldAlert className="size-5" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <div className="text-xs font-bold text-rose-950 dark:text-rose-200">
+                        {isAr ? "أكياس كلين سكين للمبنى (A4 بالعرض)" : "Clean Skin Bag Placards"}
+                      </div>
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-800 dark:text-rose-200 font-mono">
+                        A4 Landscape
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-muted line-clamp-1">
+                      {isAr ? "ورقة بالعرض على كيس الطوارئ لكل مبنى حسب المواد (EST 1 أو EST 2)" : "Dedicated A4 Landscape placard per building per subject for emergency reserve bags"}
                     </div>
                   </div>
                 </button>
