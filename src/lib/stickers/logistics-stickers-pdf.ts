@@ -2777,8 +2777,8 @@ export async function drawCleanSkinDispatchLogPage(
     borderWidth: 1,
   });
 
-  // Emergency Header Banner
-  const headerH = 68;
+  // Header Banner
+  const headerH = 48;
   const headerY = cardY + cardH - headerH - 8;
   const innerCardW = cardW - 12;
   const innerCardX = cardX + 6;
@@ -2793,7 +2793,7 @@ export async function drawCleanSkinDispatchLogPage(
     borderWidth: 0.6,
   });
 
-  const logoH = 42;
+  const logoH = 34;
   const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 0;
   const logoX = innerCardX + 12;
   const logoY = headerY + (headerH - logoH) / 2;
@@ -2814,54 +2814,15 @@ export async function drawCleanSkinDispatchLogPage(
 
   page.drawText(`${examLabel} — CLEAN SKIN INCIDENT LOG`, {
     x: textStartX,
-    y: headerY + 44,
-    size: 13,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  page.drawText(`INCIDENT RECORD & REPLACEMENT LOG — ${toEnglishText(options.date || "DECEMBER 2026").toUpperCase()}`, {
-    x: textStartX,
-    y: headerY + 27,
-    size: 8.5,
-    font,
-    color: COLOR_MUTED,
-  });
-
-  page.drawText("CONTROL ROOM CUSTODY ONLY — FOR EMERGENCY REPLACEMENTS IN ROOMS", {
-    x: textStartX,
-    y: headerY + 12,
-    size: 7,
-    font,
-    color: COLOR_MUTED,
-  });
-
-  // Clean Information Note
-  const warnH = 20;
-  const warnY = headerY - warnH - 6;
-  page.drawRectangle({
-    x: innerCardX,
-    y: warnY,
-    width: innerCardW,
-    height: warnH,
-    color: COLOR_LIGHT_BG,
-    borderColor: COLOR_BORDER,
-    borderWidth: 0.8,
-  });
-
-  const warnText = "SECURITY NOTICE: USE ONLY UPON CHIEF PROCTOR APPROVAL FOR REPLACEMENTS";
-  const warnW = font.widthOfTextAtSize(warnText, 7);
-  page.drawText(warnText, {
-    x: innerCardX + (innerCardW - warnW) / 2,
-    y: warnY + 6.5,
-    size: 7,
+    y: headerY + (headerH - 14) / 2 + 1,
+    size: 14,
     font,
     color: COLOR_CHARCOAL,
   });
 
   // Location details
   const locH = 34;
-  const locY = warnY - locH - 6;
+  const locY = headerY - locH - 8;
   page.drawRectangle({
     x: innerCardX,
     y: locY,
@@ -3034,7 +2995,7 @@ export async function drawCleanSkinDispatchLogPage(
 
   // Bottom Footer Bar
   const footerY = cardY + 7;
-  page.drawText("EST OFFICIAL LOGISTICS • EMERGENCY RESERVE MASTER LOG • CONTROL ROOM CUSTODY ONLY", {
+  page.drawText("EST OFFICIAL LOGISTICS • EMERGENCY RESERVE MASTER LOG", {
     x: cardX + 12,
     y: footerY,
     size: 6.5,
