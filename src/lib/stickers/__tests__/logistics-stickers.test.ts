@@ -190,6 +190,46 @@ describe("Logistics Stickers PDF Generator", () => {
     expect(doc.getPageCount()).toBe(1);
   });
 
+  it("generates official EST II Master Manifest matching Director's layout with subject checkboxes and packing signatures", async () => {
+    const est2PdfBytes = await generateMasterBuildingManifestPdf({
+      examName: "EST 2 - December 2025",
+      center: "Sheraton",
+      building: "Logistics",
+      date: "December 2025",
+      roundDay: "Saturday",
+      roundDateStr: "December 6, 2025",
+      centerTotalRooms: 27,
+      centerTotalStudents: 786,
+      centerSubjectsMap: { MATH1: 471, BIO: 637, PHY: 9, MATH2: 29 },
+      floors: [
+        {
+          floor: "2nd Floor",
+          rooms: [
+            { room: "201A", studentCount: 24, subjectsMap: { MATH1: 24, BIO: 24 } },
+            { room: "202A", studentCount: 25, subjectsMap: { MATH1: 25, BIO: 25 } },
+            { room: "203A", studentCount: 32, subjectsMap: { MATH1: 25, BIO: 15 } },
+          ],
+        },
+        {
+          floor: "3rd Floor",
+          rooms: [
+            { room: "302A", studentCount: 49, subjectsMap: { MATH1: 25, BIO: 24 } },
+            { room: "304A", studentCount: 31, subjectsMap: { MATH1: 6, BIO: 25 } },
+          ],
+        },
+      ],
+    });
+
+    expect(est2PdfBytes).toBeInstanceOf(Uint8Array);
+    expect(est2PdfBytes.length).toBeGreaterThan(1000);
+
+    const doc = await PDFDocument.load(est2PdfBytes);
+    expect(doc.getPageCount()).toBe(1);
+    const page = doc.getPage(0);
+    expect(page.getWidth()).toBeCloseTo(595.28, 1);
+    expect(page.getHeight()).toBeCloseTo(841.89, 1);
+  });
+
   it("generates standalone Clean Skin Dispatch Log PDF (Strictly 1 Page)", async () => {
     const pdfBytes = await generateCleanSkinDispatchLogPdf(baseData);
     expect(pdfBytes).toBeInstanceOf(Uint8Array);

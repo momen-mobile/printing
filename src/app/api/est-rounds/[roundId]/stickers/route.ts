@@ -637,6 +637,16 @@ export async function POST(
         const buildingName = (first as any).building || first.center;
         const govName = first.governorate;
 
+        const centerRows = targetRows.filter((r) => r.center === centerName);
+        const centerTotalRooms = centerRows.length;
+        const centerTotalStudents = centerRows.reduce((s, r) => s + r.totalStudents, 0);
+        const centerSubjectsMap: Record<string, number> = {};
+        for (const cr of centerRows) {
+          for (const [code, count] of Object.entries(cr.subjects || {})) {
+            centerSubjectsMap[code] = (centerSubjectsMap[code] || 0) + (count as number);
+          }
+        }
+
         const floorMap = new Map<string, EstRoundRow[]>();
         for (const r of cRows) {
           const flKey = r.floor || "1st Floor";
@@ -695,8 +705,13 @@ export async function POST(
           center: centerName,
           building: buildingName,
           date: round.cycleName || "December 2026",
+          roundDay: roundDayStr,
+          roundDateStr,
           totalRooms,
           totalStudents,
+          centerTotalRooms,
+          centerTotalStudents,
+          centerSubjectsMap,
           roomNames,
           floors,
           boxNumber: idx + 1,
@@ -750,6 +765,16 @@ export async function POST(
         const centerName = first.center;
         const buildingName = (first as any).building || first.center;
         const govName = first.governorate;
+
+        const centerRows = targetRows.filter((r) => r.center === centerName);
+        const centerTotalRooms = centerRows.length;
+        const centerTotalStudents = centerRows.reduce((s, r) => s + r.totalStudents, 0);
+        const centerSubjectsMap: Record<string, number> = {};
+        for (const cr of centerRows) {
+          for (const [code, count] of Object.entries(cr.subjects || {})) {
+            centerSubjectsMap[code] = (centerSubjectsMap[code] || 0) + (count as number);
+          }
+        }
 
         const floorMap = new Map<string, Map<string, any>>();
         for (const r of cRows) {

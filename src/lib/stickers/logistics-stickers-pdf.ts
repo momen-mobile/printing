@@ -4,6 +4,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { EST_LOGO_BASE64 } from "./est-logo-base64";
 import { getFloorSortWeight } from "./est-reference-data";
+import { cleanVenueName } from "./sticker-pdf";
 
 export interface RoomDetail {
   room: string;
@@ -32,8 +33,13 @@ export interface LogisticsStickerOptions {
   center?: string;            // e.g. "Abu Qir" or "Momen Center"
   building?: string;          // e.g. "Pharmacy" or "Momen Building"
   date?: string;              // e.g. "December 2026"
+  roundDay?: string;          // e.g. "Saturday" or "Friday"
+  roundDateStr?: string;      // e.g. "December 6, 2025"
   totalRooms?: number;
   totalStudents?: number;
+  centerTotalRooms?: number;
+  centerTotalStudents?: number;
+  centerSubjectsMap?: Record<string, number>;
   roomNames?: string[];       // e.g. ["M101", "M102", "M103", ...]
   floors?: FloorRoomsData[];   // Grouped floors with their rooms & student counts
   boxNumber?: number;         // e.g. 1
@@ -45,7 +51,7 @@ export interface LogisticsStickerOptions {
   est2Total?: number;
 }
 
-// 100% Black & White Palette
+// Color Palette (Official EST Visual Standards)
 const COLOR_BLACK = rgb(0, 0, 0);
 const COLOR_CHARCOAL = rgb(0, 0, 0);
 const COLOR_MUTED = rgb(0.28, 0.28, 0.28);
@@ -55,6 +61,7 @@ const COLOR_BORDER = rgb(0.75, 0.75, 0.75); // Clean simple border
 const COLOR_WHITE = rgb(1, 1, 1);
 const COLOR_EMERGENCY_RED = rgb(0, 0, 0);
 const COLOR_EMERGENCY_LIGHT = rgb(1, 1, 1);
+const COLOR_ROYAL_BLUE = rgb(0.12, 0.40, 0.70); // Official EST Blue (#1f5aa6)
 
 // Static decoded logo bytes in memory - zero filesystem dependency
 const LOGO_JPEG_BYTES: Uint8Array = new Uint8Array(Buffer.from(EST_LOGO_BASE64, "base64"));
@@ -2213,6 +2220,391 @@ export async function drawMasterBuildingManifestLandscapePage(
 }
 
 /**
+ * Formats official Manifest Header title, e.g. "EST II - Sat. 6 Dec. 2025" or "EST I - Fri. 11 Dec. 2026"
+ */
+export function formatManifestHeaderTitle(options: LogisticsStickerOptions): string {
+  const rawExam = options.examName || "EST";
+  const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
+  const examLabel = isEst2 ? "EST II" : "EST I";
+
+  const day = options.roundDay || (isEst2 ? "Saturday" : "Friday");
+  const dayAbbr = day.startsWith("Sat") ? "Sat." : day.startsWith("Fri") ? "Fri." : `${day.slice(0, 3)}.`;
+
+  let datePart = "";
+  if (options.roundDateStr) {
+    const parts = String(options.roundDateStr).match(/([A-Za-z]+)\s+(\d+),\s*(\d{4})/);
+    if (parts) {
+      datePart = `${parts[2]} ${parts[1].slice(0, 3)}. ${parts[3]}`;
+    } else {
+      datePart = String(options.roundDateStr);
+    }
+  }
+  if (!datePart) {
+    const rawDate = options.date || "December 2026";
+    const m = rawDate.match(/([A-Za-z]+)\s*(\d{4})/);
+    if (m) {
+      const defaultDayNum = isEst2 ? "6" : "5";
+      datePart = `${defaultDayNum} ${m[1].slice(0, 3)}. ${m[2]}`;
+    } else {
+      datePart = rawDate;
+    }
+  }
+
+  return `${examLabel} - ${dayAbbr} ${datePart}`;
+}
+
+export interface MasterManifestHierarchyRow {
+  type: "center" | "building" | "floor" | "room";
+  name: string;
+  roomsCount: number | string;
+  totalStudents: number;
+  subjectCounts: Record<string, number>;
+  hasCheckboxes: boolean;
+}
+
+/**
+ * Official EST Master Manifest Page (A4 Portrait: 595.28 x 841.89 pt)
+ * Matches the official Director & Operations layout:
+ * - Large title & logo at the top
+ * - Royal Blue header with Exam, Rooms #, Total Candidates, Subject Counts, and Subject Checkbox columns
+ * - Hierarchical rows: Center -> Building -> Floor -> Rooms
+ * - Checkboxes [ ] for each room with active subject enrollment
+ * - Royal Blue Packing Team section with 4 verification & signature boxes at the bottom
+ */
+export async function drawOfficialMasterBuildingManifestPortraitPage(
+  pdfDoc: PDFDocument,
+  font: any,
+  logoImg: any,
+  options: LogisticsStickerOptions,
+  manifestRows: MasterManifestHierarchyRow[],
+  subjectCols: { code: string; label: string }[],
+  isEst2: boolean,
+  pageIndex = 1,
+  totalPages = 1,
+): Promise<any> {
+  const width = 595.28;
+  const height = 841.89;
+  const page = pdfDoc.addPage([width, height]);
+
+  const margin = 20;
+  const tableX = margin;
+  const tableW = width - margin * 2; // 555.28 pt
+
+  const manifestTitle = formatManifestHeaderTitle(options);
+  const examLabel = isEst2 ? "EST II" : "EST I";
+
+  // 1. Header (Top of sheet)
+  const headerY = height - margin - 38;
+  page.drawText(manifestTitle, {
+    x: tableX,
+    y: headerY + 12,
+    size: 19,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Top-right Logo
+  const logoH = 34;
+  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 48;
+  const logoX = tableX + tableW - logoW;
+  const logoY = headerY + 4;
+  if (logoImg) {
+    page.drawImage(logoImg, {
+      x: logoX,
+      y: logoY,
+      width: logoW,
+      height: logoH,
+    });
+  }
+
+  // 2. Packing Team Signature Block at the bottom
+  const bottomMargin = 22;
+  const sigBlockH = 62;
+  const sigHeaderH = 16;
+  const sigBoxH = sigBlockH - sigHeaderH;
+  const sigY = bottomMargin;
+
+  // Blue header: "Packing Team"
+  page.drawRectangle({
+    x: tableX,
+    y: sigY + sigBoxH,
+    width: tableW,
+    height: sigHeaderH,
+    color: COLOR_ROYAL_BLUE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 0.8,
+  });
+
+  page.drawText("Packing Team", {
+    x: tableX + 10,
+    y: sigY + sigBoxH + 4,
+    size: 8.5,
+    font,
+    color: COLOR_WHITE,
+  });
+
+  // 4 Signature Boxes
+  const sigColW = tableW / 4;
+  for (let i = 0; i < 4; i++) {
+    const bx = tableX + i * sigColW;
+    page.drawRectangle({
+      x: bx,
+      y: sigY,
+      width: sigColW,
+      height: sigBoxH,
+      color: COLOR_WHITE,
+      borderColor: COLOR_CHARCOAL,
+      borderWidth: 0.8,
+    });
+
+    const lSize = 7.2;
+    page.drawText("Name: .......................................", {
+      x: bx + 8,
+      y: sigY + sigBoxH - 14,
+      size: lSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+    page.drawText("Signature: ..................................", {
+      x: bx + 8,
+      y: sigY + sigBoxH - 28,
+      size: lSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+    page.drawText("Date: .......................................", {
+      x: bx + 8,
+      y: sigY + 6,
+      size: lSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+  }
+
+  // 3. Table Layout
+  const tableTop = headerY - 6;
+  const tableBottomMin = sigY + sigBlockH + 10;
+  const thH = 22;
+  const thY = tableTop - thH;
+
+  const N = subjectCols.length;
+  const col1W = N <= 3 ? 145 : N === 4 ? 125 : 105;
+  const col2W = N <= 3 ? 42 : N === 4 ? 38 : 35;
+  const col3W = N <= 3 ? 48 : N === 4 ? 44 : 38;
+  const remainingW = tableW - (col1W + col2W + col3W);
+  const subjColW = remainingW / (2 * N);
+
+  interface ManifestColDef {
+    key: string;
+    label: string;
+    width: number;
+    x: number;
+    isCheck?: boolean;
+    code?: string;
+  }
+
+  const cols: ManifestColDef[] = [];
+  let curX = tableX;
+
+  // Col 1: Exam & Date Title
+  cols.push({ key: "name", label: manifestTitle, width: col1W, x: curX });
+  curX += col1W;
+
+  // Col 2: Rooms #
+  cols.push({ key: "rooms", label: "Rooms #", width: col2W, x: curX });
+  curX += col2W;
+
+  // Col 3: EST II / EST I
+  cols.push({ key: "total", label: examLabel, width: col3W, x: curX });
+  curX += col3W;
+
+  // Subject Count Columns
+  for (const s of subjectCols) {
+    cols.push({ key: `cnt_${s.code}`, label: s.label, width: subjColW, x: curX, code: s.code });
+    curX += subjColW;
+  }
+
+  // Subject Checkbox Columns
+  for (const s of subjectCols) {
+    cols.push({ key: `chk_${s.code}`, label: s.label, width: subjColW, x: curX, isCheck: true, code: s.code });
+    curX += subjColW;
+  }
+
+  // Draw Blue Header Row
+  page.drawRectangle({
+    x: tableX,
+    y: thY,
+    width: tableW,
+    height: thH,
+    color: COLOR_ROYAL_BLUE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 0.8,
+  });
+
+  for (const col of cols) {
+    let lblSize = 7.5;
+    let tw = font.widthOfTextAtSize(col.label, lblSize);
+    if (tw > col.width - 4) {
+      lblSize = Math.max(6, ((col.width - 4) / tw) * lblSize);
+      tw = font.widthOfTextAtSize(col.label, lblSize);
+    }
+    const tx = col.key === "name" ? col.x + 6 : col.x + (col.width - tw) / 2;
+    page.drawText(col.label, {
+      x: tx,
+      y: thY + (thH - lblSize) / 2 + 1,
+      size: lblSize,
+      font,
+      color: COLOR_WHITE,
+    });
+  }
+
+  // 4. Data Rows
+  const rowsCount = manifestRows.length;
+  const availRowsH = thY - tableBottomMin;
+  const rowH = Math.min(20, Math.max(16, availRowsH / Math.max(1, rowsCount)));
+  const tableActualBottom = thY - rowsCount * rowH;
+
+  for (let idx = 0; idx < rowsCount; idx++) {
+    const row = manifestRows[idx];
+    const rowY = thY - (idx + 1) * rowH;
+
+    // Background color per row type
+    let bg = COLOR_WHITE;
+    let isBold = false;
+    if (row.type === "center") {
+      bg = rgb(0.91, 0.94, 0.98);
+      isBold = true;
+    } else if (row.type === "building") {
+      bg = rgb(0.94, 0.96, 0.98);
+      isBold = true;
+    } else if (row.type === "floor") {
+      bg = rgb(0.96, 0.96, 0.97);
+      isBold = true;
+    } else if (idx % 2 === 1) {
+      bg = rgb(0.98, 0.99, 1.0);
+    }
+
+    page.drawRectangle({
+      x: tableX,
+      y: rowY,
+      width: tableW,
+      height: rowH,
+      color: bg,
+    });
+
+    // Horizontal bottom border line
+    page.drawLine({
+      start: { x: tableX, y: rowY },
+      end: { x: tableX + tableW, y: rowY },
+      thickness: 0.5,
+      color: COLOR_BORDER,
+    });
+
+    // Cell values
+    // 1. Name
+    const nameCol = cols[0];
+    let nSize = isBold ? 8.5 : 8.2;
+    let nw = font.widthOfTextAtSize(row.name, nSize);
+    if (nw > nameCol.width - 12) {
+      nSize = Math.max(6.5, ((nameCol.width - 12) / nw) * nSize);
+    }
+    const nameIndent = row.type === "room" ? 14 : row.type === "floor" ? 8 : 6;
+    page.drawText(row.name, {
+      x: nameCol.x + nameIndent,
+      y: rowY + (rowH - nSize) / 2 + 1,
+      size: nSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    // 2. Rooms #
+    const roomsCol = cols[1];
+    const rText = String(row.roomsCount);
+    const rw = font.widthOfTextAtSize(rText, 8.5);
+    page.drawText(rText, {
+      x: roomsCol.x + (roomsCol.width - rw) / 2,
+      y: rowY + (rowH - 8.5) / 2 + 1,
+      size: 8.5,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    // 3. Total Students
+    const totCol = cols[2];
+    const totText = String(row.totalStudents);
+    const totW = font.widthOfTextAtSize(totText, 8.5);
+    page.drawText(totText, {
+      x: totCol.x + (totCol.width - totW) / 2,
+      y: rowY + (rowH - 8.5) / 2 + 1,
+      size: 8.5,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    // 4. Subject Count Columns
+    for (const s of subjectCols) {
+      const sCol = cols.find((c) => c.key === `cnt_${s.code}`)!;
+      const cnt = row.subjectCounts[s.code] || 0;
+      const cStr = String(cnt);
+      const cw = font.widthOfTextAtSize(cStr, 8.2);
+      page.drawText(cStr, {
+        x: sCol.x + (sCol.width - cw) / 2,
+        y: rowY + (rowH - 8.2) / 2 + 1,
+        size: 8.2,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+    }
+
+    // 5. Subject Checkbox Columns
+    for (const s of subjectCols) {
+      const cCol = cols.find((c) => c.key === `chk_${s.code}`)!;
+      if (row.hasCheckboxes) {
+        const cnt = row.subjectCounts[s.code] || 0;
+        if (cnt > 0) {
+          const cbSize = 9.5;
+          const cbX = cCol.x + (cCol.width - cbSize) / 2;
+          const cbY = rowY + (rowH - cbSize) / 2;
+          page.drawRectangle({
+            x: cbX,
+            y: cbY,
+            width: cbSize,
+            height: cbSize,
+            color: COLOR_WHITE,
+            borderColor: COLOR_CHARCOAL,
+            borderWidth: 0.8,
+          });
+        }
+      }
+    }
+  }
+
+  // Vertical Column Divider Lines (across entire table)
+  for (let i = 1; i < cols.length; i++) {
+    const vx = cols[i].x;
+    page.drawLine({
+      start: { x: vx, y: tableTop },
+      end: { x: vx, y: tableActualBottom },
+      thickness: 0.5,
+      color: COLOR_BORDER,
+    });
+  }
+
+  // Outer border around the table
+  page.drawRectangle({
+    x: tableX,
+    y: tableActualBottom,
+    width: tableW,
+    height: tableTop - tableActualBottom,
+    color: undefined,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1,
+  });
+
+  return page;
+}
+
+/**
  * Backwards-compatible single/multi-page drawing function.
  */
 export async function drawMasterBuildingManifestPage(
@@ -2224,22 +2616,121 @@ export async function drawMasterBuildingManifestPage(
   totalPages = 1,
 ): Promise<any> {
   const normalizedFloors = normalizeFloorsData(options);
-  const flattenedRooms: { room: NormalizedRoom; floorName: string }[] = [];
+  const allRooms = normalizedFloors.flatMap((f) => f.rooms);
+
+  const rawExam = options.examName || "EST";
+  const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
+
+  let subjectCols: { code: string; label: string }[] = [];
+  if (!isEst2) {
+    subjectCols = [
+      { code: "LIT", label: "Literacy" },
+      { code: "MATH", label: "Math" },
+      { code: "ESSAY", label: "Essay" },
+    ];
+  } else {
+    const hasChem =
+      allRooms.some((r) => getRoomSubjectCount(r, "CHEM", true) > 0) ||
+      Boolean(options.centerSubjectsMap && (options.centerSubjectsMap["CHEM"] || 0) > 0);
+
+    subjectCols = [
+      { code: "MATH1", label: "Math 1" },
+      { code: "BIO", label: "Biology" },
+      ...(hasChem ? [{ code: "CHEM", label: "Chemistry" }] : []),
+      { code: "PHY", label: "Physics" },
+      { code: "MATH2", label: "Math 2" },
+    ];
+  }
+
+  const buildingTotalRooms = allRooms.length;
+  const buildingTotalStudents = allRooms.reduce((s, r) => s + (r.studentCount || 0), 0);
+  const buildingSubjectCounts: Record<string, number> = {};
+  for (const s of subjectCols) {
+    buildingSubjectCounts[s.code] = allRooms.reduce(
+      (sum, r) => sum + getRoomSubjectCount(r, s.code, isEst2),
+      0,
+    );
+  }
+
+  const centerName = cleanVenueName(options.center || "Test Center", options.governorate || "").replace(/\bSchool\b/gi, "Test Center");
+  const { building: cleanBuilding } = splitCenterAndBuilding(options.center, options.building);
+  const buildingName = cleanBuilding || options.building || centerName;
+
+  const centerTotalRooms = options.centerTotalRooms || options.totalRooms || buildingTotalRooms;
+  const centerTotalStudents = options.centerTotalStudents || options.totalStudents || buildingTotalStudents;
+  const centerSubjectCounts: Record<string, number> = {};
+  for (const s of subjectCols) {
+    centerSubjectCounts[s.code] =
+      options.centerSubjectsMap && typeof options.centerSubjectsMap[s.code] === "number"
+        ? options.centerSubjectsMap[s.code]
+        : buildingSubjectCounts[s.code] || 0;
+  }
+
+  const allRows: MasterManifestHierarchyRow[] = [];
+
+  allRows.push({
+    type: "center",
+    name: centerName,
+    roomsCount: centerTotalRooms,
+    totalStudents: centerTotalStudents,
+    subjectCounts: centerSubjectCounts,
+    hasCheckboxes: false,
+  });
+
+  if (buildingName.toLowerCase() !== centerName.toLowerCase()) {
+    allRows.push({
+      type: "building",
+      name: buildingName,
+      roomsCount: buildingTotalRooms,
+      totalStudents: buildingTotalStudents,
+      subjectCounts: buildingSubjectCounts,
+      hasCheckboxes: false,
+    });
+  }
+
   for (const fl of normalizedFloors) {
+    const flSubjectCounts: Record<string, number> = {};
+    for (const s of subjectCols) {
+      flSubjectCounts[s.code] = fl.rooms.reduce(
+        (sum, r) => sum + getRoomSubjectCount(r, s.code, isEst2),
+        0,
+      );
+    }
+
+    allRows.push({
+      type: "floor",
+      name: fl.floor,
+      roomsCount: fl.rooms.length,
+      totalStudents: fl.totalStudents,
+      subjectCounts: flSubjectCounts,
+      hasCheckboxes: false,
+    });
+
     for (const rm of fl.rooms) {
-      flattenedRooms.push({ room: rm, floorName: fl.floor });
+      const rmSubjectCounts: Record<string, number> = {};
+      for (const s of subjectCols) {
+        rmSubjectCounts[s.code] = getRoomSubjectCount(rm, s.code, isEst2);
+      }
+
+      allRows.push({
+        type: "room",
+        name: rm.room,
+        roomsCount: 1,
+        totalStudents: rm.studentCount || 0,
+        subjectCounts: rmSubjectCounts,
+        hasCheckboxes: true,
+      });
     }
   }
 
-  const rowsPerPage = 14;
-  const pageRooms = flattenedRooms.slice((pageIndex - 1) * rowsPerPage, pageIndex * rowsPerPage);
-
-  return await drawMasterBuildingManifestLandscapePage(
+  return await drawOfficialMasterBuildingManifestPortraitPage(
     pdfDoc,
     font,
     logoImg,
     options,
-    pageRooms,
+    allRows,
+    subjectCols,
+    isEst2,
     pageIndex,
     totalPages,
   );
@@ -2590,7 +3081,7 @@ export async function generateCleanSkinMasterPdf(
 }
 
 /**
- * Standalone Master Room Manifest (A4 Landscape, Paginated per Building)
+ * Standalone Master Room Manifest (A4 Portrait, Official Director & Operations Format)
  */
 export async function generateMasterBuildingManifestPdf(
   options: LogisticsStickerOptions,
@@ -2602,25 +3093,127 @@ export async function generateMasterBuildingManifestPdf(
   const logoImg = await loadLogoImage(pdfDoc);
 
   const normalizedFloors = normalizeFloorsData(options);
-  const flattenedRooms: { room: NormalizedRoom; floorName: string }[] = [];
+  const allRooms = normalizedFloors.flatMap((f) => f.rooms);
+
+  const rawExam = options.examName || "EST";
+  const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
+
+  let subjectCols: { code: string; label: string }[] = [];
+  if (!isEst2) {
+    subjectCols = [
+      { code: "LIT", label: "Literacy" },
+      { code: "MATH", label: "Math" },
+      { code: "ESSAY", label: "Essay" },
+    ];
+  } else {
+    const hasChem =
+      allRooms.some((r) => getRoomSubjectCount(r, "CHEM", true) > 0) ||
+      Boolean(options.centerSubjectsMap && (options.centerSubjectsMap["CHEM"] || 0) > 0);
+
+    subjectCols = [
+      { code: "MATH1", label: "Math 1" },
+      { code: "BIO", label: "Biology" },
+      ...(hasChem ? [{ code: "CHEM", label: "Chemistry" }] : []),
+      { code: "PHY", label: "Physics" },
+      { code: "MATH2", label: "Math 2" },
+    ];
+  }
+
+  const buildingTotalRooms = allRooms.length;
+  const buildingTotalStudents = allRooms.reduce((s, r) => s + (r.studentCount || 0), 0);
+  const buildingSubjectCounts: Record<string, number> = {};
+  for (const s of subjectCols) {
+    buildingSubjectCounts[s.code] = allRooms.reduce(
+      (sum, r) => sum + getRoomSubjectCount(r, s.code, isEst2),
+      0,
+    );
+  }
+
+  const centerName = cleanVenueName(options.center || "Test Center", options.governorate || "").replace(/\bSchool\b/gi, "Test Center");
+  const { building: cleanBuilding } = splitCenterAndBuilding(options.center, options.building);
+  const buildingName = cleanBuilding || options.building || centerName;
+
+  const centerTotalRooms = options.centerTotalRooms || options.totalRooms || buildingTotalRooms;
+  const centerTotalStudents = options.centerTotalStudents || options.totalStudents || buildingTotalStudents;
+  const centerSubjectCounts: Record<string, number> = {};
+  for (const s of subjectCols) {
+    centerSubjectCounts[s.code] =
+      options.centerSubjectsMap && typeof options.centerSubjectsMap[s.code] === "number"
+        ? options.centerSubjectsMap[s.code]
+        : buildingSubjectCounts[s.code] || 0;
+  }
+
+  const allRows: MasterManifestHierarchyRow[] = [];
+
+  allRows.push({
+    type: "center",
+    name: centerName,
+    roomsCount: centerTotalRooms,
+    totalStudents: centerTotalStudents,
+    subjectCounts: centerSubjectCounts,
+    hasCheckboxes: false,
+  });
+
+  if (buildingName.toLowerCase() !== centerName.toLowerCase()) {
+    allRows.push({
+      type: "building",
+      name: buildingName,
+      roomsCount: buildingTotalRooms,
+      totalStudents: buildingTotalStudents,
+      subjectCounts: buildingSubjectCounts,
+      hasCheckboxes: false,
+    });
+  }
+
   for (const fl of normalizedFloors) {
+    const flSubjectCounts: Record<string, number> = {};
+    for (const s of subjectCols) {
+      flSubjectCounts[s.code] = fl.rooms.reduce(
+        (sum, r) => sum + getRoomSubjectCount(r, s.code, isEst2),
+        0,
+      );
+    }
+
+    allRows.push({
+      type: "floor",
+      name: fl.floor,
+      roomsCount: fl.rooms.length,
+      totalStudents: fl.totalStudents,
+      subjectCounts: flSubjectCounts,
+      hasCheckboxes: false,
+    });
+
     for (const rm of fl.rooms) {
-      flattenedRooms.push({ room: rm, floorName: fl.floor });
+      const rmSubjectCounts: Record<string, number> = {};
+      for (const s of subjectCols) {
+        rmSubjectCounts[s.code] = getRoomSubjectCount(rm, s.code, isEst2);
+      }
+
+      allRows.push({
+        type: "room",
+        name: rm.room,
+        roomsCount: 1,
+        totalStudents: rm.studentCount || 0,
+        subjectCounts: rmSubjectCounts,
+        hasCheckboxes: true,
+      });
     }
   }
 
-  const rowsPerPage = 14;
-  const totalPages = Math.max(1, Math.ceil(flattenedRooms.length / rowsPerPage));
+  const maxRowsPerPage = 32;
+  const totalPages = Math.max(1, Math.ceil(allRows.length / maxRowsPerPage));
 
-  for (let pageIdx = 1; pageIdx <= totalPages; pageIdx++) {
-    const pageRooms = flattenedRooms.slice((pageIdx - 1) * rowsPerPage, pageIdx * rowsPerPage);
-    await drawMasterBuildingManifestLandscapePage(
+  for (let pIdx = 1; pIdx <= totalPages; pIdx++) {
+    const pageRows = allRows.slice((pIdx - 1) * maxRowsPerPage, pIdx * maxRowsPerPage);
+    await drawOfficialMasterBuildingManifestPortraitPage(
       pdfDoc,
       font,
       logoImg,
       options,
-      pageRooms,
-      pageIdx,
+      pageRows,
+      subjectCols,
+      isEst2,
+      pIdx,
       totalPages,
     );
   }
