@@ -265,8 +265,8 @@ export function drawQuarterLocationBlock(params: {
 
   // 1. Clean & Deduplicate
   const gov = (params.governorate || "").trim();
-  let center = cleanVenueName(params.center || "", gov).replace(/\bSchool\b/gi, "Test Center");
-  let bld = (params.building || "").trim().replace(/\bSchool\b/gi, "Test Center");
+  let center = cleanVenueName(params.center || "", gov);
+  let bld = (params.building || "").trim();
   const fl = (params.floor || "").trim();
 
   // Deduplicate building if identical to center, or contained in center, or center is school/university (unless isHead, where building is explicitly kept per user request)
@@ -320,7 +320,7 @@ export function drawQuarterLocationBlock(params: {
     }
   } else {
     // Primary Line: Venue Name (Test Center / Campus) - ENLARGED per user specification
-    const venueText = (center || bld).replace(/\bSchool\b/gi, "Test Center");
+    const venueText = center || bld;
     if (venueText) {
       let vSize = 13.5;
       let vW = font.widthOfTextAtSize(venueText, vSize);
@@ -684,7 +684,7 @@ function drawA4PlacardPage(params: {
 
     const cards = [
       { label: "Governorate", value: content.governorate || "—" },
-      { label: isSchool ? "School" : "Center", value: content.center || "—" },
+      { label: "Test Center", value: content.center || "—" },
     ];
     if (hasDiffBuilding) {
       cards.push({ label: "Building", value: content.building! });
@@ -693,7 +693,7 @@ function drawA4PlacardPage(params: {
 
     const roomChecklistItems = [
       "1. Student Register",
-      "2. بروكتور شيت",
+      "2. Proctor Sheet",
       "3. Numbers & Mobile Collection Files",
       "4. Student Misconduct Forms",
     ];
@@ -806,7 +806,7 @@ function drawA4PlacardPage(params: {
 
     const cards = [
       { label: "Governorate", value: content.governorate || "—" },
-      { label: isSchool ? "School" : "Center", value: content.center || "—" },
+      { label: "Test Center", value: content.center || "—" },
     ];
     if (hasDiffBuilding) {
       cards.push({ label: "Building", value: content.building! });
@@ -818,7 +818,7 @@ function drawA4PlacardPage(params: {
 
     const floorChecklistItems = [
       "1. Proctor Register",
-      "2. سنيور شيت",
+      "2. Senior Sheet",
       "3. Numbers & Mobile Collection Files",
       "4. Proctor Misconduct Forms",
       "5. Draft papers, pens, and IDs",
@@ -1031,7 +1031,7 @@ function drawA4PlacardPage(params: {
       y: bodyBottom,
       width: bodyWidth,
       height: heroBoxHeight,
-      badgeText: isSchool ? `${examTag} – SCHOOL` : `${examTag} – BUILDING`,
+      badgeText: isSchool ? `${examTag} – TEST CENTER` : `${examTag} – BUILDING`,
       valueText: content.building || content.center || "",
       subText,
       accentColor: COLOR_GOLD,
@@ -2308,19 +2308,19 @@ function drawQuarterPlacard(params: {
           "1. Control Register",
           "2. Blank White Paper",
           "3. Mobile Collection Files",
-          "4. بروكتور وسنيور شيت",
-          "5. Student + بروكتور Misconduct Forms",
+          "4. Proctor & Senior Sheets",
+          "5. Student & Proctor Misconduct Forms",
         ]
         : isRoom
           ? [
             "1. Student Register",
-            "2. بروكتور شيت",
+            "2. Proctor Sheet",
             "3. Numbers & Mobile Collection Files",
             "4. Student Misconduct Forms",
           ]
           : [
             "1. Proctor Register",
-            "2. سنيور شيت",
+            "2. Senior Sheet",
             "3. Numbers & Mobile Collection Files",
             "4. Proctor Misconduct Forms",
             "5. Draft papers, pens, and IDs",
@@ -2488,19 +2488,19 @@ function drawQuarterPlacard(params: {
       "1. Control Register",
       "2. Blank White Paper",
       "3. Mobile Collection Files",
-      "4. بروكتور وسنيور شيت",
-      "5. Student + بروكتور Misconduct Forms",
+      "4. Proctor & Senior Sheets",
+      "5. Student & Proctor Misconduct Forms",
     ]
     : isRoom
       ? [
         "1. Student Register",
-        "2. بروكتور شيت",
+        "2. Proctor Sheet",
         "3. Numbers & Mobile Collection Files",
         "4. Student Misconduct Forms",
       ]
       : [
         "1. Proctor Register",
-        "2. سنيور شيت",
+        "2. Senior Sheet",
         "3. Numbers & Mobile Collection Files",
         "4. Proctor Misconduct Forms",
         "5. Draft papers, pens, and IDs",

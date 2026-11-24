@@ -132,7 +132,7 @@ export async function POST(
         lines: [
           round.name,
           `Governorate : ${row.governorate}`,
-          `Test Center : ${row.center.replace(/\bSchool\b/gi, "Test Center")}`,
+          `Test Center : ${row.center}`,
           `Floor : ${row.floor}`,
           `Room : ${row.room}`,
         ],
@@ -143,13 +143,13 @@ export async function POST(
         examDate: roundDateStr,
         examDay: roundDayStr,
         governorate: row.governorate,
-        center: row.center.replace(/\bSchool\b/gi, "Test Center"),
+        center: row.center,
         building: (row as any).building || row.center,
         floor: row.floor,
         room: row.room,
         fields: [
           { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: row.governorate },
-          { key: "center", label: "Test Center", labelAr: "السنتر", value: row.center.replace(/\bSchool\b/gi, "Test Center") },
+          { key: "center", label: "Test Center", labelAr: "السنتر", value: row.center },
           ...((row as any).building && (row as any).building !== row.center ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (row as any).building }] : []),
           { key: "floor", label: "Floor", labelAr: "الدور", value: row.floor },
           { key: "room", label: "Room", labelAr: "القاعة", value: row.room },
@@ -216,7 +216,7 @@ export async function POST(
           lines: [
             round.name,
             `Governorate : ${first.governorate}`,
-            `Test Center : ${first.center.replace(/\bSchool\b/gi, "Test Center")}`,
+            `Test Center : ${first.center}`,
             isCampus ? `Building : ${(first as any).building}` : null,
             `Floor : ${first.floor}`,
             `Total Rooms : ${rows.length}`,
@@ -228,7 +228,7 @@ export async function POST(
           examDate: roundDateStr,
           examDay: roundDayStr,
           governorate: first.governorate,
-          center: first.center.replace(/\bSchool\b/gi, "Test Center"),
+          center: first.center,
           building: (first as any).building || first.center,
           floor: first.floor,
           childCount: rows.length,
@@ -237,7 +237,7 @@ export async function POST(
           totalStudents,
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Test Center", labelAr: "السنتر", value: first.center.replace(/\bSchool\b/gi, "Test Center") },
+            { key: "center", label: "Test Center", labelAr: "السنتر", value: first.center },
             ...(isCampus ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (first as any).building }] : []),
             { key: "floor", label: "Floor", labelAr: "الدور", value: first.floor },
           ] as StickerFieldItem[],
@@ -375,7 +375,7 @@ export async function POST(
           lines: [
             round.name,
             `Governorate : ${first.governorate}`,
-            `Test Center : ${first.center.replace(/\bSchool\b/gi, "Test Center")}`,
+            `Test Center : ${first.center}`,
             isCampus ? `Building : ${(first as any).building}` : null,
             `Total Floors : ${uniqueFloors.length}`,
             `Total Rooms : ${rows.length}`,
@@ -387,7 +387,7 @@ export async function POST(
           examDate: roundDateStr,
           examDay: roundDayStr,
           governorate: first.governorate,
-          center: first.center.replace(/\bSchool\b/gi, "Test Center"),
+          center: first.center,
           building: (first as any).building || first.center,
           childCount: uniqueFloors.length,
           childLabel: "Floors",
@@ -396,7 +396,7 @@ export async function POST(
           totalStudents,
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Test Center", labelAr: "السنتر", value: first.center.replace(/\bSchool\b/gi, "Test Center") },
+            { key: "center", label: "Test Center", labelAr: "السنتر", value: first.center },
             ...(isCampus ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (first as any).building }] : []),
           ] as StickerFieldItem[],
         });
@@ -446,7 +446,7 @@ export async function POST(
           lines: [
             round.name,
             `Governorate : ${first.governorate}`,
-            `Test Center : ${first.center.replace(/\bSchool\b/gi, "Test Center")}`,
+            `Test Center : ${first.center}`,
             isCampus ? `Building : ${(first as any).building}` : null,
             `Total Floors : ${uniqueFloors.length}`,
             `Total Rooms : ${rows.length}`,
@@ -458,7 +458,7 @@ export async function POST(
           examDate: roundDateStr,
           examDay: roundDayStr,
           governorate: first.governorate,
-          center: first.center.replace(/\bSchool\b/gi, "Test Center"),
+          center: first.center,
           building: (first as any).building || first.center,
           childCount: uniqueFloors.length,
           childLabel: "Floors",
@@ -467,7 +467,7 @@ export async function POST(
           totalStudents,
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Test Center", labelAr: "السنتر", value: first.center.replace(/\bSchool\b/gi, "Test Center") },
+            { key: "center", label: "Test Center", labelAr: "السنتر", value: first.center },
             ...(isCampus ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (first as any).building }] : []),
           ] as StickerFieldItem[],
         });

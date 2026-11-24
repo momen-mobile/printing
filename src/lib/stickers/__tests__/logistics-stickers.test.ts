@@ -259,12 +259,12 @@ describe("Logistics Stickers PDF Generator", () => {
     expect(res2.building).toBe("Faculty of Engineering");
     expect(res2.isCampus).toBe(true);
 
-    // Standalone single school (School is automatically normalized to Test Center per user rules)
+    // Standalone single school (venue name preserves 'School', label in UI/PDF is 'Test Center')
     const res3 = splitCenterAndBuilding(
       "Future International School",
       "Future International School",
     );
-    expect(res3.center).toBe("Future International Test Center");
+    expect(res3.center).toBe("Future International School");
     expect(res3.building).toBe("");
     expect(res3.isCampus).toBe(false);
 

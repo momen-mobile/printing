@@ -320,8 +320,7 @@ export function toEnglishText(input: string | undefined): string {
   str = str.replace(/دور/gi, "Floor");
   // Terms
   str = str.replace(/دورة/gi, "Session");
-  str = str.replace(/مدرسة/gi, "Test Center");
-  str = str.replace(/\bSchool\b/gi, "Test Center");
+  str = str.replace(/مدرسة/gi, "School");
   str = str.replace(/سنتر/gi, "Center");
   str = str.replace(/مبنى/gi, "Building");
   str = str.replace(/قاعة|قاعه|غرفة|غرفه/gi, "Room");
@@ -580,50 +579,6 @@ export async function renderBuildingCartonPage(
     size: 10,
     font,
     color: COLOR_MUTED,
-  });
-
-  // ----------------------------------------------------
-  // Top-Right Corner: High-Visibility Box Identifier (ZERO black fill!)
-  // ----------------------------------------------------
-  const boxBadgeW = 210;
-  const boxBadgeH = 54;
-  const boxBadgeX = cardX + cardW - boxBadgeW - 12;
-  const boxBadgeY = headerY + (headerH - boxBadgeH) / 2;
-
-  // Clean White Card with Crisp Charcoal Border (2pt) - NO black background!
-  page.drawRectangle({
-    x: boxBadgeX,
-    y: boxBadgeY,
-    width: boxBadgeW,
-    height: boxBadgeH,
-    color: COLOR_WHITE,
-    borderColor: COLOR_CHARCOAL,
-    borderWidth: 2,
-  });
-
-  // Top Sub-heading: CARTON BOX NUMBER
-  const boxSubLabel =
-    options.totalBoxes && options.totalBoxes > 1
-      ? `CARTON ${options.boxNumber || 1} OF ${options.totalBoxes}`
-      : "CARTON BOX NUMBER";
-  const boxSubW = font.widthOfTextAtSize(boxSubLabel, 8);
-  page.drawText(boxSubLabel, {
-    x: boxBadgeX + (boxBadgeW - boxSubW) / 2,
-    y: boxBadgeY + boxBadgeH - 14,
-    size: 8,
-    font,
-    color: COLOR_MUTED,
-  });
-
-  // Huge Prominent Box Number: e.g. "BOX #1" or "BOX #2"
-  const boxMainText = `BOX #${options.boxNumber || 1}`;
-  const boxMainW = font.widthOfTextAtSize(boxMainText, 22);
-  page.drawText(boxMainText, {
-    x: boxBadgeX + (boxBadgeW - boxMainW) / 2,
-    y: boxBadgeY + 8,
-    size: 22,
-    font,
-    color: COLOR_CHARCOAL,
   });
 
   // Divider Line
@@ -1000,16 +955,6 @@ export async function renderBuildingCartonPage(
     size: 8.5,
     font,
     color: COLOR_CHARCOAL,
-  });
-
-  const dirSubtitle = "[ CHECK OFF [✓] EACH ROOM UPON PACKING ]";
-  const dirSubW = font.widthOfTextAtSize(dirSubtitle, 7.5);
-  page.drawText(dirSubtitle, {
-    x: rightX + rightW - dirSubW - 14,
-    y: bodyBottom + bodyH - 16,
-    size: 7.5,
-    font,
-    color: COLOR_MUTED,
   });
 
   // Layout floors dynamically
@@ -1899,7 +1844,7 @@ export async function drawMasterBuildingManifestLandscapePage(
       maxLines: 1,
     });
 
-    page.drawText("TEST CENTER / SCHOOL", { x: c2X + 10, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    page.drawText("TEST CENTER", { x: c2X + 10, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
     drawFittedTextInBox(page, cleanCenter, font, COLOR_CHARCOAL, {
       x: c2X + 10,
       y: locRibbonY + 3,
@@ -2705,7 +2650,7 @@ export async function drawMasterBuildingManifestPage(
     );
   }
 
-  const centerName = cleanVenueName(options.center || "Test Center", options.governorate || "").replace(/\bSchool\b/gi, "Test Center");
+  const centerName = cleanVenueName(options.center || "Test Center", options.governorate || "");
   const { building: cleanBuilding } = splitCenterAndBuilding(options.center, options.building);
   const buildingName = cleanBuilding || options.building || centerName;
 
@@ -3182,7 +3127,7 @@ export async function generateMasterBuildingManifestPdf(
     );
   }
 
-  const centerName = cleanVenueName(options.center || "Test Center", options.governorate || "").replace(/\bSchool\b/gi, "Test Center");
+  const centerName = cleanVenueName(options.center || "Test Center", options.governorate || "");
   const { building: cleanBuilding } = splitCenterAndBuilding(options.center, options.building);
   const buildingName = cleanBuilding || options.building || centerName;
 

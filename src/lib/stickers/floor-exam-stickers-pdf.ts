@@ -525,16 +525,6 @@ function drawFloorSubjectPlacardPage(params: {
     color: COLOR_GOLD,
   });
 
-  const dirSubtitle = "[ CHECK OFF [  ] EACH ROOM UPON PACKING ]";
-  const dirSubW = font.widthOfTextAtSize(dirSubtitle, 7);
-  page.drawText(dirSubtitle, {
-    x: rightX + rightW - dirSubW - 14,
-    y: bodyBottom + bodyH - 16,
-    size: 7,
-    font,
-    color: COLOR_GOLD,
-  });
-
   // Rooms Grid Area (uses full height of right column now that footer is removed)
   const gridTop = bodyBottom + bodyH - 24 - 12;
   const gridBottom = bodyBottom + 12;
