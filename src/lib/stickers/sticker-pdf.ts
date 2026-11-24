@@ -285,63 +285,67 @@ export function drawQuarterLocationBlock(params: {
     bld = "";
   }
 
-  // 2. Build Lines in strictly unified order across ALL stickers:
-  // Governorate -> Test Center -> Building (if campus) -> Floor (if room/floor)
+  // 2. Build Lines in strictly unified order across ALL stickers with explicit titles:
+  // City -> Test Center -> Building (if campus) -> Floor (if room/floor)
   const lines: Array<{ text: string; size: number }> = [];
   const maxW = width - 16;
 
-  // 1. Governorate
+  // 1. City / Governorate
   if (gov) {
-    let gSize = 12;
-    let gW = font.widthOfTextAtSize(gov, gSize);
-    if (gW > maxW) gSize = Math.max(9.5, (maxW / gW) * gSize);
-    lines.push({ text: gov, size: gSize });
+    const text = `City: ${gov}`;
+    let gSize = 11.5;
+    let gW = font.widthOfTextAtSize(text, gSize);
+    if (gW > maxW) gSize = Math.max(9, (maxW / gW) * gSize);
+    lines.push({ text, size: gSize });
   }
 
   // 2. Test Center (Prominent, wraps to 2 lines if long)
   if (center) {
-    let cSize = 13.5;
-    let cW = font.widthOfTextAtSize(center, cSize);
+    const text = `Test Center: ${center}`;
+    let cSize = 12.5;
+    let cW = font.widthOfTextAtSize(text, cSize);
     if (cW > maxW) {
       const scaledSize = (maxW / cW) * cSize;
-      if (scaledSize >= 10.5) {
+      if (scaledSize >= 10) {
         cSize = scaledSize;
-        lines.push({ text: center, size: cSize });
+        lines.push({ text, size: cSize });
       } else {
-        // Wrap center into 2 lines with prominent font
+        // Wrap center into 2 lines
         const words = center.split(/\s+/);
-        let line1 = "";
+        let line1 = "Test Center: ";
         let line2 = "";
         for (const w of words) {
-          const test = line1 ? `${line1} ${w}` : w;
-          if (font.widthOfTextAtSize(test, 11) <= maxW) {
+          const test = line2 ? `${line2} ${w}` : (line1 === "Test Center: " ? `${line1}${w}` : `${line1} ${w}`);
+          if (!line2 && font.widthOfTextAtSize(test, 10.5) <= maxW) {
             line1 = test;
           } else {
             line2 = line2 ? `${line2} ${w}` : w;
           }
         }
-        if (line1) lines.push({ text: line1, size: 11 });
-        if (line2) lines.push({ text: line2, size: 11 });
+        if (line1) lines.push({ text: line1, size: 10.5 });
+        if (line2) lines.push({ text: line2, size: 10.5 });
       }
     } else {
-      lines.push({ text: center, size: cSize });
+      lines.push({ text, size: cSize });
     }
   }
 
   // 3. Building (if distinct campus building)
   if (bld && bld !== center) {
-    let bSize = 11.5;
-    let bW = font.widthOfTextAtSize(bld, bSize);
-    if (bW > maxW) bSize = Math.max(9, (maxW / bW) * bSize);
-    lines.push({ text: bld, size: bSize });
+    const text = `Building: ${bld}`;
+    let bSize = 11;
+    let bW = font.widthOfTextAtSize(text, bSize);
+    if (bW > maxW) bSize = Math.max(8.5, (maxW / bW) * bSize);
+    lines.push({ text, size: bSize });
   }
 
   // 4. Floor (if floor is present)
   if (fl) {
-    let fSize = 11.5;
-    let fW = font.widthOfTextAtSize(fl, fSize);
-    if (fW > maxW) fSize = Math.max(9, (maxW / fW) * fSize);
-    lines.push({ text: fl, size: fSize });
+    const text = `Floor: ${fl}`;
+    let fSize = 11;
+    let fW = font.widthOfTextAtSize(text, fSize);
+    if (fW > maxW) fSize = Math.max(8.5, (maxW / fW) * fSize);
+    lines.push({ text, size: fSize });
   }
 
   // Fallback: If empty, show "TEST CENTER"
@@ -3081,7 +3085,7 @@ function drawQuarterExamSticker(params: {
     page.drawLine({ start: { x: dividerX, y: bodyBottom + 8 }, end: { x: dividerX, y: bodyTop }, thickness: 1, color: COLOR_BORDER });
 
     // Left Column: Room Hero
-    const roomLabel = "TEST ROOM";
+    const roomLabel = "Room:";
     const roomLabelSize = 9.5;
     const roomLabelW = font.widthOfTextAtSize(roomLabel, roomLabelSize);
     page.drawText(roomLabel, { x: leftX + (leftW - roomLabelW) / 2, y: bodyTop - 14, size: roomLabelSize, font, color: COLOR_MUTED });
@@ -3103,7 +3107,7 @@ function drawQuarterExamSticker(params: {
 
     // Right Column: Subject & Students (Essential Data Only - Clean, Large & Bold!)
     const subjSectionY = bodyTop - 2;
-    page.drawText("TEST SUBJECT:", { x: rightX, y: subjSectionY - 8, size: 8.5, font, color: COLOR_MUTED });
+    page.drawText("Subject:", { x: rightX, y: subjSectionY - 8, size: 8.5, font, color: COLOR_MUTED });
 
     // Subject Box
     const subjBoxH = 44;
@@ -3132,9 +3136,9 @@ function drawQuarterExamSticker(params: {
       color: COLOR_CHARCOAL,
     });
 
-    // Students Section (No filler text!)
+    // Students Section (Clear label + prominent number, zero repetition!)
     const candSectionY = subjBoxY - 10;
-    page.drawText("STUDENTS:", { x: rightX, y: candSectionY - 8, size: 8.5, font, color: COLOR_MUTED });
+    page.drawText("Students:", { x: rightX, y: candSectionY - 8, size: 8.5, font, color: COLOR_MUTED });
 
     const candBoxH = 46;
     const candBoxY = candSectionY - 14 - candBoxH;
@@ -3148,8 +3152,8 @@ function drawQuarterExamSticker(params: {
       borderWidth: 1.5,
     });
 
-    const countValue = `${item.studentCount} STUDENTS`;
-    let countValSize = 23;
+    const countValue = `${item.studentCount}`;
+    let countValSize = 28;
     let countValW = font.widthOfTextAtSize(countValue, countValSize);
     if (countValW > rightW - 12) {
       countValSize = Math.max(14, ((rightW - 12) / countValW) * countValSize);
@@ -3267,9 +3271,9 @@ function drawQuarterExamSticker(params: {
     headerBottom,
   });
 
-  // 1. EXAM ROOM SECTION
-  const roomLabel = "EXAM ROOM";
-  const roomLabelSize = 9;
+  // 1. ROOM SECTION
+  const roomLabel = "Room:";
+  const roomLabelSize = 9.5;
   const roomLabelW = font.widthOfTextAtSize(roomLabel, roomLabelSize);
   const roomLabelY = locDividerY - 14;
   page.drawText(roomLabel, {
@@ -3306,8 +3310,8 @@ function drawQuarterExamSticker(params: {
   });
 
   // 2. TEST SUBJECT SECTION
-  const subjLabel = "TEST SUBJECT:";
-  const subjLabelSize = 8.5;
+  const subjLabel = "Subject:";
+  const subjLabelSize = 9.5;
   const subjLabelW = font.widthOfTextAtSize(subjLabel, subjLabelSize);
   const subjLabelY = roomDividerY - 14;
   page.drawText(subjLabel, {
@@ -3354,9 +3358,9 @@ function drawQuarterExamSticker(params: {
     color: COLOR_BORDER,
   });
 
-  // 3. STUDENTS SECTION (Essential Data Only - No filler!)
-  const candLabel = "STUDENTS:";
-  const candLabelSize = 9;
+  // 3. STUDENTS SECTION (Essential Data Only - Clear label + prominent number, zero repetition!)
+  const candLabel = "Students:";
+  const candLabelSize = 9.5;
   const candLabelW = font.widthOfTextAtSize(candLabel, candLabelSize);
   const candLabelY = subjDividerY - 14;
   page.drawText(candLabel, {
@@ -3380,11 +3384,11 @@ function drawQuarterExamSticker(params: {
     borderWidth: 1.5,
   });
 
-  const countValue = `${item.studentCount} STUDENTS`;
-  let countValSize = 25;
+  const countValue = `${item.studentCount}`;
+  let countValSize = 32;
   let countValW = font.widthOfTextAtSize(countValue, countValSize);
   if (countValW > width - 24) {
-    countValSize = Math.max(15, ((width - 24) / countValW) * countValSize);
+    countValSize = Math.max(16, ((width - 24) / countValW) * countValSize);
     countValW = font.widthOfTextAtSize(countValue, countValSize);
   }
   page.drawText(countValue, {
