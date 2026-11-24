@@ -408,30 +408,19 @@ function getVerticalSubjectLines(content: StickerContent, isRoom: boolean): stri
       }
     }
     if (lines.length > 0) {
-      const grandTotal = content.totalStudents || total;
-      if (grandTotal > 0 && lines.length > 1) {
-        lines.push(`Total Students: ${grandTotal}`);
-      }
       return lines;
     }
   }
 
   if (isRoom && (typeof content.litCount === "number" || typeof content.mathCount === "number")) {
-    let roomTotal = 0;
     if (typeof content.litCount === "number") {
       lines.push(`Literacy: ${content.litCount}`);
-      roomTotal += content.litCount;
     }
     if (typeof content.mathCount === "number") {
       lines.push(`Mathematics: ${content.mathCount}`);
-      roomTotal += content.mathCount;
     }
     if (content.hasEssay || (typeof content.essayCount === "number" && content.essayCount > 0)) {
       lines.push(`Essay: ${content.essayCount ?? 0}`);
-      roomTotal += (content.essayCount ?? 0);
-    }
-    if (lines.length > 1 && roomTotal > 0) {
-      lines.push(`Total Students: ${content.totalStudents || roomTotal}`);
     }
     if (lines.length > 0) return lines;
   }
@@ -2629,11 +2618,11 @@ function drawQuarterPlacard(params: {
       // Strictly enforce canonical chronological exam period ordering on room subjects table
       parsedSubjects.sort((a, b) => getSubjectSortKey(a.name) - getSubjectSortKey(b.name));
       const sCount = parsedSubjects.length;
-      const rowH = sCount <= 2 ? 26 : sCount === 3 ? 24 : sCount === 4 ? 22 : 19;
-      const tblHeaderH = 19;
-      const hasTotalRow = typeof roomTotalCandidates === "number" && roomTotalCandidates > 0;
-      const totRowH = hasTotalRow ? (sCount <= 2 ? 24 : 22) : 0;
-      const tblH = tblHeaderH + sCount * rowH + totRowH;
+      const rowH = sCount <= 2 ? 30 : sCount === 3 ? 26 : sCount === 4 ? 23 : 20;
+      const tblHeaderH = 20;
+      const hasTotalRow = false; // Removed per user request for a cleaner, larger, and uncrowded sticker!
+      const totRowH = 0;
+      const tblH = tblHeaderH + sCount * rowH;
 
       const tblW = width - 12;
       const tblX = x + 6;
@@ -2743,7 +2732,7 @@ function drawQuarterPlacard(params: {
         });
 
         // Row divider
-        if (sIdx < sCount - 1 || hasTotalRow) {
+        if (sIdx < sCount - 1) {
           page.drawLine({
             start: { x: tblX, y: rowY },
             end: { x: tblX + tblW, y: rowY },
