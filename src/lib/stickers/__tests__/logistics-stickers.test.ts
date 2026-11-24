@@ -10,6 +10,7 @@ import {
   generateCleanSkinSubjectStickersPdf,
   generateCompleteLogisticsBundlePdf,
   normalizeFloorsData,
+  splitCenterAndBuilding,
 } from "../logistics-stickers-pdf";
 
 describe("Logistics Stickers PDF Generator", () => {
@@ -237,6 +238,41 @@ describe("Logistics Stickers PDF Generator", () => {
 
     const doc = await PDFDocument.load(pdfBytes);
     expect(doc.getPageCount()).toBe(1);
+  });
+
+  it("correctly separates center and building without duplicate repetition", () => {
+    // Repeated center name in building
+    const res1 = splitCenterAndBuilding(
+      "Arab Academy Abu Qir",
+      "Arab Academy Abu Qir Faculty of Engineering",
+    );
+    expect(res1.center).toBe("Arab Academy Abu Qir");
+    expect(res1.building).toBe("Faculty of Engineering");
+    expect(res1.isCampus).toBe(true);
+
+    // Identical center and building with faculty
+    const res2 = splitCenterAndBuilding(
+      "Arab Academy Abu Qir Faculty of Engineering",
+      "Arab Academy Abu Qir Faculty of Engineering",
+    );
+    expect(res2.center).toBe("Arab Academy Abu Qir");
+    expect(res2.building).toBe("Faculty of Engineering");
+    expect(res2.isCampus).toBe(true);
+
+    // Standalone single school (School is automatically normalized to Test Center per user rules)
+    const res3 = splitCenterAndBuilding(
+      "Future International School",
+      "Future International School",
+    );
+    expect(res3.center).toBe("Future International Test Center");
+    expect(res3.building).toBe("");
+    expect(res3.isCampus).toBe(false);
+
+    // Distinct campus building
+    const res4 = splitCenterAndBuilding("Arab Academy Abu Qir", "Eng. Building B");
+    expect(res4.center).toBe("Arab Academy Abu Qir");
+    expect(res4.building).toBe("Eng. Building B");
+    expect(res4.isCampus).toBe(true);
   });
 
   it("generates Clean Skin Quarter-A4 Subject Stickers PDF (EST I)", async () => {

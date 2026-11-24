@@ -85,7 +85,7 @@ async function loadStickerFont(pdfDoc: PDFDocument): Promise<any> {
       try {
         const fontBytes = fs.readFileSync(/*turbopackIgnore: true*/ fp);
         return await pdfDoc.embedFont(fontBytes, { subset: true });
-      } catch {}
+      } catch { }
     }
   }
 
@@ -347,11 +347,11 @@ export function splitCenterAndBuilding(
   let c = toEnglishText(rawCenter || "").trim();
   let b = toEnglishText(rawBuilding || "").trim();
 
-  // If rawBuilding is missing, identical to center, or center contains the building
+  // If rawBuilding is missing, identical to center, or empty
   if (!b || b.toLowerCase() === c.toLowerCase()) {
     // Regex matching university campuses with faculties or buildings
     const facMatch = c.match(
-      /^(.*?)(?:\s*[-–—:]\s*|\s+)(Faculty\s+of\s+.*|College\s+of\s+.*|Building\s+[A-Za-z0-9].*)$/i,
+      /^(.*?)(?:\s*[-–—:]\s*|\s+)(Faculty\s+of\s+.*|College\s+of\s+.*|Building\s+[A-Za-z0-9].*|Eng\.\s*Building.*|Pharmacy.*|Campus.*)$/i,
     );
     if (facMatch && facMatch[1] && facMatch[2]) {
       const cleanCenter = facMatch[1].replace(/[-–—:\s]+$/, "").trim();
@@ -371,20 +371,39 @@ export function splitCenterAndBuilding(
     };
   }
 
-  // If building was already provided and starts with center name, strip repetition
-  if (b.toLowerCase().startsWith(c.toLowerCase())) {
-    b = b.substring(c.length).replace(/^[-–—:\s]+/, "").trim();
+  // If building contains center name anywhere, strip repetition
+  if (b.toLowerCase().includes(c.toLowerCase())) {
+    b = b.replace(new RegExp(c.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"), "gi"), "")
+      .replace(/^[-–—:\s]+|[-–—:\s]+$/g, "")
+      .trim();
   }
 
-  // If center ends with building name, strip repetition from center
-  if (b && c.toLowerCase().endsWith(b.toLowerCase()) && c.length > b.length) {
-    c = c.substring(0, c.length - b.length).replace(/[-–—:\s]+$/, "").trim();
+  // If center contains building name anywhere, strip repetition from center
+  if (b && c.toLowerCase().includes(b.toLowerCase()) && c.length > b.length) {
+    c = c.replace(new RegExp(b.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&"), "gi"), "")
+      .replace(/^[-–—:\s]+|[-–—:\s]+$/g, "")
+      .trim();
   }
 
+  // Check if center itself has a faculty/building embedded that can be moved to building if building is generic
+  if (!b) {
+    const facMatch = c.match(
+      /^(.*?)(?:\s*[-–—:]\s*|\s+)(Faculty\s+of\s+.*|College\s+of\s+.*|Building\s+[A-Za-z0-9].*|Eng\.\s*Building.*|Pharmacy.*|Campus.*)$/i,
+    );
+    if (facMatch && facMatch[1] && facMatch[2]) {
+      return {
+        center: facMatch[1].replace(/[-–—:\s]+$/, "").trim(),
+        building: facMatch[2].trim(),
+        isCampus: true,
+      };
+    }
+  }
+
+  const isDistinctCampus = Boolean(b && b.toLowerCase() !== c.toLowerCase());
   return {
     center: c,
-    building: b,
-    isCampus: Boolean(b && b.toLowerCase() !== c.toLowerCase()),
+    building: isDistinctCampus ? b : "",
+    isCampus: isDistinctCampus,
   };
 }
 
@@ -412,59 +431,59 @@ function drawFittedTextInBox(
   const baseSize = box.baseSize || 13;
   const minSize = box.minSize || 6.5;
   const maxLines = box.maxLines || 2;
+  const safetyMaxW = Math.max(8, maxW - 4); // Always leave a safety buffer before adjacent column!
 
-  // Strict boundary protection: guarantee text never crosses maxW
+  // Strict boundary protection: guarantee text never crosses safetyMaxW
   const fitToWidth = (str: string, size: number): string => {
-    if (!str || font.widthOfTextAtSize(str, size) <= maxW) return str;
+    if (!str || font.widthOfTextAtSize(str, size) <= safetyMaxW) return str;
     let s = str;
-    while (s.length > 3 && font.widthOfTextAtSize(s + "...", size) > maxW) {
+    while (s.length > 3 && font.widthOfTextAtSize(s + "...", size) > safetyMaxW) {
       s = s.slice(0, -1).trim();
     }
     return s + "...";
   };
 
-  // 1. Check if fits on a single line
-  const singleLineW = font.widthOfTextAtSize(text, baseSize);
-  if (singleLineW <= maxW) {
-    page.drawText(text, {
-      x: box.x,
-      y: box.y + (box.height - baseSize) / 2,
-      size: baseSize,
-      font,
-      color,
-    });
-    return;
-  }
-
-  // 2. Wrap words into lines
   const words = text.split(/\s+/).filter(Boolean);
-  if (words.length <= 1 || maxLines === 1) {
-    const effSize = Math.max(minSize, (maxW / singleLineW) * baseSize);
-    const fittedText = fitToWidth(text, effSize);
-    page.drawText(fittedText, {
-      x: box.x,
-      y: box.y + (box.height - effSize) / 2,
-      size: effSize,
-      font,
-      color,
-    });
-    return;
+  const singleLineW = font.widthOfTextAtSize(text, baseSize);
+
+  // If text is short and comfortable (<= 65% of box width), or only 1 word, or maxLines === 1:
+  if (maxLines === 1 || words.length <= 1 || singleLineW <= safetyMaxW * 0.65) {
+    if (singleLineW <= safetyMaxW) {
+      page.drawText(text, {
+        x: box.x,
+        y: box.y + (box.height - baseSize) / 2,
+        size: baseSize,
+        font,
+        color,
+      });
+      return;
+    }
+    if (maxLines === 1 || words.length <= 1) {
+      const effSize = Math.max(minSize, (safetyMaxW / singleLineW) * baseSize);
+      const fittedText = fitToWidth(text, effSize);
+      page.drawText(fittedText, {
+        x: box.x,
+        y: box.y + (box.height - effSize) / 2,
+        size: effSize,
+        font,
+        color,
+      });
+      return;
+    }
   }
 
-  // Break across 2 lines
-  let bestLine1 = "";
-  let bestLine2 = "";
+  // Break across 2 lines when text is long (> 65% of width and multiple words)
   const mid = Math.ceil(words.length / 2);
-  bestLine1 = words.slice(0, mid).join(" ");
-  bestLine2 = words.slice(mid).join(" ");
+  let bestLine1 = words.slice(0, mid).join(" ");
+  let bestLine2 = words.slice(mid).join(" ");
 
   let l1W = font.widthOfTextAtSize(bestLine1, baseSize);
   let l2W = font.widthOfTextAtSize(bestLine2, baseSize);
   let maxLineW = Math.max(l1W, l2W);
 
   let effSize = baseSize;
-  if (maxLineW > maxW) {
-    effSize = Math.max(minSize, (maxW / maxLineW) * baseSize);
+  if (maxLineW > safetyMaxW) {
+    effSize = Math.max(minSize, (safetyMaxW / maxLineW) * baseSize);
   }
 
   bestLine1 = fitToWidth(bestLine1, effSize);
@@ -1485,19 +1504,19 @@ export async function generateExamBagChecklistPdf(
 
   const checklistItems = isEst2
     ? [
-        { title: "EST II – Math 1", code: "MATH1", ...countSubjectRooms("MATH1"), isCleanSkin: false },
-        { title: "EST II – Math 2", code: "MATH2", ...countSubjectRooms("MATH2"), isCleanSkin: false },
-        { title: "EST II – Biology", code: "BIO", ...countSubjectRooms("BIO"), isCleanSkin: false },
-        { title: "EST II – Chemistry", code: "CHEM", ...countSubjectRooms("CHEM"), isCleanSkin: false },
-        { title: "EST II – Physics", code: "PHY", ...countSubjectRooms("PHY"), isCleanSkin: false },
-        { title: "CLEAN SKIN (Reserve Exam Packets)", code: "CLEAN_SKIN", roomsCount: allRooms.length, candCount: 0, isCleanSkin: true },
-      ]
+      { title: "EST II – Math 1", code: "MATH1", ...countSubjectRooms("MATH1"), isCleanSkin: false },
+      { title: "EST II – Math 2", code: "MATH2", ...countSubjectRooms("MATH2"), isCleanSkin: false },
+      { title: "EST II – Biology", code: "BIO", ...countSubjectRooms("BIO"), isCleanSkin: false },
+      { title: "EST II – Chemistry", code: "CHEM", ...countSubjectRooms("CHEM"), isCleanSkin: false },
+      { title: "EST II – Physics", code: "PHY", ...countSubjectRooms("PHY"), isCleanSkin: false },
+      { title: "CLEAN SKIN (Reserve Exam Packets)", code: "CLEAN_SKIN", roomsCount: allRooms.length, candCount: 0, isCleanSkin: true },
+    ]
     : [
-        { title: "EST I – Literacy", code: "LIT", ...countSubjectRooms("LIT"), isCleanSkin: false },
-        { title: "EST I – Mathematics", code: "MATH", ...countSubjectRooms("MATH"), isCleanSkin: false },
-        { title: "EST I – Essay", code: "ESSAY", ...countSubjectRooms("ESSAY"), isCleanSkin: false },
-        { title: "CLEAN SKIN (Reserve Exam Packets)", code: "CLEAN_SKIN", roomsCount: allRooms.length, candCount: 0, isCleanSkin: true },
-      ];
+      { title: "EST I – Literacy", code: "LIT", ...countSubjectRooms("LIT"), isCleanSkin: false },
+      { title: "EST I – Mathematics", code: "MATH", ...countSubjectRooms("MATH"), isCleanSkin: false },
+      { title: "EST I – Essay", code: "ESSAY", ...countSubjectRooms("ESSAY"), isCleanSkin: false },
+      { title: "CLEAN SKIN (Reserve Exam Packets)", code: "CLEAN_SKIN", roomsCount: allRooms.length, candCount: 0, isCleanSkin: true },
+    ];
 
   const rowCount = checklistItems.length;
   const rowH = (thY - tableBottom) / rowCount;
@@ -1904,17 +1923,17 @@ export async function drawMasterBuildingManifestLandscapePage(
 
   const subjectCols = !isEst2
     ? [
-        { code: "LIT", label: "LITERACY [✓]", width: 95 },
-        { code: "MATH", label: "MATHEMATICS [✓]", width: 95 },
-        { code: "ESSAY", label: "ESSAY [✓]", width: 80 },
-      ]
+      { code: "LIT", label: "LITERACY [✓]", width: 95 },
+      { code: "MATH", label: "MATHEMATICS [✓]", width: 95 },
+      { code: "ESSAY", label: "ESSAY [✓]", width: 80 },
+    ]
     : [
-        { code: "MATH1", label: "MATH 1 [✓]", width: 68 },
-        { code: "MATH2", label: "MATH 2 [✓]", width: 68 },
-        { code: "BIO", label: "BIO [✓]", width: 68 },
-        { code: "CHEM", label: "CHEM [✓]", width: 68 },
-        { code: "PHY", label: "PHY [✓]", width: 68 },
-      ];
+      { code: "MATH1", label: "MATH 1 [✓]", width: 68 },
+      { code: "MATH2", label: "MATH 2 [✓]", width: 68 },
+      { code: "BIO", label: "BIO [✓]", width: 68 },
+      { code: "CHEM", label: "CHEM [✓]", width: 68 },
+      { code: "PHY", label: "PHY [✓]", width: 68 },
+    ];
 
   const colW_room = 50;
   const colW_floor = !isEst2 ? 75 : 70;
@@ -2459,14 +2478,44 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
   }
 
   // 4. Data Rows
-  const rowsCount = manifestRows.length;
-  const availRowsH = thY - tableBottomMin;
-  const rowH = Math.min(20, Math.max(16, availRowsH / Math.max(1, rowsCount)));
-  const tableActualBottom = thY - rowsCount * rowH;
+  const floorGapH = 6;
+  const floorCount = manifestRows.filter((r) => r.type === "floor").length;
+  const totalGapsH = floorCount * floorGapH;
+  const availRowsH = thY - tableBottomMin - totalGapsH;
+  const baseRowH = Math.min(19.5, Math.max(15, availRowsH / Math.max(1, manifestRows.length)));
 
-  for (let idx = 0; idx < rowsCount; idx++) {
+  let curY = thY;
+  for (let idx = 0; idx < manifestRows.length; idx++) {
     const row = manifestRows[idx];
-    const rowY = thY - (idx + 1) * rowH;
+
+    // Clean white horizontal separator gap before each floor section!
+    if (row.type === "floor") {
+      page.drawRectangle({
+        x: tableX,
+        y: curY - floorGapH,
+        width: tableW,
+        height: floorGapH,
+        color: COLOR_WHITE,
+      });
+
+      page.drawLine({
+        start: { x: tableX, y: curY },
+        end: { x: tableX + tableW, y: curY },
+        thickness: 0.6,
+        color: COLOR_BORDER,
+      });
+      page.drawLine({
+        start: { x: tableX, y: curY - floorGapH },
+        end: { x: tableX + tableW, y: curY - floorGapH },
+        thickness: 0.6,
+        color: COLOR_BORDER,
+      });
+
+      curY -= floorGapH;
+    }
+
+    const rowH = row.type === "floor" ? baseRowH + 1 : baseRowH;
+    const rowY = curY - rowH;
 
     // Background color per row type
     let bg = COLOR_WHITE;
@@ -2499,6 +2548,17 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
       thickness: 0.5,
       color: COLOR_BORDER,
     });
+
+    // Vertical column divider lines within this row (stops at row boundaries so the white gap remains clean)
+    for (let i = 1; i < cols.length; i++) {
+      const vx = cols[i].x;
+      page.drawLine({
+        start: { x: vx, y: rowY },
+        end: { x: vx, y: rowY + rowH },
+        thickness: 0.5,
+        color: COLOR_BORDER,
+      });
+    }
 
     // Cell values
     // 1. Name
@@ -2577,18 +2637,11 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
         }
       }
     }
+
+    curY -= rowH;
   }
 
-  // Vertical Column Divider Lines (across entire table)
-  for (let i = 1; i < cols.length; i++) {
-    const vx = cols[i].x;
-    page.drawLine({
-      start: { x: vx, y: tableTop },
-      end: { x: vx, y: tableActualBottom },
-      thickness: 0.5,
-      color: COLOR_BORDER,
-    });
-  }
+  const tableActualBottom = curY;
 
   // Outer border around the table
   page.drawRectangle({
@@ -3257,17 +3310,17 @@ export async function generateCleanSkinSubjectStickersPdf(
 
   const subjects = isEst2
     ? [
-        { code: "MATH1", title: `${examPrefix} – Math 1` },
-        { code: "MATH2", title: `${examPrefix} – Math 2` },
-        { code: "BIO", title: `${examPrefix} – Biology` },
-        { code: "CHEM", title: `${examPrefix} – Chemistry` },
-        { code: "PHY", title: `${examPrefix} – Physics` },
-      ]
+      { code: "MATH1", title: `${examPrefix} – Math 1` },
+      { code: "MATH2", title: `${examPrefix} – Math 2` },
+      { code: "BIO", title: `${examPrefix} – Biology` },
+      { code: "CHEM", title: `${examPrefix} – Chemistry` },
+      { code: "PHY", title: `${examPrefix} – Physics` },
+    ]
     : [
-        { code: "LIT", title: `${examPrefix} – Literacy` },
-        { code: "MATH", title: `${examPrefix} – Math` },
-        { code: "ESSAY", title: `${examPrefix} – Essay` },
-      ];
+      { code: "LIT", title: `${examPrefix} – Literacy` },
+      { code: "MATH", title: `${examPrefix} – Math` },
+      { code: "ESSAY", title: `${examPrefix} – Essay` },
+    ];
 
   // Standard A4 Portrait in points: 595.28 x 841.89 pt
   const a4Width = 595.28;
@@ -3708,19 +3761,19 @@ export async function generateCartonDriverManifestPdf(
     const kpiY = div1Y - kpiH - 6;
     const kpiItems = isCombined
       ? [
-          { label: "TOTAL CARTONS", val: `${totalCartons} Boxes` },
-          { label: "TEST CENTERS", val: `${uniqueCenters} Centers` },
-          { label: "TOTAL ROOMS", val: `${totalRooms} Rooms` },
-          { label: "EST I STUDENTS", val: `${totalEst1} Students` },
-          { label: "EST II STUDENTS", val: `${totalEst2} Students` },
-          { label: "TOTAL STUDENTS", val: `${totalEst1 + totalEst2} Students` },
-        ]
+        { label: "TOTAL CARTONS", val: `${totalCartons} Boxes` },
+        { label: "TEST CENTERS", val: `${uniqueCenters} Centers` },
+        { label: "TOTAL ROOMS", val: `${totalRooms} Rooms` },
+        { label: "EST I STUDENTS", val: `${totalEst1} Students` },
+        { label: "EST II STUDENTS", val: `${totalEst2} Students` },
+        { label: "TOTAL STUDENTS", val: `${totalEst1 + totalEst2} Students` },
+      ]
       : [
-          { label: "TOTAL CARTONS", val: `${totalCartons} Boxes` },
-          { label: "TEST CENTERS", val: `${uniqueCenters} Centers` },
-          { label: "TOTAL ROOMS", val: `${totalRooms} Rooms` },
-          { label: "TOTAL STUDENTS", val: `${totalStudents} Students` },
-        ];
+        { label: "TOTAL CARTONS", val: `${totalCartons} Boxes` },
+        { label: "TEST CENTERS", val: `${uniqueCenters} Centers` },
+        { label: "TOTAL ROOMS", val: `${totalRooms} Rooms` },
+        { label: "TOTAL STUDENTS", val: `${totalStudents} Students` },
+      ];
 
     const kpiW = (cardW - 24) / kpiItems.length;
     kpiItems.forEach((item, idx) => {
