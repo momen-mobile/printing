@@ -24,6 +24,7 @@ import {
   generateCleanSkinMasterPdf,
   generateCleanSkinDispatchLogPdf,
   generateCleanSkinSubjectStickersPdf,
+  generateCartonDriverManifestPdf,
   type LogisticsStickerOptions,
   type FloorRoomsData,
   type RoomDetail,
@@ -601,7 +602,7 @@ export async function POST(
       });
     }
 
-    // Helper to build LogisticsStickerOptions for each center in targetRows
+    // Helper to build LogisticsStickerOptions for each center in targetRows (Sequentially Numbered)
     const buildCenterLogisticsOptions = (): LogisticsStickerOptions[] => {
       const centerGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
@@ -612,8 +613,11 @@ export async function POST(
       }
 
       const optionsList: LogisticsStickerOptions[] = [];
+      const centerEntries = Array.from(centerGroups.entries());
+      const totalCenters = centerEntries.length;
 
-      for (const [_, cRows] of centerGroups.entries()) {
+      for (let idx = 0; idx < totalCenters; idx++) {
+        const [_, cRows] = centerEntries[idx];
         const first = cRows[0];
         const centerName = first.center;
         const govName = first.governorate;
@@ -664,6 +668,8 @@ export async function POST(
 
         const totalRooms = cRows.length;
         const totalStudents = cRows.reduce((s, r) => s + r.totalStudents, 0);
+        const est1Total = cRows.reduce((s, r: any) => s + (r.est1Count ?? (round.examType !== "EST 2" ? r.totalStudents : 0)), 0);
+        const est2Total = cRows.reduce((s, r: any) => s + (r.est2Count ?? (round.examType === "EST 2" ? r.totalStudents : 0)), 0);
         const roomNames = cRows.map((r) => r.room);
 
         optionsList.push({
@@ -676,17 +682,142 @@ export async function POST(
           totalStudents,
           roomNames,
           floors,
-          boxNumber: Number(body.boxNumber) || 1,
-          totalBoxes: Number(body.totalBoxes) || 1,
+          boxNumber: idx + 1,
+          totalBoxes: totalCenters,
           securitySeal: body.securitySeal || undefined,
           notes: body.notes || undefined,
+          est1Total,
+          est2Total,
         });
       }
 
       return optionsList;
     };
 
-    // 6. MASTER BUILDING CARTON PLACARD (A4 Landscape)
+    // Helper to build Combined Options across both EST 1 and EST 2 in this cycle
+    const buildCombinedCenterOptions = async (): Promise<LogisticsStickerOptions[]> => {
+      const cycleRounds = await prisma.estExamRound.findMany({
+        where: {
+          OR: [
+            { cycleName: round.cycleName || "December 2026" },
+            { name: { contains: "December 2026", mode: "insensitive" } },
+          ],
+        },
+      });
+
+      const allCycleRows: any[] = [];
+      for (const cr of cycleRounds) {
+        const rows = Array.isArray(cr.sheetData) ? (cr.sheetData as unknown as any[]) : [];
+        rows.forEach((row) => allCycleRows.push({ ...row, sourceExam: cr.examType }));
+      }
+
+      const sourceRows = allCycleRows.length > 0 ? allCycleRows : (targetRows as any[]);
+
+      // Group by Center and Governorate
+      const centerGroups = new Map<string, any[]>();
+      for (const r of sourceRows) {
+        const key = `${r.governorate}::${r.center}`;
+        const existing = centerGroups.get(key) || [];
+        existing.push(r);
+        centerGroups.set(key, existing);
+      }
+
+      const combinedList: LogisticsStickerOptions[] = [];
+      const centerEntries = Array.from(centerGroups.entries());
+      const totalCenters = centerEntries.length;
+
+      for (let idx = 0; idx < totalCenters; idx++) {
+        const [_, cRows] = centerEntries[idx];
+        const first = cRows[0];
+        const centerName = first.center;
+        const govName = first.governorate;
+
+        const floorMap = new Map<string, Map<string, any>>();
+        for (const r of cRows) {
+          const flKey = r.floor || "1st Floor";
+          if (!floorMap.has(flKey)) {
+            floorMap.set(flKey, new Map());
+          }
+          const rMap = floorMap.get(flKey)!;
+          const roomKey = (r.room || "").toLowerCase().trim();
+
+          const existingRoom = rMap.get(roomKey);
+          const isEst1Row = r.sourceExam === "EST 1" || (!r.sourceExam && r.est1Count);
+          const isEst2Row = r.sourceExam === "EST 2" || (!r.sourceExam && r.est2Count);
+
+          const rowE1 = r.est1Count ?? (isEst1Row ? r.totalStudents : 0);
+          const rowE2 = r.est2Count ?? (isEst2Row ? r.totalStudents : 0);
+
+          if (!existingRoom) {
+            rMap.set(roomKey, {
+              room: r.room,
+              studentCount: rowE1 + rowE2,
+              est1Count: rowE1,
+              est2Count: rowE2,
+              subjectsText: r.breakdownText,
+              est1Subjects: isEst1Row ? r.breakdownText : r.est1Subjects,
+              est2Subjects: isEst2Row ? r.breakdownText : r.est2Subjects,
+            });
+          } else {
+            if (rowE1 > 0 && (existingRoom.est1Count === 0 || !existingRoom.est1Count)) {
+              existingRoom.est1Count = rowE1;
+              existingRoom.est1Subjects = r.breakdownText;
+            }
+            if (rowE2 > 0 && (existingRoom.est2Count === 0 || !existingRoom.est2Count)) {
+              existingRoom.est2Count = rowE2;
+              existingRoom.est2Subjects = r.breakdownText;
+            }
+            existingRoom.studentCount = (existingRoom.est1Count || 0) + (existingRoom.est2Count || 0);
+          }
+        }
+
+        const floors: FloorRoomsData[] = Array.from(floorMap.entries())
+          .sort(([flA], [flB]) => getFloorSortWeight(flA) - getFloorSortWeight(flB))
+          .map(([flName, rMap]) => {
+            const rooms: RoomDetail[] = Array.from(rMap.values()).sort((a, b) =>
+              (a.room || "").localeCompare(b.room || "", undefined, { numeric: true }),
+            );
+            const totalStudents = rooms.reduce((s, rm) => s + (rm.studentCount || 0), 0);
+            const est1Students = rooms.reduce((s, rm) => s + (rm.est1Count || 0), 0);
+            const est2Students = rooms.reduce((s, rm) => s + (rm.est2Count || 0), 0);
+
+            return {
+              floor: flName,
+              rooms,
+              totalStudents,
+              est1Students,
+              est2Students,
+            };
+          });
+
+        const allRooms = floors.flatMap((f) => f.rooms);
+        const totalRooms = allRooms.length;
+        const est1Total = floors.reduce((s, f) => s + (f.est1Students || 0), 0);
+        const est2Total = floors.reduce((s, f) => s + (f.est2Students || 0), 0);
+        const totalStudents = est1Total + est2Total;
+
+        combinedList.push({
+          examName: "EST I & EST II Combined",
+          governorate: govName,
+          center: centerName,
+          building: centerName,
+          date: round.cycleName || "December 2026",
+          totalRooms,
+          totalStudents,
+          roomNames: allRooms.map((r: any) => (typeof r === "string" ? r : r.room)),
+          floors,
+          boxNumber: idx + 1,
+          totalBoxes: totalCenters,
+          isCombined: true,
+          est1Total,
+          est2Total,
+        });
+      }
+
+      return combinedList;
+    };
+
+    // 6. MASTER BUILDING CARTON PLACARD (A4 Landscape, Sequentially Numbered)
     if (type === "carton") {
       const cartons = buildCenterLogisticsOptions();
       const pdfBytes =
@@ -695,6 +826,71 @@ export async function POST(
           : await generateBatchBuildingCartonStickersPdf(cartons);
 
       const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Building_Cartons_${cartons.length}_Centers.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 6b. DRIVER DELIVERY MANIFEST SHEET FOR CARTONS
+    if (type === "carton_driver_manifest") {
+      const cartons = buildCenterLogisticsOptions();
+      const pdfBytes = await generateCartonDriverManifestPdf(cartons, {
+        isCombined: false,
+        cycleName: round.cycleName || "December 2026",
+        date: [roundDayStr, roundDateStr].filter(Boolean).join(", ") || round.cycleName || "December 2026",
+      });
+
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Driver_Delivery_Manifest_${cartons.length}_Cartons.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 6c. COMBINED CARTON PLACARD (EST 1 + EST 2 Together in 1 Carton)
+    if (type === "combined_carton") {
+      const combinedCartons = await buildCombinedCenterOptions();
+      const pdfBytes =
+        combinedCartons.length === 1
+          ? await generateBuildingCartonStickerPdf(combinedCartons[0])
+          : await generateBatchBuildingCartonStickersPdf(combinedCartons);
+
+      const safeFilename = `EST_Combined_Cartons_${round.cycleName?.replace(/[^a-zA-Z0-9_-]/g, "_") || "Dec_2026"}_${combinedCartons.length}_Centers.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 6d. COMBINED DRIVER DELIVERY MANIFEST
+    if (type === "combined_driver_manifest") {
+      const combinedCartons = await buildCombinedCenterOptions();
+      const pdfBytes = await generateCartonDriverManifestPdf(combinedCartons, {
+        isCombined: true,
+        cycleName: round.cycleName || "December 2026",
+        date: round.cycleName || "December 2026",
+      });
+
+      const safeFilename = `EST_Combined_Driver_Delivery_Manifest_${round.cycleName?.replace(/[^a-zA-Z0-9_-]/g, "_") || "Dec_2026"}_${combinedCartons.length}_Cartons.pdf`;
 
       return new NextResponse(Buffer.from(pdfBytes), {
         status: 200,
