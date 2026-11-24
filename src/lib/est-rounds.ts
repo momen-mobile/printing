@@ -189,6 +189,68 @@ export function extractFloorAndRoom(
     }
   }
 
+  // 3. Center-specific patterns
+  if (centerName) {
+    if (/business/i.test(centerName)) {
+      if (/^C1\./i.test(raw)) return { floor: "Basement", room: raw };
+      if (/^C3\./i.test(raw)) return { floor: "1st Floor", room: raw };
+      if (/^C4\./i.test(raw)) return { floor: "2nd Floor", room: raw };
+      if (/^C5\./i.test(raw)) return { floor: "3rd Floor", room: raw };
+    }
+    if (/political/i.test(centerName)) {
+      if (/^F1\./i.test(raw)) return { floor: "1st Floor", room: raw };
+      if (/^F2\./i.test(raw)) return { floor: "2nd Floor", room: raw };
+      if (/^F3\./i.test(raw)) return { floor: "3rd Floor", room: raw };
+      if (/^F4\./i.test(raw)) return { floor: "4th Floor", room: raw };
+    }
+    if (/hotep/i.test(centerName)) {
+      if (/senior/i.test(raw)) return { floor: "3rd Floor", room: raw };
+      if (/junior/i.test(raw)) return { floor: "2nd Floor", room: raw };
+    }
+    if (/rawasy/i.test(centerName)) {
+      return { floor: "2nd Floor", room: raw };
+    }
+  }
+
+  // 4. St. Fatima Badr specific 4-digit codes
+  if (/^410[1-5]$/.test(raw)) return { floor: "1st Floor", room: "Room " + raw };
+  if (/^41(?:0[6-9]|1[0-3])$/.test(raw)) return { floor: "2nd Floor", room: "Room " + raw };
+  if (/^41(?:1[4-9]|20)$/.test(raw)) return { floor: "3rd Floor", room: "Room " + raw };
+
+  // 5. Standard 3-digit room numbers: 202 -> 2nd Floor, 304 -> 3rd Floor, etc.
+  const numMatch = raw.match(/^([1-9])(\d{2})$/);
+  if (numMatch) {
+    const digit = parseInt(numMatch[1], 10);
+    const suffix =
+      digit === 1
+        ? "1st Floor"
+        : digit === 2
+          ? "2nd Floor"
+          : digit === 3
+            ? "3rd Floor"
+            : digit === 4
+              ? "4th Floor"
+              : digit === 5
+                ? "5th Floor"
+                : `${digit}th Floor`;
+    return { floor: suffix, room: raw };
+  }
+
+  // 6. Letter + digit prefix: A101 -> 1st Floor, A301 -> 3rd Floor, B005 -> Ground, B102 -> 1st Floor, B201 -> 2nd Floor
+  const letterDigitMatch = raw.match(/^[A-Za-z]+([0-9])/);
+  if (letterDigitMatch) {
+    const digit = parseInt(letterDigitMatch[1], 10);
+    let fl = "1st Floor";
+    if (digit === 0) fl = "Ground";
+    else if (digit === 1) fl = "1st Floor";
+    else if (digit === 2) fl = "2nd Floor";
+    else if (digit === 3) fl = "3rd Floor";
+    else if (digit === 4) fl = "4th Floor";
+    else if (digit === 5) fl = "5th Floor";
+    else fl = `${digit}th Floor`;
+    return { floor: fl, room: raw };
+  }
+
   // Fallback: heuristic room code without explicit floor
   return {
     floor: "1st Floor",

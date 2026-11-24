@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { PDFDocument } from "pdf-lib";
 import { requireSession, enforceRateLimit, jsonError } from "@/lib/api-utils";
 import { prisma } from "@/lib/prisma";
 import { ensureEstExamRoundTable, type EstRoundRow } from "@/lib/est-rounds";
@@ -15,6 +16,19 @@ import {
   type FloorSubjectPlacardData,
   type FloorRoomSubjectData,
 } from "@/lib/stickers/floor-exam-stickers-pdf";
+import {
+  generateBuildingCartonStickerPdf,
+  generateBatchBuildingCartonStickersPdf,
+  generateExamBagChecklistPdf,
+  generateMasterBuildingManifestPdf,
+  generateCleanSkinMasterPdf,
+  generateCleanSkinDispatchLogPdf,
+  generateCleanSkinSubjectStickersPdf,
+  type LogisticsStickerOptions,
+  type FloorRoomsData,
+  type RoomDetail,
+} from "@/lib/stickers/logistics-stickers-pdf";
+import { getFloorSortWeight } from "@/lib/stickers/est-reference-data";
 import type { StickerContent } from "@/lib/stickers/sticker-content";
 import type { RoomSubjectCount } from "@/lib/stickers/est-room-data";
 
@@ -587,7 +601,243 @@ export async function POST(
       });
     }
 
-    // 6. DEFAULT: ROOM PLACARDS (A4 4-Up 2x2 grid)
+    // Helper to build LogisticsStickerOptions for each center in targetRows
+    const buildCenterLogisticsOptions = (): LogisticsStickerOptions[] => {
+      const centerGroups = new Map<string, EstRoundRow[]>();
+      for (const r of targetRows) {
+        const key = `${r.governorate}::${r.center}`;
+        const existing = centerGroups.get(key) || [];
+        existing.push(r);
+        centerGroups.set(key, existing);
+      }
+
+      const optionsList: LogisticsStickerOptions[] = [];
+
+      for (const [_, cRows] of centerGroups.entries()) {
+        const first = cRows[0];
+        const centerName = first.center;
+        const govName = first.governorate;
+
+        const floorMap = new Map<string, EstRoundRow[]>();
+        for (const r of cRows) {
+          const flKey = r.floor || "1st Floor";
+          const existing = floorMap.get(flKey) || [];
+          existing.push(r);
+          floorMap.set(flKey, existing);
+        }
+
+        const floors: FloorRoomsData[] = Array.from(floorMap.entries())
+          .sort(([flA], [flB]) => getFloorSortWeight(flA) - getFloorSortWeight(flB))
+          .map(([flName, fRows]) => {
+            const sortedFRows = fRows.sort((a, b) =>
+              a.room.localeCompare(b.room, undefined, { numeric: true }),
+            );
+
+            const rooms: RoomDetail[] = sortedFRows.map((r: any) => {
+              const isCurrentEst1 = round.examType !== "EST 2";
+              const e1Count = r.est1Count ?? (isCurrentEst1 ? r.totalStudents : 0);
+              const e2Count = r.est2Count ?? (!isCurrentEst1 ? r.totalStudents : 0);
+
+              return {
+                room: r.room,
+                studentCount: r.totalStudents,
+                subjectsText: r.breakdownText,
+                est1Count: e1Count,
+                est1Subjects: r.est1Subjects || (isCurrentEst1 ? r.breakdownText : ""),
+                est2Count: e2Count,
+                est2Subjects: r.est2Subjects || (!isCurrentEst1 ? r.breakdownText : ""),
+              };
+            });
+
+            const totalStudents = rooms.reduce((s, rm) => s + (rm.studentCount || 0), 0);
+            const est1Students = rooms.reduce((s, rm) => s + (rm.est1Count || 0), 0);
+            const est2Students = rooms.reduce((s, rm) => s + (rm.est2Count || 0), 0);
+
+            return {
+              floor: flName,
+              rooms,
+              totalStudents,
+              est1Students,
+              est2Students,
+            };
+          });
+
+        const totalRooms = cRows.length;
+        const totalStudents = cRows.reduce((s, r) => s + r.totalStudents, 0);
+        const roomNames = cRows.map((r) => r.room);
+
+        optionsList.push({
+          examName: round.name || round.examType,
+          governorate: govName,
+          center: centerName,
+          building: centerName,
+          date: round.cycleName || "December 2026",
+          totalRooms,
+          totalStudents,
+          roomNames,
+          floors,
+          boxNumber: Number(body.boxNumber) || 1,
+          totalBoxes: Number(body.totalBoxes) || 1,
+          securitySeal: body.securitySeal || undefined,
+          notes: body.notes || undefined,
+        });
+      }
+
+      return optionsList;
+    };
+
+    // 6. MASTER BUILDING CARTON PLACARD (A4 Landscape)
+    if (type === "carton") {
+      const cartons = buildCenterLogisticsOptions();
+      const pdfBytes =
+        cartons.length === 1
+          ? await generateBuildingCartonStickerPdf(cartons[0])
+          : await generateBatchBuildingCartonStickersPdf(cartons);
+
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Building_Cartons_${cartons.length}_Centers.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 7. TRANSIT BAG EXAM CHECKLIST (A4 Portrait)
+    if (type === "bag") {
+      const centers = buildCenterLogisticsOptions();
+      const mergedDoc = await PDFDocument.create();
+
+      for (const opt of centers) {
+        const bytes = await generateExamBagChecklistPdf(opt);
+        const doc = await PDFDocument.load(bytes);
+        const pages = await mergedDoc.copyPages(doc, doc.getPageIndices());
+        pages.forEach((p) => mergedDoc.addPage(p));
+      }
+
+      const pdfBytes = await mergedDoc.save();
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Transit_Bag_Checklists_${centers.length}_Centers.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 8. MASTER CENTER & BUILDING MANIFEST (Single-Page Blueprint)
+    if (type === "manifest") {
+      const centers = buildCenterLogisticsOptions();
+      const mergedDoc = await PDFDocument.create();
+
+      for (const opt of centers) {
+        const bytes = await generateMasterBuildingManifestPdf(opt);
+        const doc = await PDFDocument.load(bytes);
+        const pages = await mergedDoc.copyPages(doc, doc.getPageIndices());
+        pages.forEach((p) => mergedDoc.addPage(p));
+      }
+
+      const pdfBytes = await mergedDoc.save();
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Master_Manifest_${centers.length}_Centers.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 9. CLEAN SKIN MASTER PACKET (2 Pages: Manifest + Incident Log)
+    if (type === "clean_skin_master") {
+      const centers = buildCenterLogisticsOptions();
+      const mergedDoc = await PDFDocument.create();
+
+      for (const opt of centers) {
+        const bytes = await generateCleanSkinMasterPdf(opt);
+        const doc = await PDFDocument.load(bytes);
+        const pages = await mergedDoc.copyPages(doc, doc.getPageIndices());
+        pages.forEach((p) => mergedDoc.addPage(p));
+      }
+
+      const pdfBytes = await mergedDoc.save();
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Clean_Skin_Emergency_Packet_${centers.length}_Centers.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 10. CLEAN SKIN DISPATCH LOG SHEET (Single Page)
+    if (type === "clean_skin_log") {
+      const centers = buildCenterLogisticsOptions();
+      const mergedDoc = await PDFDocument.create();
+
+      for (const opt of centers) {
+        const bytes = await generateCleanSkinDispatchLogPdf(opt);
+        const doc = await PDFDocument.load(bytes);
+        const pages = await mergedDoc.copyPages(doc, doc.getPageIndices());
+        pages.forEach((p) => mergedDoc.addPage(p));
+      }
+
+      const pdfBytes = await mergedDoc.save();
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Clean_Skin_Incident_Log_${centers.length}_Centers.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 11. CLEAN SKIN SUBJECT STICKERS (Quarter A4 4-Up)
+    if (type === "clean_skin_subjects") {
+      const centers = buildCenterLogisticsOptions();
+      const mergedDoc = await PDFDocument.create();
+
+      for (const opt of centers) {
+        const bytes = await generateCleanSkinSubjectStickersPdf(opt);
+        const doc = await PDFDocument.load(bytes);
+        const pages = await mergedDoc.copyPages(doc, doc.getPageIndices());
+        pages.forEach((p) => mergedDoc.addPage(p));
+      }
+
+      const pdfBytes = await mergedDoc.save();
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Clean_Skin_Subject_Stickers_${centers.length}_Centers.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 12. DEFAULT: ROOM PLACARDS (A4 4-Up 2x2 grid)
     const roomContents = targetRows.map(buildRoomStickerContent);
     const pdfBytes = await generateBatchStickerPdf({
       contents: roomContents,

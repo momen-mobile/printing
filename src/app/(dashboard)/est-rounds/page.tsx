@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Award,
+  Boxes,
   Building,
   Building2,
   Calendar,
@@ -10,9 +11,11 @@ import {
   CheckSquare,
   ChevronDown,
   ChevronRight,
+  ClipboardList,
   Download,
   Eye,
   FileSpreadsheet,
+  FileText,
   FolderPlus,
   GraduationCap,
   Layers,
@@ -21,6 +24,7 @@ import {
   Printer,
   RefreshCw,
   Search,
+  ShieldAlert,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -197,8 +201,8 @@ export default function EstRoundsPage() {
 
       toast.success(
         isAr
-          ? "تم تحميل دورة EST 2 - ديسمبر 2026 (149 قاعة معتمدة) بنجاح!"
-          : "Successfully loaded official EST 2 - December 2026 round (149 rooms)!",
+          ? "تم تحميل دورات ديسمبر 2026 (EST 1 و EST 2) المعتمدة بنجاح!"
+          : "Successfully loaded official December 2026 rounds (EST 1 & EST 2)!",
       );
 
       await fetchRounds({ selectRoundId: data.round?.id });
@@ -418,7 +422,7 @@ export default function EstRoundsPage() {
     }
   }, [activeRound]);
 
-  // Generate PDF Stickers
+  // Generate PDF Stickers & Logistics Documents
   const handleGeneratePdf = useCallback(
     async (
       type:
@@ -428,7 +432,13 @@ export default function EstRoundsPage() {
         | "building_placards"
         | "head_placards"
         | "exam_stickers"
-        | "bundle",
+        | "bundle"
+        | "carton"
+        | "bag"
+        | "manifest"
+        | "clean_skin_master"
+        | "clean_skin_log"
+        | "clean_skin_subjects",
     ) => {
       if (!activeRoundId) return;
 
@@ -462,10 +472,17 @@ export default function EstRoundsPage() {
 
         let typeLabel = isAr ? "استيكرات القاعات" : "Room Placards";
         if (type === "exam_stickers") typeLabel = isAr ? "مظاريف المواد (نسختين)" : "Exam Subject Stickers";
-        else if (type === "floor_placards") typeLabel = isAr ? "ملفات الأدوار (Senior)" : "Floor Dossiers";
+        else if (type === "floor_placards") typeLabel = isAr ? "ملفات الأدوار (Senior)" : "Floor Senior Dossiers";
+        else if (type === "floor_subject_bags") typeLabel = isAr ? "أكياس مواد الأدوار (A4)" : "Floor Subject Bags";
         else if (type === "building_placards") typeLabel = isAr ? "استيكرات المباني (A4)" : "Building Placards";
         else if (type === "head_placards") typeLabel = isAr ? "ملفات رئيس المبنى" : "Building Head Dossiers";
-        else if (type === "bundle") typeLabel = isAr ? "الحزمة الشاملة" : "Complete Logistics Bundle";
+        else if (type === "bundle") typeLabel = isAr ? "الحزمة الشاملة للهيكل" : "Complete Structure Bundle";
+        else if (type === "carton") typeLabel = isAr ? "ستيكر كرتونة المبنى (A4)" : "Building Master Carton";
+        else if (type === "bag") typeLabel = isAr ? "بيان محتويات شنطة الامتحان (A4)" : "Transit Bag Checklist";
+        else if (type === "manifest") typeLabel = isAr ? "بيان الحصر العام للجان والمبنى" : "Master Building Manifest";
+        else if (type === "clean_skin_master") typeLabel = isAr ? "كيس طوارئ الكنترول (باقة 2 صفحة)" : "Emergency Reserve Master Packet";
+        else if (type === "clean_skin_log") typeLabel = isAr ? "سجل صرف الطوارئ" : "Clean Skin Incident Log";
+        else if (type === "clean_skin_subjects") typeLabel = isAr ? "ستيكرات مواد الطوارئ" : "Clean Skin Subject Stickers";
 
         setPreviewTitle(
           `${activeRound?.name || "EST"} - ${typeLabel} (${targetRowIds.length} ${isAr ? "قاعة" : "rooms"})`,
@@ -507,17 +524,15 @@ export default function EstRoundsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {rounds.length === 0 && (
-            <Button
-              variant="primary"
-              onClick={handleSeedDefaultEst2}
-              disabled={isSeedingDefault}
-              className="cursor-pointer gap-1.5 text-xs h-9 px-3.5 bg-purple-600 hover:bg-purple-700 text-white shadow-xs"
-            >
-              {isSeedingDefault ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-              <span>{isAr ? "تحميل دورة ديسمبر 2026 (EST 2) المعتمدة" : "Load Official EST 2 Dec 2026"}</span>
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            onClick={handleSeedDefaultEst2}
+            disabled={isSeedingDefault}
+            className="cursor-pointer gap-1.5 text-xs h-9 px-3.5 bg-purple-600 hover:bg-purple-700 text-white shadow-xs"
+          >
+            {isSeedingDefault ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+            <span>{isAr ? "تحميل/تحديث دورات ديسمبر 2026 (EST 1 و EST 2)" : "Sync Dec 2026 (EST 1 & 2)"}</span>
+          </Button>
 
           <Button
             variant="secondary"
@@ -829,114 +844,452 @@ export default function EstRoundsPage() {
             </div>
           )}
 
-          {/* Sticker Printing Actions Toolbar */}
-          <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs space-y-3">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted">
-                  {isAr ? "طباعة الاستيكرات:" : "Print Stickers:"}
+          {/* Sticker Printing Categories & Actions */}
+          <div className="space-y-4">
+            {/* Header info */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                  <Printer className="size-4 text-purple-600" />
+                  <span>{isAr ? "مركز طباعة الاستيكرات والوثائق اللوجستية" : "Stickers & Logistics Printing Hub"}</span>
+                </h3>
+                <p className="text-[11px] text-muted">
+                  {isAr
+                    ? "اختر نوع الوثائق المطلوبة أدناه للطباعة أو المعاينة المباشرة (تشمل جميع وثائق الهيكل، الامتحانات، واللوجستيات)."
+                    : "Select required documents below for instant preview and printing across Structure, Exams, and Logistics."}
+                </p>
+              </div>
+
+              {selectedRowIds.size > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="rounded-lg bg-purple-500/10 text-purple-700 dark:text-purple-300 text-xs font-bold px-2.5 py-1">
+                    {isAr ? `تم تحديد ${selectedRowIds.size} قاعة للطباعة` : `${selectedRowIds.size} rooms selected`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className="text-xs text-muted hover:text-foreground underline cursor-pointer"
+                  >
+                    {isAr ? "إلغاء التحديد" : "Clear"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* SECTION 1: Organizational Structure (Building, Head, Floor/Senior, Room) */}
+            <div className="rounded-2xl border border-purple-500/30 bg-purple-500/[0.02] p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-purple-500/20 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-purple-600 text-white font-black text-xs shadow-xs">
+                    1
+                  </span>
+                  <div>
+                    <h4 className="text-xs font-bold text-foreground">
+                      {isAr ? "الهيكل التنظيمي والمقرات (المبنى • الهيد • الدور / السنيور • القاعات)" : "Organizational Structure (Building • Head • Floor Senior • Rooms)"}
+                    </h4>
+                    <p className="text-[10.5px] text-muted">
+                      {isAr ? "استيكرات مقرات اللجان، ملفات المشرفين، واستيكرات القاعات المعتمدة" : "Headquarters placards, supervisor dossiers, and room placards"}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300">
+                  {isAr ? "ملفات وإشراف المقرات" : "Structure & Dossiers"}
                 </span>
+              </div>
 
-                {/* Print Room Placards (4-Up A4) */}
-                <Button
-                  variant="primary"
-                  onClick={() => void handleGeneratePdf("room_placards")}
-                  disabled={isGenerating}
-                  className="cursor-pointer gap-1.5 text-xs h-9 px-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-xs"
-                  title={isAr ? "طباعة استيكرات القاعات بنظام 4 في صفحة A4 مع جداول التحقق" : "Print 4-Up A4 Room Dossier Placards"}
-                >
-                  {isGenerating && activeActionType === "room_placards" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Printer className="size-4" />
-                  )}
-                  <span>{isAr ? "استيكرات القاعات (A4 4-Up)" : "Room Placards (4-Up)"}</span>
-                </Button>
-
-                {/* Print Subject Exam Stickers (2 copies per subject) */}
-                <Button
-                  variant="secondary"
-                  onClick={() => void handleGeneratePdf("exam_stickers")}
-                  disabled={isGenerating}
-                  className="cursor-pointer gap-1.5 text-xs h-9 px-3 border border-border hover:border-purple-500 font-bold"
-                  title={isAr ? "طباعة نسختين لكل مادة في كل قاعة" : "Print 2 copies per subject per room"}
-                >
-                  {isGenerating && activeActionType === "exam_stickers" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <FileSpreadsheet className="size-4 text-emerald-600" />
-                  )}
-                  <span>{isAr ? "مظاريف المواد (نسختين)" : "Exam Subject Stickers"}</span>
-                </Button>
-
-                {/* Print Floor Dossiers */}
-                <Button
-                  variant="secondary"
-                  onClick={() => void handleGeneratePdf("floor_placards")}
-                  disabled={isGenerating}
-                  className="cursor-pointer gap-1.5 text-xs h-9 px-3 border border-border hover:border-purple-500 font-bold"
-                  title={isAr ? "طباعة ملفات المشرفين للأدوار (Senior)" : "Print Floor Senior Dossiers"}
-                >
-                  {isGenerating && activeActionType === "floor_placards" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Layers className="size-4 text-indigo-600" />
-                  )}
-                  <span>{isAr ? "ملفات الأدوار (Senior)" : "Floor Dossiers"}</span>
-                </Button>
-
-                {/* Print Floor Subject Bags (A4 Landscape) */}
-                <Button
-                  variant="secondary"
-                  onClick={() => void handleGeneratePdf("floor_subject_bags")}
-                  disabled={isGenerating}
-                  className="cursor-pointer gap-1.5 text-xs h-9 px-3 border border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 font-bold shadow-xs"
-                  title={isAr ? "طباعة استيكرات أكياس المواد للأدوار بالحجم الكبير A4 بالعرض مع تفصيل اللجان وأعداد الطلاب" : "Print A4 Landscape Floor Subject Bag Placards with Room Directory & Candidate Counts"}
-                >
-                  {isGenerating && activeActionType === "floor_subject_bags" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <ShoppingBag className="size-4 text-amber-600" />
-                  )}
-                  <span>{isAr ? "أكياس مواد الأدوار (A4)" : "Floor Subject Bags"}</span>
-                </Button>
-
-                {/* Print Building Placards (A4 Landscape) */}
-                <Button
-                  variant="secondary"
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                {/* 1. Building Placards */}
+                <button
+                  type="button"
                   onClick={() => void handleGeneratePdf("building_placards")}
                   disabled={isGenerating}
-                  className="cursor-pointer gap-1.5 text-xs h-9 px-3 border border-border hover:border-purple-500 font-bold"
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-border bg-surface hover:border-purple-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
                   title={isAr ? "طباعة استيكرات المباني بحجم A4 بالعرض (Landscape)" : "Print Full-page A4 Landscape Building Placards"}
                 >
-                  {isGenerating && activeActionType === "building_placards" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Building2 className="size-4 text-sky-600" />
-                  )}
-                  <span>{isAr ? "استيكرات المباني (A4)" : "Building Placards"}</span>
-                </Button>
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "building_placards" ? <Loader2 className="size-4 animate-spin" /> : <Building2 className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-surface-soft text-muted font-mono">
+                      A4 Landscape
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-purple-600 transition-colors">
+                      {isAr ? "استيكرات المباني" : "Building Placards"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "صفحة A4 بالعرض لكل مبنى" : "Full-page Landscape"}
+                    </div>
+                  </div>
+                </button>
 
-                {/* Print Building Head Dossiers (Quarter A4) */}
-                <Button
-                  variant="secondary"
+                {/* 2. Building Head Dossiers */}
+                <button
+                  type="button"
                   onClick={() => void handleGeneratePdf("head_placards")}
                   disabled={isGenerating}
-                  className="cursor-pointer gap-1.5 text-xs h-9 px-3 border border-purple-500/40 text-purple-700 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 font-bold"
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-border bg-surface hover:border-purple-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
                   title={isAr ? "طباعة استيكرات رئيس المبنى بنظام 4 في صفحة A4" : "Print Quarter-A4 Building Head Dossier Stickers"}
                 >
-                  {isGenerating && activeActionType === "head_placards" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <ShieldCheck className="size-4 text-purple-600" />
-                  )}
-                  <span>{isAr ? "استيكرات الهيد (Quarter A4)" : "Building Head"}</span>
-                </Button>
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "head_placards" ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-surface-soft text-muted font-mono">
+                      Quarter A4
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-purple-600 transition-colors">
+                      {isAr ? "ملفات رئيس المبنى" : "Building Head"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "استيكرات الهيد ربع A4" : "Quarter-A4 Stickers"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 3. Floor Senior Dossiers */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("floor_placards")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-border bg-surface hover:border-purple-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "طباعة ملفات المشرفين للأدوار (Senior)" : "Print Floor Senior Dossiers"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "floor_placards" ? <Loader2 className="size-4 animate-spin" /> : <Layers className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-surface-soft text-muted font-mono">
+                      Quarter A4
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-purple-600 transition-colors">
+                      {isAr ? "ملفات الأدوار (Senior)" : "Floor Dossiers"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "ملفات السنيور للأدوار" : "Senior Supervisor"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 4. Room Placards */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("room_placards")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-purple-500/40 bg-purple-600 text-white hover:bg-purple-700 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "طباعة استيكرات القاعات بنظام 4 في صفحة A4 مع جداول التحقق" : "Print 4-Up A4 Room Dossier Placards"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-white/20 text-white flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "room_placards" ? <Loader2 className="size-4 animate-spin" /> : <Printer className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-white/20 text-white font-mono">
+                      4-Up A4
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-black text-white">
+                      {isAr ? "استيكرات القاعات" : "Room Placards"}
+                    </div>
+                    <div className="text-[10px] text-purple-100 mt-0.5">
+                      {isAr ? "مع كشوفات وجداول التحقق" : "With candidate checklist"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 5. Complete Structure Bundle */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("bundle")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-border bg-surface hover:border-purple-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "طباعة حزمة الهيكل بالكامل: المباني + الهيد + الأدوار + القاعات في ملف واحد" : "Print Complete Structure Dossiers Bundle"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "bundle" ? <Loader2 className="size-4 animate-spin" /> : <Package className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-surface-soft text-muted font-mono">
+                      All-in-One
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-purple-600 transition-colors">
+                      {isAr ? "الحزمة الشاملة للهيكل" : "Structure Bundle"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "المباني + الهيد + الأدوار + القاعات" : "All dossiers combined"}
+                    </div>
+                  </div>
+                </button>
               </div>
             </div>
 
-            {/* Filter and Search Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border/60">
+            {/* SECTION 2: Exam Envelopes & Floor Subject Bags */}
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.02] p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-amber-600 text-white font-black text-xs shadow-xs">
+                    2
+                  </span>
+                  <div>
+                    <h4 className="text-xs font-bold text-foreground">
+                      {isAr ? "مظاريف الامتحانات وأكياس مواد الأدوار (المواد • الفترات • أكياس الأدوار)" : "Exam Envelopes & Floor Subject Bags (Subjects • Periods • Floor Bags)"}
+                    </h4>
+                    <p className="text-[10.5px] text-muted">
+                      {isAr ? "مظاريف أوراق الأسئلة والإجابة للقاعات وأكياس المواد المخصصة لكل دور" : "Question & Answer subject envelopes and floor subject bags"}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                  {isAr ? "مظاريف وأكياس المواد" : "Envelopes & Subject Bags"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Exam Subject Envelopes */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("exam_stickers")}
+                  disabled={isGenerating}
+                  className="flex items-center gap-3.5 p-3.5 rounded-xl border border-border bg-surface hover:border-amber-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "طباعة نسختين لكل مادة في كل قاعة (مظروف الأسئلة ومظروف كراسات الإجابة)" : "Print 2 copies per subject per room"}
+                >
+                  <span className="size-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold shrink-0">
+                    {isGenerating && activeActionType === "exam_stickers" ? <Loader2 className="size-5 animate-spin" /> : <FileSpreadsheet className="size-5" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <div className="text-xs font-bold text-foreground group-hover:text-amber-600 transition-colors">
+                        {isAr ? "مظاريف المواد للقاعات (نسختين)" : "Room Subject Exam Stickers"}
+                      </div>
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-surface-soft text-muted font-mono">
+                        Quarter A4
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-muted line-clamp-1">
+                      {isAr ? "نسخة لأوراق الأسئلة ونسخة لكراسات الإجابة مع أسماء ومواعيد الفترات" : "2 copies per subject: Question envelope & Answer sheet envelope"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 2. Floor Subject Bags Placards */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("floor_subject_bags")}
+                  disabled={isGenerating}
+                  className="flex items-center gap-3.5 p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "طباعة استيكرات أكياس المواد للأدوار بالحجم الكبير A4 بالعرض مع تفصيل اللجان وأعداد الطلاب" : "Print A4 Landscape Floor Subject Bag Placards with Room Directory & Candidate Counts"}
+                >
+                  <span className="size-10 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold shrink-0">
+                    {isGenerating && activeActionType === "floor_subject_bags" ? <Loader2 className="size-5 animate-spin" /> : <ShoppingBag className="size-5" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                        {isAr ? "أكياس مواد الأدوار (A4 بالعرض)" : "Floor Subject Bag Placards"}
+                      </div>
+                      <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200 font-mono">
+                        A4 Landscape
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-muted line-clamp-1">
+                      {isAr ? "استيكر كيس المادة لكل دور مع جدول تفصيلي بالقاعات وأعداد طلابها" : "Dedicated A4 Landscape placard per floor per subject with room breakdown"}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* SECTION 3: Logistics, Transit Bags & Clean Skin (From Logistics Page) */}
+            <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/[0.02] p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-indigo-500/20 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-indigo-600 text-white font-black text-xs shadow-xs">
+                    3
+                  </span>
+                  <div>
+                    <h4 className="text-xs font-bold text-foreground">
+                      {isAr ? "اللوجستيات والشنط والكلين سكين (الكرتونة • شنطة الامتحان • بيان الحصر • الطوارئ)" : "Logistics, Transit Bags & Clean Skin (Master Carton • Transit Bag • Blueprint Manifest • Emergency Reserve)"}
+                    </h4>
+                    <p className="text-[10.5px] text-muted">
+                      {isAr ? "جميع وثائق صفحة Logistics معتمدة ومستخرجة مباشرة من داتا شيت الإكسيل" : "All logistics documents generated directly from round's Excel data"}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+                  {isAr ? "وثائق الشحن واللوجستيات" : "Shipping & Logistics"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                {/* 1. Carton Placard */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("carton")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-border bg-surface hover:border-indigo-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "ورقة مقاس A4 بالعرض تلصق على الكرتونة الخارجية مع مسرد الأدوار والقاعات بالكامل ومربعات التأكيد" : "Master Building Carton Placard (A4 Landscape)"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "carton" ? <Loader2 className="size-4 animate-spin" /> : <Boxes className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-surface-soft text-muted font-mono">
+                      A4 Land
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-indigo-600 transition-colors">
+                      {isAr ? "كرتونة المبنى" : "Carton Placard"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "استيكر كرتونة A4" : "Master Carton"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 2. Transit Bag Checklist */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("bag")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-border bg-surface hover:border-indigo-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "بيان A4 رأسي ملصق على شنطة نقل أوراق الإجابة والأسئلة لتأكيد استلام أكياس كل قاعة" : "Transit Bag Exam Checklist (A4 Portrait)"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "bag" ? <Loader2 className="size-4 animate-spin" /> : <ShoppingBag className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-surface-soft text-muted font-mono">
+                      A4 Port
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-indigo-600 transition-colors">
+                      {isAr ? "شنطة الامتحان" : "Transit Bag"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "بيان محتويات الشنطة" : "Bag Checklist"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 3. Master Manifest (Blueprint) */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("manifest")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-border bg-surface hover:border-indigo-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "ورقة مقاس A4 واحدة تجمع كافة تفاصيل السنتر والمبنى: الأدوار، القاعات، ومواد وأعداد EST 1 و EST 2" : "Master Center & Building Manifest (Single-Page Blueprint)"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-sky-500/10 text-sky-600 flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "manifest" ? <Loader2 className="size-4 animate-spin" /> : <ClipboardList className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-surface-soft text-muted font-mono">
+                      Strict 1-Pg
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-indigo-600 transition-colors">
+                      {isAr ? "بيان الحصر العام" : "Master Manifest"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "مخطط الحصر الشامل" : "Blueprint A4"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 4. Clean Skin Master Packet */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("clean_skin_master")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-rose-500/40 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "حزمة متكاملة من صفحتين: صفحة 1 بيان الحصر الشامل لكافة اللجان، وصفحة 2 جدول سجل صرف الطوارئ المسطر بـ 18 صفاً" : "Emergency Reserve Master Packet (2-Page Dossier)"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "clean_skin_master" ? <Loader2 className="size-4 animate-spin" /> : <ShieldAlert className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 font-mono">
+                      2 Pages
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-rose-950 dark:text-rose-200">
+                      {isAr ? "طوارئ الكنترول" : "Emergency Packet"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "الحصر + سجل الصرف" : "Manifest + Log"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 5. Clean Skin Log Sheet */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("clean_skin_log")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-border bg-surface hover:border-indigo-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "جدول سجل صرف الطوارئ لكيس الكنترول المسطر بـ 18 صفاً" : "Clean Skin Emergency Dispatch Log Sheet"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-red-500/10 text-red-600 flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "clean_skin_log" ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-surface-soft text-muted font-mono">
+                      18 Rows
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-indigo-600 transition-colors">
+                      {isAr ? "سجل صرف الطوارئ" : "Incident Log"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "سجل استهلاك الطوارئ" : "Dispatch Log Sheet"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 6. Clean Skin Subject Stickers */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("clean_skin_subjects")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-border bg-surface hover:border-indigo-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "ستيكرات ربع A4 مقسمة 4 في الصفحة للمواد مع خانة عدد فارغة ومسطرة للتعبئة اليدوية" : "Quarter-A4 stickers with blank quantity boxes for manual pen entry"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-orange-500/10 text-orange-600 flex items-center justify-center font-bold">
+                      {isGenerating && activeActionType === "clean_skin_subjects" ? <Loader2 className="size-4 animate-spin" /> : <Tag className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-surface-soft text-muted font-mono">
+                      Quarter A4
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-indigo-600 transition-colors">
+                      {isAr ? "مواد الطوارئ" : "Emergency Stickers"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "ستيكرات للمواد فارغة" : "Quarter-A4 Stickers"}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter, Search, and Bulk Selection Bar */}
+          <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[260px]">
                 {/* Search Input */}
                 <div className="relative flex-1 min-w-[180px] max-w-xs">
