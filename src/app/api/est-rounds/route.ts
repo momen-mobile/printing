@@ -118,6 +118,7 @@ export async function POST(request: Request) {
           if (rawGov && !/^total$/i.test(rawGov)) lastGov = rawGov;
 
           const center = String(r["Center"] || "").trim();
+          const building = String(r["Building"] || "").trim();
           const rawRoom = String(r["Room"] || "").trim();
           if (!center || !rawRoom || /^total$/i.test(center) || /^total$/i.test(rawGov)) continue;
 
@@ -158,6 +159,7 @@ export async function POST(request: Request) {
               index: est1Rows.length + 1,
               governorate: gov,
               center,
+              building: building || center,
               floor,
               room,
               rawRoom,
@@ -186,6 +188,7 @@ export async function POST(request: Request) {
               index: est2Rows.length + 1,
               governorate: gov,
               center,
+              building: building || center,
               floor,
               room,
               rawRoom,

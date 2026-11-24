@@ -256,11 +256,12 @@ export function drawQuarterLocationBlock(params: {
   center?: string;
   building?: string;
   floor?: string;
+  isHead?: boolean;
   x: number;
   width: number;
   headerBottom: number;
 }): number {
-  const { page, font, x, width, headerBottom } = params;
+  const { page, font, x, width, headerBottom, isHead } = params;
 
   // 1. Clean & Deduplicate
   const gov = (params.governorate || "").trim();
@@ -268,15 +269,21 @@ export function drawQuarterLocationBlock(params: {
   let bld = (params.building || "").trim().replace(/\bSchool\b/gi, "Test Center");
   const fl = (params.floor || "").trim();
 
-  // Deduplicate building if identical to center, or contained in center, or center is school/university
-  if (
-    !bld ||
-    bld.toLowerCase() === center.toLowerCase() ||
-    center.toLowerCase().includes(bld.toLowerCase()) ||
-    bld.toLowerCase().includes(center.toLowerCase()) ||
-    isSchoolCenter(center)
-  ) {
-    bld = "";
+  // Deduplicate building if identical to center, or contained in center, or center is school/university (unless isHead, where building is explicitly kept per user request)
+  if (!isHead) {
+    if (
+      !bld ||
+      bld.toLowerCase() === center.toLowerCase() ||
+      center.toLowerCase().includes(bld.toLowerCase()) ||
+      bld.toLowerCase().includes(center.toLowerCase()) ||
+      isSchoolCenter(center)
+    ) {
+      bld = "";
+    }
+  } else {
+    if (bld.toLowerCase() === center.toLowerCase()) {
+      bld = "";
+    }
   }
 
   // If center is empty but building exists, use building as center
@@ -289,60 +296,86 @@ export function drawQuarterLocationBlock(params: {
   const lines: Array<{ text: string; size: number }> = [];
   const maxW = width - 16;
 
-  // Primary Line: Venue Name (Test Center / Campus) - ENLARGED per user specification
-  const venueText = (center || bld).replace(/\bSchool\b/gi, "Test Center");
-  if (venueText) {
-    let vSize = 13.5;
-    let vW = font.widthOfTextAtSize(venueText, vSize);
-    if (vW > maxW) {
-      const scaledSize = (maxW / vW) * vSize;
-      if (scaledSize >= 10) {
-        vSize = Math.max(10, scaledSize);
-        lines.push({ text: venueText, size: vSize });
-      } else {
-        // Wrap venue text into 2 lines with prominent font
-        const words = venueText.split(/\s+/);
-        let line1 = "";
-        let line2 = "";
-        for (const w of words) {
-          const test = line1 ? `${line1} ${w}` : w;
-          if (font.widthOfTextAtSize(test, 11) <= maxW) {
-            line1 = test;
-          } else {
-            line2 = line2 ? `${line2} ${w}` : w;
-          }
-        }
-        if (line1) lines.push({ text: line1, size: 11 });
-        if (line2) lines.push({ text: line2, size: 11 });
+  if (isHead) {
+    // User specification: "فى ستيكر الهيد والمفروض المدينه الاول وبعدين السنتر وبعدين المبنى اللى هيد مسؤل عنه"
+    // Order: City/Governorate -> Center -> Building
+    if (gov) {
+      lines.push({ text: gov, size: 12 });
+    }
+    if (center) {
+      let cSize = 12;
+      let cW = font.widthOfTextAtSize(center, cSize);
+      if (cW > maxW) {
+        cSize = Math.max(9.5, (maxW / cW) * cSize);
       }
-    } else {
-      lines.push({ text: venueText, size: vSize });
+      lines.push({ text: center, size: cSize });
+    }
+    if (bld && bld !== center) {
+      let bSize = 11;
+      let bW = font.widthOfTextAtSize(bld, bSize);
+      if (bW > maxW) {
+        bSize = Math.max(9, (maxW / bW) * bSize);
+      }
+      lines.push({ text: bld, size: bSize });
+    }
+  } else {
+    // Primary Line: Venue Name (Test Center / Campus) - ENLARGED per user specification
+    const venueText = (center || bld).replace(/\bSchool\b/gi, "Test Center");
+    if (venueText) {
+      let vSize = 13.5;
+      let vW = font.widthOfTextAtSize(venueText, vSize);
+      if (vW > maxW) {
+        const scaledSize = (maxW / vW) * vSize;
+        if (scaledSize >= 10) {
+          vSize = Math.max(10, scaledSize);
+          lines.push({ text: venueText, size: vSize });
+        } else {
+          // Wrap venue text into 2 lines with prominent font
+          const words = venueText.split(/\s+/);
+          let line1 = "";
+          let line2 = "";
+          for (const w of words) {
+            const test = line1 ? `${line1} ${w}` : w;
+            if (font.widthOfTextAtSize(test, 11) <= maxW) {
+              line1 = test;
+            } else {
+              line2 = line2 ? `${line2} ${w}` : w;
+            }
+          }
+          if (line1) lines.push({ text: line1, size: 11 });
+          if (line2) lines.push({ text: line2, size: 11 });
+        }
+      } else {
+        lines.push({ text: venueText, size: vSize });
+      }
+    }
+
+    // Secondary Line: Governorate & Floor (& distinct Building) - ENLARGED
+    const subParts: string[] = [];
+    if (gov) subParts.push(gov);
+    if (bld && bld !== venueText) subParts.push(bld);
+    if (fl) subParts.push(fl);
+
+    if (subParts.length > 0) {
+      const subText = subParts.join("   •   ");
+      let sSize = 10.5;
+      let sW = font.widthOfTextAtSize(subText, sSize);
+      if (sW > maxW) {
+        sSize = Math.max(8.5, (maxW / sW) * sSize);
+      }
+      lines.push({ text: subText, size: sSize });
     }
   }
 
-  // Secondary Line: Governorate & Floor (& distinct Building) - ENLARGED
-  const subParts: string[] = [];
-  if (gov) subParts.push(gov);
-  if (bld && bld !== venueText) subParts.push(bld);
-  if (fl) subParts.push(fl);
-
-  if (subParts.length > 0) {
-    const subText = subParts.join("   •   ");
-    let sSize = 10.5;
-    let sW = font.widthOfTextAtSize(subText, sSize);
-    if (sW > maxW) {
-      sSize = Math.max(8.5, (maxW / sW) * sSize);
-    }
-    lines.push({ text: subText, size: sSize });
-  }
-
-  // Fallback: If both empty, show "TEST CENTER"
+  // Fallback: If empty, show "TEST CENTER"
   if (lines.length === 0) {
     lines.push({ text: "TEST CENTER", size: 12 });
   }
 
-  // 3. Render lines vertically spaced
-  let currY = headerBottom - 11;
+  // 3. Render lines vertically spaced with generous padding from the header line!
+  // User specification: "الخط اللى فوق لازق فى التيكست اللى تحتيه اللى فيه المدينه والمبنى والسنتر والدور حاول تنسق الشكل اكتر"
+  // Increased clearance: currY begins at headerBottom - 16 so the ascenders of large fonts never touch the top line.
+  let currY = headerBottom - 16;
   for (let i = 0; i < lines.length; i++) {
     const item = lines[i];
     const textW = font.widthOfTextAtSize(item.text, item.size);
@@ -353,11 +386,11 @@ export function drawQuarterLocationBlock(params: {
       font,
       color: COLOR_CHARCOAL,
     });
-    currY -= (item.size + 3.5);
+    currY -= (item.size + 4);
   }
 
-  // Draw divider line under location block
-  const locDividerY = currY - 2;
+  // Draw divider line under location block with 3pt spacing below bottom text
+  const locDividerY = currY - 3;
   page.drawLine({
     start: { x: x + 4, y: locDividerY },
     end: { x: x + width - 4, y: locDividerY },
@@ -660,7 +693,7 @@ function drawA4PlacardPage(params: {
 
     const roomChecklistItems = [
       "1. Student Register",
-      "2. Proctor Report",
+      "2. بروكتور شيت",
       "3. Numbers & Mobile Collection Files",
       "4. Student Misconduct Forms",
     ];
@@ -785,7 +818,7 @@ function drawA4PlacardPage(params: {
 
     const floorChecklistItems = [
       "1. Proctor Register",
-      "2. Senior Report",
+      "2. سنيور شيت",
       "3. Numbers & Mobile Collection Files",
       "4. Proctor Misconduct Forms",
       "5. Draft papers, pens, and IDs",
@@ -2040,8 +2073,8 @@ function drawQuarterPlacard(params: {
       });
     }
 
-    const headerBottom = logoY - 5;
-    page.drawLine({ start: { x: x + 8, y: headerBottom }, end: { x: x + width - 8, y: headerBottom }, thickness: 1, color: COLOR_CHARCOAL });
+    const headerBottom = logoY - 7;
+    page.drawLine({ start: { x: x + 8, y: headerBottom }, end: { x: x + width - 8, y: headerBottom }, thickness: 1, color: COLOR_BORDER });
 
     const divider2Y = drawQuarterLocationBlock({
       page,
@@ -2050,6 +2083,7 @@ function drawQuarterPlacard(params: {
       center: content.center,
       building: content.building,
       floor: isRoom ? content.floor : undefined,
+      isHead,
       x,
       width,
       headerBottom,
@@ -2274,20 +2308,19 @@ function drawQuarterPlacard(params: {
           "1. Control Register",
           "2. Blank White Paper",
           "3. Mobile Collection Files",
-          "4. Proctor Attendance Registers",
-          "5. Student Misconduct Forms",
-          "6. Security Bags & Control Seals",
+          "4. بروكتور وسنيور شيت",
+          "5. Student + بروكتور Misconduct Forms",
         ]
         : isRoom
           ? [
             "1. Student Register",
-            "2. Proctor Report",
+            "2. بروكتور شيت",
             "3. Numbers & Mobile Collection Files",
             "4. Student Misconduct Forms",
           ]
           : [
             "1. Proctor Register",
-            "2. Senior Report",
+            "2. سنيور شيت",
             "3. Numbers & Mobile Collection Files",
             "4. Proctor Misconduct Forms",
             "5. Draft papers, pens, and IDs",
@@ -2368,14 +2401,14 @@ function drawQuarterPlacard(params: {
     });
   }
 
-  const headerBottom = logoY - 5;
+  const headerBottom = logoY - 7;
 
   // Divider 1 below header
   page.drawLine({
     start: { x: x + 4, y: headerBottom },
     end: { x: x + width - 4, y: headerBottom },
     thickness: 1,
-    color: COLOR_CHARCOAL,
+    color: COLOR_BORDER,
   });
 
   // Location block broken into clean, prominent lines ("نكسر الصف")
@@ -2386,6 +2419,7 @@ function drawQuarterPlacard(params: {
     center: content.center,
     building: content.building,
     floor: isRoom ? content.floor : undefined,
+    isHead,
     x,
     width,
     headerBottom,
@@ -2454,20 +2488,19 @@ function drawQuarterPlacard(params: {
       "1. Control Register",
       "2. Blank White Paper",
       "3. Mobile Collection Files",
-      "4. Proctor Attendance Registers",
-      "5. Student Misconduct Forms",
-      "6. Security Bags & Control Seals",
+      "4. بروكتور وسنيور شيت",
+      "5. Student + بروكتور Misconduct Forms",
     ]
     : isRoom
       ? [
         "1. Student Register",
-        "2. Proctor Report",
+        "2. بروكتور شيت",
         "3. Numbers & Mobile Collection Files",
         "4. Student Misconduct Forms",
       ]
       : [
         "1. Proctor Register",
-        "2. Senior Report",
+        "2. سنيور شيت",
         "3. Numbers & Mobile Collection Files",
         "4. Proctor Misconduct Forms",
         "5. Draft papers, pens, and IDs",
@@ -2475,8 +2508,8 @@ function drawQuarterPlacard(params: {
 
   const items = rawItems.map((it) => (/[ \u0600-\u06FF]/.test(it) ? formatArabicForPdf(it) : it));
 
-  // Footer text space for Head / ExamPapers
-  const hasBottomFooter = Boolean(isExamPapers || isHead);
+  // Footer text space for ExamPapers (Head footer removed per user specification)
+  const hasBottomFooter = Boolean(isExamPapers);
   const bottomFooterH = hasBottomFooter ? 14 : 0;
 
   // Bottom edge padding: exactly 4pt from inner y (16pt from slotY), mirroring the 16pt from slot top to logo
@@ -2879,8 +2912,7 @@ function drawQuarterPlacard(params: {
       }
       const lineCount = chunks.length;
       const step = 15;
-      const hasTot = typeof content.totalStudents === "number" && content.totalStudents > 0;
-      const blockH = 16 + lineCount * step + (hasTot ? 24 : 0);
+      const blockH = 16 + lineCount * step;
       const topOffset = Math.max(0, (availMidH - blockH) / 2);
       const startHdrY = heroDividerY - 14 - topOffset;
 
@@ -2903,38 +2935,10 @@ function drawQuarterPlacard(params: {
           color: COLOR_CHARCOAL,
         });
       }
-
-      const lastChunkY = startY - (lineCount - 1) * step;
-
-      // Highlight total bar
-      if (hasTot) {
-        const totText = `${content.totalStudents} STUDENTS TOTAL ACROSS ${childRoomsCount} ROOMS`;
-        const totSize = 8.5;
-        const totW = font.widthOfTextAtSize(totText, totSize);
-        const barY = lastChunkY - 18;
-        page.drawRectangle({
-          x: x + 6,
-          y: barY - 1,
-          width: width - 12,
-          height: 15,
-          color: rgb(0.92, 0.92, 0.92),
-          borderColor: COLOR_CHARCOAL,
-          borderWidth: 0.6,
-        });
-        page.drawText(totText, {
-          x: x + (width - totW) / 2,
-          y: barY + 3,
-          size: totSize,
-          font,
-          color: COLOR_CHARCOAL,
-        });
-      }
     } else {
-      const floorSubText = typeof content.totalStudents === "number" && content.totalStudents > 0
-        ? `${content.totalStudents} STUDENTS TOTAL`
-        : childRoomsCount > 0
-          ? `${childRoomsCount} ROOMS INCLUDED`
-          : "SENIOR DOSSIER";
+      const floorSubText = childRoomsCount > 0
+        ? `${childRoomsCount} ROOMS INCLUDED`
+        : "SENIOR DOSSIER";
 
       let totalSize = 13;
       let totalW = font.widthOfTextAtSize(floorSubText, totalSize);
@@ -3088,8 +3092,8 @@ function drawQuarterExamSticker(params: {
       });
     }
 
-    const headerBottom = logoY - 5;
-    page.drawLine({ start: { x: x + 8, y: headerBottom }, end: { x: x + width - 8, y: headerBottom }, thickness: 1, color: COLOR_CHARCOAL });
+    const headerBottom = logoY - 7;
+    page.drawLine({ start: { x: x + 8, y: headerBottom }, end: { x: x + width - 8, y: headerBottom }, thickness: 1, color: COLOR_BORDER });
 
     const divider2Y = drawQuarterLocationBlock({
       page,
@@ -3279,14 +3283,14 @@ function drawQuarterExamSticker(params: {
     }
   }
 
-  const headerBottom = logoY - 6;
+  const headerBottom = logoY - 7;
 
   // Header divider line
   page.drawLine({
     start: { x: x + 4, y: headerBottom },
     end: { x: x + width - 4, y: headerBottom },
     thickness: 1,
-    color: COLOR_CHARCOAL,
+    color: COLOR_BORDER,
   });
 
   // Location block broken into clean, prominent lines ("نكسر الصف")
