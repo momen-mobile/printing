@@ -756,7 +756,7 @@ export default function EstRoundsPage() {
         <p className="mt-1 text-xs text-muted max-w-lg">
           {isAr
             ? "سيتم حفظ البيانات مباشرة في قاعدة البيانات واستخراج المحافظات، السناتر، الأدوار، والقاعات مع أعداد الطلاب لكل مادة فوراً."
-            : "Data is stored directly in Postgres with automated extraction of Governorates, Centers, Floors, Rooms, and candidate totals."}
+            : "Data is stored directly in Postgres with automated extraction of Governorates, Centers, Floors, Rooms, and student totals."}
         </p>
       </div>
 
@@ -1060,7 +1060,7 @@ export default function EstRoundsPage() {
                       {isAr ? "استيكرات القاعات" : "Room Placards"}
                     </div>
                     <div className="text-[10px] text-purple-100 mt-0.5">
-                      {isAr ? "مع كشوفات وجداول التحقق" : "With candidate checklist"}
+                      {isAr ? "مع كشوفات وجداول التحقق" : "With student checklist"}
                     </div>
                   </div>
                 </button>
@@ -1147,7 +1147,7 @@ export default function EstRoundsPage() {
                   onClick={() => void handleGeneratePdf("floor_subject_bags")}
                   disabled={isGenerating}
                   className="flex items-center gap-3.5 p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
-                  title={isAr ? "طباعة استيكرات أكياس المواد للأدوار بالحجم الكبير A4 بالعرض مع تفصيل اللجان وأعداد الطلاب" : "Print A4 Landscape Floor Subject Bag Placards with Room Directory & Candidate Counts"}
+                  title={isAr ? "طباعة استيكرات أكياس المواد للأدوار بالحجم الكبير A4 بالعرض مع تفصيل اللجان وأعداد الطلاب" : "Print A4 Landscape Floor Subject Bag Placards with Room Directory & Student Counts"}
                 >
                   <span className="size-10 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold shrink-0">
                     {isGenerating && activeActionType === "floor_subject_bags" ? <Loader2 className="size-5 animate-spin" /> : <ShoppingBag className="size-5" />}
@@ -1472,7 +1472,7 @@ export default function EstRoundsPage() {
                   onChange={(e) => setSelectedCenter(e.target.value)}
                   className="rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground focus:outline-hidden focus:ring-2 focus:ring-purple-500/30 cursor-pointer h-8.5 max-w-[220px]"
                 >
-                  <option value="all">{isAr ? "كل السناتر والمدارس" : "All Centers / Schools"}</option>
+                  <option value="all">{isAr ? "كل السناتر" : "All Test Centers"}</option>
                   {availableCenters.map((c) => (
                     <option key={c} value={c}>
                       {c}

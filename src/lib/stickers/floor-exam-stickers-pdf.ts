@@ -207,7 +207,7 @@ function drawFloorSubjectPlacardPage(params: {
   const rawExam = options.examName || subject.examType || "EST";
   const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam) || subject.examType === "EST 2";
   const examLabel = isEst2 ? "EST II" : "EST I";
-  const sessionText = options.date || "OFFICIAL EXAMINATION SESSION";
+  const sessionText = options.date || "TEST SESSION";
 
   page.drawText(examLabel, {
     x: textStartX,
@@ -217,7 +217,7 @@ function drawFloorSubjectPlacardPage(params: {
     color: COLOR_CHARCOAL,
   });
 
-  page.drawText(`FLOOR SUBJECT EXAM BAG PLACARD — ${sessionText.toUpperCase()}`, {
+  page.drawText(`FLOOR SUBJECT TEST BAG PLACARD — ${sessionText.toUpperCase()}`, {
     x: textStartX,
     y: headerY + 15,
     size: 9.5,
@@ -225,7 +225,7 @@ function drawFloorSubjectPlacardPage(params: {
     color: COLOR_MUTED,
   });
 
-  // Right Badge: Subject Bag Index
+  // Right Badge: Subject Bag Index (Clean White Box with Charcoal Border - ZERO Black Fill!)
   const badgeText = `BAG ${subjectIndex + 1} OF ${totalSubjects} — ${subject.subjectCode}`;
   const badgeW = 185;
   const badgeH = 32;
@@ -237,7 +237,9 @@ function drawFloorSubjectPlacardPage(params: {
     y: badgeY,
     width: badgeW,
     height: badgeH,
-    color: COLOR_CHARCOAL,
+    color: COLOR_WHITE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1.5,
   });
 
   const badgeTextW = font.widthOfTextAtSize(badgeText, 9.5);
@@ -246,7 +248,7 @@ function drawFloorSubjectPlacardPage(params: {
     y: badgeY + 11,
     size: 9.5,
     font,
-    color: COLOR_WHITE,
+    color: COLOR_CHARCOAL,
   });
 
   // Divider Line
@@ -292,8 +294,8 @@ function drawFloorSubjectPlacardPage(params: {
     color: COLOR_CHARCOAL,
   });
 
-  // 2. School or Test Center
-  const centerColTitle = isSchool ? "SCHOOL" : "TEST CENTER";
+  // 2. Test Center
+  const centerColTitle = "TEST CENTER";
   page.drawText(centerColTitle, {
     x: cardX + 12 + locColW + 10,
     y: locRibbonY + locRibbonH - 13,
@@ -479,14 +481,14 @@ function drawFloorSubjectPlacardPage(params: {
     borderColor: COLOR_BORDER,
     borderWidth: 0.8,
   });
-  page.drawText("ASSIGNED CANDIDATES:", {
+  page.drawText("STUDENTS:", {
     x: leftX + 14,
     y: s4Y + statBoxH - 16,
     size: 7.5,
     font,
     color: COLOR_MUTED,
   });
-  page.drawText(`${subject.totalCandidates} CANDIDATES`, {
+  page.drawText(`${subject.totalCandidates} STUDENTS`, {
     x: leftX + 14,
     y: s4Y + 14,
     size: 18,
@@ -603,7 +605,7 @@ function drawFloorSubjectPlacardPage(params: {
 
     const rName = rItem.roomName;
     const rCount = rItem.candidateCount;
-    const countLong = `(${rCount} ${rCount === 1 ? "Candidate" : "Candidates"})`;
+    const countLong = `(${rCount} ${rCount === 1 ? "Student" : "Students"})`;
     const countShort = `(${rCount})`;
 
     // Larger font sizes for Enclosed Rooms

@@ -313,10 +313,15 @@ export function toEnglishText(input: string | undefined): string {
   str = str.replace(/دور/gi, "Floor");
   // Terms
   str = str.replace(/دورة/gi, "Session");
-  str = str.replace(/مدرسة/gi, "School");
+  str = str.replace(/مدرسة/gi, "Test Center");
+  str = str.replace(/\bSchool\b/gi, "Test Center");
   str = str.replace(/سنتر/gi, "Center");
   str = str.replace(/مبنى/gi, "Building");
   str = str.replace(/قاعة|قاعه|غرفة|غرفه/gi, "Room");
+  str = str.replace(/امتحان|اختبار/gi, "Test");
+  str = str.replace(/\bExamination\b/gi, "Test");
+  str = str.replace(/\bCandidate\b/gi, "Student");
+  str = str.replace(/\bCandidates\b/gi, "Students");
   // Arabic digits to Western digits
   str = str.replace(/[\u0660-\u0669]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0x0660 + 48));
 
@@ -727,8 +732,8 @@ export async function renderBuildingCartonPage(
       maxLines: 1,
     });
 
-    // Col 2: Examination Center / School
-    page.drawText("EXAMINATION CENTER / SCHOOL", {
+    // Col 2: Test Center
+    page.drawText("TEST CENTER", {
       x: c2X + 14,
       y: locRibbonY + locRibbonH - 13,
       size: 7,
@@ -876,7 +881,7 @@ export async function renderBuildingCartonPage(
       font,
       color: COLOR_MUTED,
     });
-    page.drawText(`${combTot} CANDIDATES`, {
+    page.drawText(`${combTot} STUDENTS`, {
       x: leftX + 14,
       y: stat3Y + 10,
       size: 14.5,
@@ -1352,7 +1357,7 @@ export async function generateExamBagChecklistPdf(
     page.drawText("GOVERNORATE", { x: c1X + 12, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
     drawFittedTextInBox(page, govText, font, COLOR_CHARCOAL, { x: c1X + 12, y: locRibbonY + 4, width: col1W - 24, height: locRibbonH - 16, baseSize: 11, minSize: 8.5 });
 
-    page.drawText("EXAMINATION CENTER / SCHOOL", { x: c2X + 14, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
+    page.drawText("TEST CENTER", { x: c2X + 14, y: locRibbonY + locRibbonH - 12, size: 6.5, font, color: COLOR_MUTED });
     drawFittedTextInBox(page, cleanCenter, font, COLOR_CHARCOAL, { x: c2X + 14, y: locRibbonY + 4, width: col2W - 28, height: locRibbonH - 16, baseSize: 12, minSize: 9 });
 
     page.drawLine({ start: { x: c2X, y: locRibbonY + 4 }, end: { x: c2X, y: locRibbonY + locRibbonH - 4 }, thickness: 0.5, color: COLOR_BORDER });
@@ -1370,7 +1375,7 @@ export async function generateExamBagChecklistPdf(
     borderColor: COLOR_BORDER,
     borderWidth: 0.6,
   });
-  page.drawText("INSTRUCTIONS: Check off [✓] each enclosed examination subject packet before sealing the transit bag.", {
+  page.drawText("INSTRUCTIONS: Check off [✓] each enclosed test subject packet before sealing the transit bag.", {
     x: cardX + 20,
     y: instrY + 6,
     size: 7.5,
@@ -2119,7 +2124,7 @@ export async function drawMasterBuildingManifestLandscapePage(
   const totRooms = allRooms.length;
   const totCand = allRooms.reduce((s, r) => s + (r.studentCount || 0), 0);
 
-  page.drawText(`BUILDING TOTALS: ${totRooms} ROOMS   •   ${totCand} TOTAL CANDIDATES`, {
+  page.drawText(`BUILDING TOTALS: ${totRooms} ROOMS   •   ${totCand} TOTAL STUDENTS`, {
     x: cardX + 16,
     y: footerY + 26,
     size: 8.5,
@@ -2826,7 +2831,7 @@ function drawQuarterCleanSkinSticker(params: {
   if (center) locLines.push(center);
   const sub = [gov, bld].filter(Boolean).join("   •   ");
   if (sub) locLines.push(sub);
-  if (locLines.length === 0) locLines.push("Examination Center");
+  if (locLines.length === 0) locLines.push("Test Center");
 
   const ribbonH = locLines.length > 1 ? 24 : 16;
   const ribbonY = headerBottom - 6 - ribbonH;
@@ -3111,17 +3116,17 @@ export async function generateCartonDriverManifestPdf(
     const kpiItems = isCombined
       ? [
           { label: "TOTAL CARTONS", val: `${totalCartons} Boxes` },
-          { label: "EXAM CENTERS", val: `${uniqueCenters} Centers` },
+          { label: "TEST CENTERS", val: `${uniqueCenters} Centers` },
           { label: "TOTAL ROOMS", val: `${totalRooms} Rooms` },
-          { label: "EST I CANDIDATES", val: `${totalEst1} Candidates` },
-          { label: "EST II CANDIDATES", val: `${totalEst2} Candidates` },
-          { label: "TOTAL CANDIDATES", val: `${totalEst1 + totalEst2} Candidates` },
+          { label: "EST I STUDENTS", val: `${totalEst1} Students` },
+          { label: "EST II STUDENTS", val: `${totalEst2} Students` },
+          { label: "TOTAL STUDENTS", val: `${totalEst1 + totalEst2} Students` },
         ]
       : [
           { label: "TOTAL CARTONS", val: `${totalCartons} Boxes` },
-          { label: "EXAM CENTERS", val: `${uniqueCenters} Centers` },
+          { label: "TEST CENTERS", val: `${uniqueCenters} Centers` },
           { label: "TOTAL ROOMS", val: `${totalRooms} Rooms` },
-          { label: "TOTAL CANDIDATES", val: `${totalStudents} Candidates` },
+          { label: "TOTAL STUDENTS", val: `${totalStudents} Students` },
         ];
 
     const kpiW = (cardW - 24) / kpiItems.length;
@@ -3183,7 +3188,7 @@ export async function generateCartonDriverManifestPdf(
     const cX_check = cX_cand + colW_cand;
     const cX_recv = cX_check + colW_check;
 
-    // Header Row
+    // Header Row (Light background with Charcoal Border - ZERO Black Fill!)
     const headerRowH = 18;
     const headerRowY = tableTop - headerRowH;
 
@@ -3192,7 +3197,9 @@ export async function generateCartonDriverManifestPdf(
       y: headerRowY,
       width: tableW,
       height: headerRowH,
-      color: COLOR_CHARCOAL,
+      color: COLOR_LIGHT_BG,
+      borderColor: COLOR_CHARCOAL,
+      borderWidth: 1,
     });
 
     const drawColH = (text: string, xPos: number, w: number, alignCenter = true) => {
@@ -3203,16 +3210,16 @@ export async function generateCartonDriverManifestPdf(
         y: headerRowY + 5.5,
         size: s,
         font,
-        color: COLOR_WHITE,
+        color: COLOR_CHARCOAL,
       });
     };
 
     drawColH("BOX #", cX_box, colW_box);
     drawColH("GOVERNORATE", cX_gov, colW_gov);
-    drawColH("TEST CENTER / SCHOOL", cX_center, colW_center, false);
+    drawColH("TEST CENTER", cX_center, colW_center, false);
     drawColH("BUILDING / FACILITY", cX_bld, colW_bld, false);
     drawColH("ROOMS", cX_rooms, colW_rooms);
-    drawColH(isCombined ? "EST I / II CAND" : "CANDIDATES", cX_cand, colW_cand);
+    drawColH("STUDENTS", cX_cand, colW_cand);
     drawColH("CHK", cX_check, colW_check);
     drawColH("RECEIVER CONFIRMATION (NAME, PHONE, SIGN & STAMP)", cX_recv, colW_recv, false);
 
