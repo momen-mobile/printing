@@ -1002,9 +1002,9 @@ describe("generateStickerPdf", () => {
           headerBottom: 360,
         });
 
-        // Verifies divider line is placed safely below both rows with generous top clearance
+        // Verifies divider line is placed safely below unified location rows with generous top clearance
         expect(dividerY).toBeLessThan(340);
-        expect(dividerY).toBeGreaterThan(300);
+        expect(dividerY).toBeGreaterThan(280);
       });
     });
 
