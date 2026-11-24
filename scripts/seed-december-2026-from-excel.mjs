@@ -105,10 +105,50 @@ export function extractFloorAndRoom(rawRoom, center) {
   return { floor: "1st Floor", room: raw };
 }
 
+function normalizeFloor(rawFloor, rawRoom, center) {
+  if (rawFloor && String(rawFloor).trim()) {
+    const f = String(rawFloor).trim();
+    if (/^ground/i.test(f)) return "Ground Floor";
+    if (/^basement/i.test(f)) return "Basement";
+    if (/^mezzanine/i.test(f)) return "Mezzanine";
+    if (/^(?:1st|first)/i.test(f)) return "1st Floor";
+    if (/^(?:2nd|second)/i.test(f)) return "2nd Floor";
+    if (/^(?:3rd|3th|third)/i.test(f)) return "3rd Floor";
+    if (/^(?:4th|fourth)/i.test(f)) return "4th Floor";
+    if (/^(?:5th|fifth)/i.test(f)) return "5th Floor";
+    const m = f.match(/^(\d+)(?:st|nd|rd|th)?(?:\s*floor)?$/i);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n === 1) return "1st Floor";
+      if (n === 2) return "2nd Floor";
+      if (n === 3) return "3rd Floor";
+      return `${n}th Floor`;
+    }
+    return f.replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return extractFloorAndRoom(rawRoom, center).floor;
+}
+
 async function main() {
-  const filePath = fs.existsSync("./src/lib/assets/Stats-per-Room.xlsx")
-    ? "./src/lib/assets/Stats-per-Room.xlsx"
-    : "//192.168.1.230/Dev/printing/Stats per Room.xlsx";
+  const sourceNetworkPath = "\\\\192.168.1.230\\Dev\\printing\\Stats per Room (1).xlsx";
+  const fallbackNetworkPath = "\\\\192.168.1.230\\Dev\\printing\\Stats per Room.xlsx";
+  const localAssetPath = "./src/lib/assets/Stats-per-Room.xlsx";
+
+  if (fs.existsSync(sourceNetworkPath)) {
+    console.log(`Copying latest Excel from network: ${sourceNetworkPath} -> ${localAssetPath}...`);
+    try {
+      fs.copyFileSync(sourceNetworkPath, localAssetPath);
+    } catch (err) {
+      console.warn("Could not copy from source network path:", err.message);
+    }
+  }
+
+  const filePath = fs.existsSync(localAssetPath)
+    ? localAssetPath
+    : fs.existsSync(sourceNetworkPath)
+      ? sourceNetworkPath
+      : fallbackNetworkPath;
+
   console.log(`Reading Excel file from ${filePath}...`);
 
   const buf = fs.readFileSync(filePath);
@@ -136,8 +176,10 @@ async function main() {
     // Skip empty or total rows
     if (!center || !rawRoom || /^total$/i.test(center) || /^total$/i.test(rawGov)) continue;
 
+    const building = String(r["Building"] || center).trim() || center;
     const gov = lastGov;
-    const { floor, room } = extractFloorAndRoom(rawRoom, center);
+    const floor = normalizeFloor(r["Floor"], rawRoom, center);
+    const room = rawRoom;
 
     const est1Students = Number(r["Students EST I"]) || 0;
     const est2Students = Number(r["Students EST II"]) || 0;
@@ -183,6 +225,7 @@ async function main() {
         index: est1Rows.length + 1,
         governorate: gov,
         center,
+        building,
         floor,
         room,
         rawRoom,
@@ -220,6 +263,7 @@ async function main() {
         index: est2Rows.length + 1,
         governorate: gov,
         center,
+        building,
         floor,
         room,
         rawRoom,

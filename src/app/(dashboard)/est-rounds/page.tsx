@@ -76,9 +76,16 @@ export default function EstRoundsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedGov, setSelectedGov] = useState<string>("all");
   const [selectedCenter, setSelectedCenter] = useState<string>("all");
+  const [subjectShortcut, setSubjectShortcut] = useState<string>("all");
 
   // Selection
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+
+  // Reset selection & subject shortcuts when switching rounds
+  useEffect(() => {
+    setSelectedRowIds(new Set());
+    setSubjectShortcut("all");
+  }, [activeRoundId]);
 
   // Collapsed sections
   const [collapsedGovs, setCollapsedGovs] = useState<Set<string>>(new Set());
@@ -253,12 +260,32 @@ export default function EstRoundsPage() {
       list = list.filter((r) => r.center.toLowerCase() === selectedCenter.toLowerCase());
     }
 
+    // Quick Subject Filter Shortcuts
+    if (subjectShortcut === "essay") {
+      list = list.filter((r) => (r.subjects?.ESSAY || (r as any).withEssay || 0) > 0);
+    } else if (subjectShortcut === "no_essay") {
+      list = list.filter((r) => !r.subjects?.ESSAY && !(r as any).withEssay);
+    } else if (subjectShortcut === "lit_math") {
+      list = list.filter((r) => (r.subjects?.LIT || 0) > 0 || (r.subjects?.MATH || 0) > 0);
+    } else if (subjectShortcut === "math1") {
+      list = list.filter((r) => (r.subjects?.MATH1 || 0) > 0);
+    } else if (subjectShortcut === "math2") {
+      list = list.filter((r) => (r.subjects?.MATH2 || 0) > 0);
+    } else if (subjectShortcut === "bio") {
+      list = list.filter((r) => (r.subjects?.BIO || 0) > 0);
+    } else if (subjectShortcut === "chem") {
+      list = list.filter((r) => (r.subjects?.CHEM || 0) > 0);
+    } else if (subjectShortcut === "phy") {
+      list = list.filter((r) => (r.subjects?.PHY || 0) > 0);
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
         (r) =>
           r.governorate.toLowerCase().includes(q) ||
           r.center.toLowerCase().includes(q) ||
+          ((r as any).building && (r as any).building.toLowerCase().includes(q)) ||
           r.floor.toLowerCase().includes(q) ||
           r.room.toLowerCase().includes(q) ||
           r.rawRoom.toLowerCase().includes(q) ||
@@ -267,7 +294,36 @@ export default function EstRoundsPage() {
     }
 
     return list;
-  }, [sheetRows, selectedGov, selectedCenter, searchQuery]);
+  }, [sheetRows, selectedGov, selectedCenter, subjectShortcut, searchQuery]);
+
+  // Counts for Subject Shortcuts
+  const shortcutCounts = useMemo(() => {
+    const isEst2 = activeRound?.examType === "EST 2";
+    if (isEst2) {
+      return {
+        all: sheetRows.length,
+        math2: sheetRows.filter((r) => (r.subjects?.MATH2 || 0) > 0).length,
+        chem: sheetRows.filter((r) => (r.subjects?.CHEM || 0) > 0).length,
+        bio: sheetRows.filter((r) => (r.subjects?.BIO || 0) > 0).length,
+        phy: sheetRows.filter((r) => (r.subjects?.PHY || 0) > 0).length,
+        math1: sheetRows.filter((r) => (r.subjects?.MATH1 || 0) > 0).length,
+        essay: 0,
+        no_essay: 0,
+        lit_math: 0,
+      };
+    }
+    return {
+      all: sheetRows.length,
+      essay: sheetRows.filter((r) => (r.subjects?.ESSAY || (r as any).withEssay || 0) > 0).length,
+      no_essay: sheetRows.filter((r) => !(r.subjects?.ESSAY || (r as any).withEssay)).length,
+      lit_math: sheetRows.filter((r) => (r.subjects?.LIT || 0) > 0).length,
+      math2: 0,
+      chem: 0,
+      bio: 0,
+      phy: 0,
+      math1: 0,
+    };
+  }, [sheetRows, activeRound?.examType]);
 
   // Unique Governorates & Centers for dropdowns
   const availableGovs = useMemo(() => {
@@ -1455,6 +1511,213 @@ export default function EstRoundsPage() {
                 )}
               </div>
             </div>
+
+            {/* Quick Subject Filter Shortcuts */}
+            <div className="pt-2.5 border-t border-border/50 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-muted flex items-center gap-1 me-1">
+                  <Sparkles className="size-3 text-purple-600" />
+                  <span>{isAr ? "اختصارات المواد:" : "Subject Shortcuts:"}</span>
+                </span>
+
+                {/* All Pill */}
+                <button
+                  type="button"
+                  onClick={() => setSubjectShortcut("all")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
+                    subjectShortcut === "all"
+                      ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                      : "bg-surface hover:bg-surface-soft border-border text-foreground hover:border-purple-300",
+                  )}
+                >
+                  <span>{isAr ? "جميع القاعات" : "All Rooms"}</span>
+                  <span
+                    className={cn(
+                      "text-[10px] px-1.5 py-0.2 rounded-full font-black",
+                      subjectShortcut === "all" ? "bg-white/20 text-white" : "bg-muted/15 text-muted",
+                    )}
+                  >
+                    {shortcutCounts.all}
+                  </span>
+                </button>
+
+                {/* EST 1 specific shortcuts */}
+                {activeRound?.examType !== "EST 2" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setSubjectShortcut(subjectShortcut === "essay" ? "all" : "essay")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
+                        subjectShortcut === "essay"
+                          ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                          : "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-700 dark:text-amber-300",
+                      )}
+                    >
+                      <span>✍️ {isAr ? "قاعات المقال (Essay)" : "Essay Rooms"}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.2 rounded-full font-black",
+                          subjectShortcut === "essay" ? "bg-white/20 text-white" : "bg-amber-500/20 text-amber-800 dark:text-amber-200",
+                        )}
+                      >
+                        {shortcutCounts.essay || 0}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSubjectShortcut(subjectShortcut === "no_essay" ? "all" : "no_essay")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
+                        subjectShortcut === "no_essay"
+                          ? "bg-slate-700 text-white border-slate-700 shadow-xs"
+                          : "bg-surface hover:bg-surface-soft border-border text-muted hover:text-foreground",
+                      )}
+                    >
+                      <span>{isAr ? "بدون مقال" : "Without Essay"}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.2 rounded-full font-black",
+                          subjectShortcut === "no_essay" ? "bg-white/20 text-white" : "bg-muted/15 text-muted",
+                        )}
+                      >
+                        {shortcutCounts.no_essay || 0}
+                      </span>
+                    </button>
+                  </>
+                )}
+
+                {/* EST 2 specific shortcuts */}
+                {activeRound?.examType === "EST 2" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setSubjectShortcut(subjectShortcut === "math2" ? "all" : "math2")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
+                        subjectShortcut === "math2"
+                          ? "bg-violet-600 text-white border-violet-600 shadow-xs"
+                          : "bg-violet-500/10 hover:bg-violet-500/20 border-violet-500/30 text-violet-700 dark:text-violet-300",
+                      )}
+                    >
+                      <span>📐 {isAr ? "ماث 2 (Math 2)" : "Math 2"}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.2 rounded-full font-black",
+                          subjectShortcut === "math2" ? "bg-white/20 text-white" : "bg-violet-500/20 text-violet-800 dark:text-violet-200",
+                        )}
+                      >
+                        {shortcutCounts.math2 || 0}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSubjectShortcut(subjectShortcut === "chem" ? "all" : "chem")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
+                        subjectShortcut === "chem"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                          : "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-700 dark:text-emerald-300",
+                      )}
+                    >
+                      <span>🧪 {isAr ? "كيمياء (Chemistry)" : "Chemistry"}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.2 rounded-full font-black",
+                          subjectShortcut === "chem" ? "bg-white/20 text-white" : "bg-emerald-500/20 text-emerald-800 dark:text-emerald-200",
+                        )}
+                      >
+                        {shortcutCounts.chem || 0}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSubjectShortcut(subjectShortcut === "bio" ? "all" : "bio")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
+                        subjectShortcut === "bio"
+                          ? "bg-teal-600 text-white border-teal-600 shadow-xs"
+                          : "bg-teal-500/10 hover:bg-teal-500/20 border-teal-500/30 text-teal-700 dark:text-teal-300",
+                      )}
+                    >
+                      <span>🧬 {isAr ? "أحياء (Biology)" : "Biology"}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.2 rounded-full font-black",
+                          subjectShortcut === "bio" ? "bg-white/20 text-white" : "bg-teal-500/20 text-teal-800 dark:text-teal-200",
+                        )}
+                      >
+                        {shortcutCounts.bio || 0}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSubjectShortcut(subjectShortcut === "math1" ? "all" : "math1")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
+                        subjectShortcut === "math1"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                          : "bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/30 text-blue-700 dark:text-blue-300",
+                      )}
+                    >
+                      <span>📊 {isAr ? "ماث 1 (Math 1)" : "Math 1"}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.2 rounded-full font-black",
+                          subjectShortcut === "math1" ? "bg-white/20 text-white" : "bg-blue-500/20 text-blue-800 dark:text-blue-200",
+                        )}
+                      >
+                        {shortcutCounts.math1 || 0}
+                      </span>
+                    </button>
+
+                    {(shortcutCounts.phy || 0) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSubjectShortcut(subjectShortcut === "phy" ? "all" : "phy")}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
+                          subjectShortcut === "phy"
+                            ? "bg-sky-600 text-white border-sky-600 shadow-xs"
+                            : "bg-sky-500/10 hover:bg-sky-500/20 border-sky-500/30 text-sky-700 dark:text-sky-300",
+                        )}
+                      >
+                        <span>⚛️ {isAr ? "فيزياء (Physics)" : "Physics"}</span>
+                        <span
+                          className={cn(
+                            "text-[10px] px-1.5 py-0.2 rounded-full font-black",
+                            subjectShortcut === "phy" ? "bg-white/20 text-white" : "bg-sky-500/20 text-sky-800 dark:text-sky-200",
+                          )}
+                        >
+                          {shortcutCounts.phy || 0}
+                        </span>
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Quick Select Filtered Action */}
+              {subjectShortcut !== "all" && filteredRows.length > 0 && (
+                <button
+                  type="button"
+                  onClick={selectAllFiltered}
+                  className="text-xs font-bold text-purple-700 dark:text-purple-300 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <CheckSquare className="size-3.5" />
+                  <span>
+                    {isAr
+                      ? `تحديد هذه القاعات فقط (${filteredRows.length})`
+                      : `Select only these rooms (${filteredRows.length})`}
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Grouped Data Table */}
@@ -1568,6 +1831,7 @@ export default function EstRoundsPage() {
                                         <tr className="border-b border-border/40 text-muted bg-surface-soft/30 text-[11px]">
                                           <th className="py-1.5 px-3 w-8 text-center"></th>
                                           <th className="py-1.5 px-3 text-start font-semibold">{isAr ? "القاعة" : "Room"}</th>
+                                          <th className="py-1.5 px-3 text-start font-semibold">{isAr ? "المبنى" : "Building"}</th>
                                           <th className="py-1.5 px-3 text-start font-semibold">{isAr ? "الدور" : "Floor"}</th>
                                           {subjectColumns.map((col) => (
                                             <th key={col.code} className="py-1.5 px-3 text-center font-semibold">
@@ -1606,6 +1870,15 @@ export default function EstRoundsPage() {
                                                     </span>
                                                   )}
                                                 </div>
+                                              </td>
+                                              <td className="py-2 px-3 text-muted">
+                                                {(row as any).building && (row as any).building.toLowerCase() !== row.center.toLowerCase() ? (
+                                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-300 font-medium text-[10.5px]">
+                                                    🏢 {(row as any).building}
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-muted/50 text-[10.5px]">—</span>
+                                                )}
                                               </td>
                                               <td className="py-2 px-3 text-muted">{row.floor}</td>
                                               {subjectColumns.map((col) => {

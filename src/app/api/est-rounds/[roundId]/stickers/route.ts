@@ -30,7 +30,7 @@ import {
   type RoomDetail,
 } from "@/lib/stickers/logistics-stickers-pdf";
 import { getFloorSortWeight } from "@/lib/stickers/est-reference-data";
-import type { StickerContent } from "@/lib/stickers/sticker-content";
+import type { StickerContent, StickerFieldItem } from "@/lib/stickers/sticker-content";
 import type { RoomSubjectCount } from "@/lib/stickers/est-room-data";
 
 export const dynamic = "force-dynamic";
@@ -144,15 +144,16 @@ export async function POST(
         examDay: roundDayStr,
         governorate: row.governorate,
         center: row.center,
-        building: "",
+        building: (row as any).building || row.center,
         floor: row.floor,
         room: row.room,
         fields: [
           { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: row.governorate },
           { key: "center", label: isSchool ? "School" : "Center", labelAr: isSchool ? "المدرسة" : "السنتر", value: row.center },
+          ...((row as any).building && (row as any).building !== row.center ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (row as any).building }] : []),
           { key: "floor", label: "Floor", labelAr: "الدور", value: row.floor },
           { key: "room", label: "Room", labelAr: "القاعة", value: row.room },
-        ],
+        ] as StickerFieldItem[],
         subjects: roomSubjects,
         totalStudents: row.totalStudents,
         breakdownText: row.breakdownText,
@@ -192,10 +193,11 @@ export async function POST(
 
     // 2. FLOOR PLACARDS (Senior Supervisor Dossiers - Quarter-A4 4-Up)
     if (type === "floor_placards") {
-      // Group target rows by governorate + center + floor
+      // Group target rows by governorate + center + building + floor
       const floorGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
-        const key = `${r.governorate}::${r.center}::${r.floor}`;
+        const bld = (r as any).building || r.center;
+        const key = `${r.governorate}::${r.center}::${bld}::${r.floor}`;
         const existing = floorGroups.get(key) || [];
         existing.push(r);
         floorGroups.set(key, existing);
@@ -207,6 +209,7 @@ export async function POST(
         const isSchool = isSchoolCenter(first.center);
         const floorRooms = rows.map((r) => r.room);
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
+        const isCampus = (first as any).building && (first as any).building.toLowerCase() !== first.center.toLowerCase();
 
         floorContents.push({
           level: "floor",
@@ -214,9 +217,10 @@ export async function POST(
             round.name,
             `Governorate : ${first.governorate}`,
             `${isSchool ? "School" : "Center"} : ${first.center}`,
+            isCampus ? `Building : ${(first as any).building}` : null,
             `Floor : ${first.floor}`,
             `Total Rooms : ${rows.length}`,
-          ],
+          ].filter(Boolean) as string[],
           rawLines: ["EST", first.governorate, first.center, first.floor],
           cleanChain: ["EST", first.governorate, first.center, first.floor],
           examName: round.name || round.examType,
@@ -225,7 +229,7 @@ export async function POST(
           examDay: roundDayStr,
           governorate: first.governorate,
           center: first.center,
-          building: "",
+          building: (first as any).building || first.center,
           floor: first.floor,
           childCount: rows.length,
           childLabel: "Rooms",
@@ -234,8 +238,9 @@ export async function POST(
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
             { key: "center", label: isSchool ? "School" : "Center", labelAr: isSchool ? "المدرسة" : "السنتر", value: first.center },
+            ...(isCampus ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (first as any).building }] : []),
             { key: "floor", label: "Floor", labelAr: "الدور", value: first.floor },
-          ],
+          ] as StickerFieldItem[],
         });
       }
 
@@ -350,7 +355,8 @@ export async function POST(
     if (type === "building_placards") {
       const centerGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
-        const key = `${r.governorate}::${r.center}`;
+        const bld = (r as any).building || r.center;
+        const key = `${r.governorate}::${r.center}::${bld}`;
         const existing = centerGroups.get(key) || [];
         existing.push(r);
         centerGroups.set(key, existing);
@@ -362,6 +368,7 @@ export async function POST(
         const isSchool = isSchoolCenter(first.center);
         const uniqueFloors = Array.from(new Set(rows.map((r) => r.floor)));
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
+        const isCampus = (first as any).building && (first as any).building.toLowerCase() !== first.center.toLowerCase();
 
         buildingContents.push({
           level: "building",
@@ -369,9 +376,10 @@ export async function POST(
             round.name,
             `Governorate : ${first.governorate}`,
             `${isSchool ? "School" : "Center"} : ${first.center}`,
+            isCampus ? `Building : ${(first as any).building}` : null,
             `Total Floors : ${uniqueFloors.length}`,
             `Total Rooms : ${rows.length}`,
-          ],
+          ].filter(Boolean) as string[],
           rawLines: ["EST", first.governorate, first.center],
           cleanChain: ["EST", first.governorate, first.center],
           examName: round.name || round.examType,
@@ -380,7 +388,7 @@ export async function POST(
           examDay: roundDayStr,
           governorate: first.governorate,
           center: first.center,
-          building: "",
+          building: (first as any).building || first.center,
           childCount: uniqueFloors.length,
           childLabel: "Floors",
           childNames: uniqueFloors,
@@ -389,7 +397,8 @@ export async function POST(
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
             { key: "center", label: isSchool ? "School" : "Center", labelAr: isSchool ? "المدرسة" : "السنتر", value: first.center },
-          ],
+            ...(isCampus ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (first as any).building }] : []),
+          ] as StickerFieldItem[],
         });
       }
 
@@ -416,7 +425,8 @@ export async function POST(
     if (type === "head_placards") {
       const centerGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
-        const key = `${r.governorate}::${r.center}`;
+        const bld = (r as any).building || r.center;
+        const key = `${r.governorate}::${r.center}::${bld}`;
         const existing = centerGroups.get(key) || [];
         existing.push(r);
         centerGroups.set(key, existing);
@@ -428,6 +438,7 @@ export async function POST(
         const isSchool = isSchoolCenter(first.center);
         const uniqueFloors = Array.from(new Set(rows.map((r) => r.floor)));
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
+        const isCampus = (first as any).building && (first as any).building.toLowerCase() !== first.center.toLowerCase();
 
         headContents.push({
           level: "building_head",
@@ -436,9 +447,10 @@ export async function POST(
             round.name,
             `Governorate : ${first.governorate}`,
             `${isSchool ? "School" : "Center"} : ${first.center}`,
+            isCampus ? `Building : ${(first as any).building}` : null,
             `Total Floors : ${uniqueFloors.length}`,
             `Total Rooms : ${rows.length}`,
-          ],
+          ].filter(Boolean) as string[],
           rawLines: ["EST", first.governorate, first.center, first.center],
           cleanChain: ["EST", first.governorate, first.center, first.center],
           examName: round.name || round.examType,
@@ -447,7 +459,7 @@ export async function POST(
           examDay: roundDayStr,
           governorate: first.governorate,
           center: first.center,
-          building: "",
+          building: (first as any).building || first.center,
           childCount: uniqueFloors.length,
           childLabel: "Floors",
           childNames: uniqueFloors,
@@ -456,7 +468,8 @@ export async function POST(
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
             { key: "center", label: isSchool ? "School" : "Center", labelAr: isSchool ? "المدرسة" : "السنتر", value: first.center },
-          ],
+            ...(isCampus ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (first as any).building }] : []),
+          ] as StickerFieldItem[],
         });
       }
 
@@ -602,11 +615,12 @@ export async function POST(
       });
     }
 
-    // Helper to build LogisticsStickerOptions for each center in targetRows (Sequentially Numbered)
+    // Helper to build LogisticsStickerOptions for each building & center in targetRows (Sequentially Numbered)
     const buildCenterLogisticsOptions = (): LogisticsStickerOptions[] => {
       const centerGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
-        const key = `${r.governorate}::${r.center}`;
+        const bld = (r as any).building || r.center;
+        const key = `${r.governorate}::${r.center}::${bld}`;
         const existing = centerGroups.get(key) || [];
         existing.push(r);
         centerGroups.set(key, existing);
@@ -620,6 +634,7 @@ export async function POST(
         const [_, cRows] = centerEntries[idx];
         const first = cRows[0];
         const centerName = first.center;
+        const buildingName = (first as any).building || first.center;
         const govName = first.governorate;
 
         const floorMap = new Map<string, EstRoundRow[]>();
@@ -678,7 +693,7 @@ export async function POST(
           examName: round.name || round.examType,
           governorate: govName,
           center: centerName,
-          building: centerName,
+          building: buildingName,
           date: round.cycleName || "December 2026",
           totalRooms,
           totalStudents,
@@ -715,10 +730,11 @@ export async function POST(
 
       const sourceRows = allCycleRows.length > 0 ? allCycleRows : (targetRows as any[]);
 
-      // Group by Center and Governorate
+      // Group by Building, Center, and Governorate
       const centerGroups = new Map<string, any[]>();
       for (const r of sourceRows) {
-        const key = `${r.governorate}::${r.center}`;
+        const bld = r.building || r.center;
+        const key = `${r.governorate}::${r.center}::${bld}`;
         const existing = centerGroups.get(key) || [];
         existing.push(r);
         centerGroups.set(key, existing);
@@ -732,6 +748,7 @@ export async function POST(
         const [_, cRows] = centerEntries[idx];
         const first = cRows[0];
         const centerName = first.center;
+        const buildingName = (first as any).building || first.center;
         const govName = first.governorate;
 
         const floorMap = new Map<string, Map<string, any>>();
@@ -802,7 +819,7 @@ export async function POST(
           examName: "EST I & EST II Combined",
           governorate: govName,
           center: centerName,
-          building: centerName,
+          building: buildingName,
           date: round.cycleName || "December 2026",
           totalRooms,
           totalStudents,

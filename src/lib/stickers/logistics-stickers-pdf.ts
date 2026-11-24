@@ -332,7 +332,7 @@ export function splitCenterAndBuilding(
   rawCenter: string | undefined,
   rawBuilding?: string | undefined,
 ): { center: string; building: string; isCampus: boolean } {
-  const c = toEnglishText(rawCenter || "").trim();
+  let c = toEnglishText(rawCenter || "").trim();
   let b = toEnglishText(rawBuilding || "").trim();
 
   // If rawBuilding is missing, identical to center, or center contains the building
@@ -364,6 +364,11 @@ export function splitCenterAndBuilding(
     b = b.substring(c.length).replace(/^[-–—:\s]+/, "").trim();
   }
 
+  // If center ends with building name, strip repetition from center
+  if (b && c.toLowerCase().endsWith(b.toLowerCase()) && c.length > b.length) {
+    c = c.substring(0, c.length - b.length).replace(/[-–—:\s]+$/, "").trim();
+  }
+
   return {
     center: c,
     building: b,
@@ -372,7 +377,8 @@ export function splitCenterAndBuilding(
 }
 
 /**
- * Fits and draws text in a rectangular bounding box with multi-line wrapping and dynamic font scaling.
+ * Fits and draws text in a rectangular bounding box with multi-line wrapping,
+ * dynamic font scaling, and strict boundary protection.
  * Guarantees zero text collision with adjacent columns.
  */
 function drawFittedTextInBox(
@@ -392,8 +398,18 @@ function drawFittedTextInBox(
 ) {
   const maxW = Math.max(10, box.width);
   const baseSize = box.baseSize || 13;
-  const minSize = box.minSize || 8;
+  const minSize = box.minSize || 6.5;
   const maxLines = box.maxLines || 2;
+
+  // Strict boundary protection: guarantee text never crosses maxW
+  const fitToWidth = (str: string, size: number): string => {
+    if (!str || font.widthOfTextAtSize(str, size) <= maxW) return str;
+    let s = str;
+    while (s.length > 3 && font.widthOfTextAtSize(s + "...", size) > maxW) {
+      s = s.slice(0, -1).trim();
+    }
+    return s + "...";
+  };
 
   // 1. Check if fits on a single line
   const singleLineW = font.widthOfTextAtSize(text, baseSize);
@@ -411,9 +427,9 @@ function drawFittedTextInBox(
   // 2. Wrap words into lines
   const words = text.split(/\s+/).filter(Boolean);
   if (words.length <= 1 || maxLines === 1) {
-    // Single long word or 1 line forced: scale down font
     const effSize = Math.max(minSize, (maxW / singleLineW) * baseSize);
-    page.drawText(text, {
+    const fittedText = fitToWidth(text, effSize);
+    page.drawText(fittedText, {
       x: box.x,
       y: box.y + (box.height - effSize) / 2,
       size: effSize,
@@ -438,6 +454,9 @@ function drawFittedTextInBox(
   if (maxLineW > maxW) {
     effSize = Math.max(minSize, (maxW / maxLineW) * baseSize);
   }
+
+  bestLine1 = fitToWidth(bestLine1, effSize);
+  bestLine2 = fitToWidth(bestLine2, effSize);
 
   const lineSpacing = effSize * 1.15;
   const totalH = lineSpacing * 2;
@@ -3251,23 +3270,25 @@ export async function generateCartonDriverManifestPdf(
       });
 
       // 3. Center
-      const cSize = center.length > 32 ? 5.5 : center.length > 24 ? 6 : 6.8;
-      page.drawText(center, {
+      drawFittedTextInBox(page, center, font, COLOR_CHARCOAL, {
         x: cX_center + 5,
-        y: rowY + (rowH - cSize) / 2 + 1,
-        size: cSize,
-        font,
-        color: COLOR_CHARCOAL,
+        y: rowY + 1,
+        width: colW_center - 10,
+        height: rowH - 2,
+        baseSize: 6.8,
+        minSize: 5.2,
+        maxLines: 1,
       });
 
       // 4. Building
-      const bdSize = bldDisplay.length > 25 ? 5.5 : 6.5;
-      page.drawText(bldDisplay, {
+      drawFittedTextInBox(page, bldDisplay, font, COLOR_MUTED, {
         x: cX_bld + 5,
-        y: rowY + (rowH - bdSize) / 2 + 1,
-        size: bdSize,
-        font,
-        color: COLOR_MUTED,
+        y: rowY + 1,
+        width: colW_bld - 10,
+        height: rowH - 2,
+        baseSize: 6.5,
+        minSize: 5.2,
+        maxLines: 1,
       });
 
       // 5. Rooms
