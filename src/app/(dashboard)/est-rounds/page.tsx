@@ -489,6 +489,7 @@ export default function EstRoundsPage() {
         | "building_placards"
         | "head_placards"
         | "head_bag_placards"
+        | "floor_senior_bag_placards"
         | "exam_stickers"
         | "bundle"
         | "carton"
@@ -539,6 +540,7 @@ export default function EstRoundsPage() {
         else if (type === "building_placards") typeLabel = isAr ? "استيكرات المباني (A4)" : "Building Placards";
         else if (type === "head_placards") typeLabel = isAr ? "ملفات رئيس المبنى" : "Building Head Dossiers";
         else if (type === "head_bag_placards" || type === "bundle") typeLabel = isAr ? "كيس رئيس المبنى (A4 بالعرض)" : "Building Head Bag Placards";
+        else if (type === "floor_senior_bag_placards") typeLabel = isAr ? "كيس مشرف الدور (A4 بالعرض)" : "Floor Senior Bag Placards";
         else if (type === "carton") typeLabel = isAr ? "ستيكر كرتونة المبنى (A4)" : "Building Master Carton";
         else if (type === "carton_driver_manifest") typeLabel = isAr ? "شيت تسليم سيارات التوزيع (الكراتين)" : "Carton Delivery Manifest";
         else if (type === "combined_carton") typeLabel = isAr ? "كرتونة الامتحان المشتركة (EST 1 + EST 2)" : "Combined Master Carton";
@@ -963,7 +965,7 @@ export default function EstRoundsPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 {/* 1. Building Placards */}
                 <button
                   type="button"
@@ -1068,7 +1070,33 @@ export default function EstRoundsPage() {
                   </div>
                 </button>
 
-                {/* 5. Room Placards */}
+                {/* 5. Floor Senior Bag Placard (A4 Landscape) */}
+                <button
+                  type="button"
+                  onClick={() => void handleGeneratePdf("floor_senior_bag_placards")}
+                  disabled={isGenerating}
+                  className="flex flex-col items-start justify-between p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 hover:border-indigo-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                  title={isAr ? "طباعة استيكر كيسة السنيور (مشرف الدور) مقاس A4 بالعرض مع بيان المحتويات والقاعات" : "Print A4 Landscape Floor Senior Bag Placard with Assigned Rooms & Supplies"}
+                >
+                  <div className="flex items-center justify-between w-full mb-2">
+                    <span className="size-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs">
+                      {isGenerating && activeActionType === "floor_senior_bag_placards" ? <Loader2 className="size-4 animate-spin" /> : <ShoppingBag className="size-4" />}
+                    </span>
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 font-mono">
+                      A4 Landscape
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground group-hover:text-indigo-600 transition-colors">
+                      {isAr ? "كيس مشرف الدور (A4 بالعرض)" : "Floor Senior Bag"}
+                    </div>
+                    <div className="text-[10px] text-muted mt-0.5">
+                      {isAr ? "بيان محتويات كيس الدور" : "A4 Landscape Placard"}
+                    </div>
+                  </div>
+                </button>
+
+                {/* 6. Room Placards */}
                 <button
                   type="button"
                   onClick={() => void handleGeneratePdf("room_placards")}

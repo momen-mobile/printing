@@ -3,6 +3,8 @@ import { PDFDocument } from "pdf-lib";
 import {
   generateFloorExamStickersPdf,
   generateBuildingCleanSkinBagsPdf,
+  generateBuildingHeadBagPlacardsPdf,
+  generateFloorSeniorBagPlacardsPdf,
   type FloorSubjectPlacardData,
 } from "../floor-exam-stickers-pdf";
 
@@ -107,6 +109,55 @@ describe("generateFloorExamStickersPdf", () => {
 
     const doc = await PDFDocument.load(pdfBytes);
     expect(doc.getPageCount()).toBe(1); // Exactly 1 placard per building with all subjects combined
+
+    const page1 = doc.getPage(0);
+    const { width, height } = page1.getSize();
+    expect(width).toBeCloseTo(841.89, 1);
+    expect(height).toBeCloseTo(595.28, 1);
+  });
+
+  it("generates Building Head Bag Placards in A4 Landscape with enclosed files list", async () => {
+    const pdfBytes = await generateBuildingHeadBagPlacardsPdf([
+      {
+        governorate: "Cairo",
+        center: "Future University",
+        building: "Business",
+        examName: "EST 1",
+        examType: "EST 1",
+        date: "Friday, December 11, 2026",
+        totalFloors: 3,
+        totalRooms: 12,
+        totalStudents: 300,
+      },
+    ]);
+
+    const doc = await PDFDocument.load(pdfBytes);
+    expect(doc.getPageCount()).toBe(1);
+
+    const page1 = doc.getPage(0);
+    const { width, height } = page1.getSize();
+    expect(width).toBeCloseTo(841.89, 1);
+    expect(height).toBeCloseTo(595.28, 1);
+  });
+
+  it("generates Floor Senior Bag Placards in A4 Landscape with assigned rooms and supervisor supplies list", async () => {
+    const pdfBytes = await generateFloorSeniorBagPlacardsPdf([
+      {
+        governorate: "Alexandria",
+        center: "Future University",
+        building: "Business",
+        floor: "3rd Floor",
+        examName: "EST 1",
+        examType: "EST 1",
+        date: "Friday, December 11, 2026",
+        totalRooms: 4,
+        totalStudents: 100,
+        roomNames: ["Room 301", "Room 302", "Room 303", "Room 304"],
+      },
+    ]);
+
+    const doc = await PDFDocument.load(pdfBytes);
+    expect(doc.getPageCount()).toBe(1);
 
     const page1 = doc.getPage(0);
     const { width, height } = page1.getSize();

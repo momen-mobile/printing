@@ -796,6 +796,298 @@ export async function generateBuildingHeadBagPlacardsPdf(
   return await pdfDoc.save();
 }
 
+export interface FloorSeniorBagPlacardOption {
+  governorate: string;
+  center: string;
+  building?: string;
+  floor: string;
+  examName?: string;
+  examType?: "EST 1" | "EST 2" | "EST";
+  date?: string;
+  totalRooms: number;
+  totalStudents: number;
+  roomNames?: string[];
+}
+
+/**
+ * Draws a single Floor Senior Supervisor Bag Placard (A4 Landscape)
+ * to be placed on the Floor Senior's bag from the outside, featuring all floor data,
+ * assigned room list, and enclosed supervisor supplies list without checkboxes.
+ */
+function drawFloorSeniorBagPlacardPage(params: {
+  pdfDoc: PDFDocument;
+  font: any;
+  logoImg: any;
+  floorData: FloorSeniorBagPlacardOption;
+}) {
+  const { pdfDoc, font, logoImg, floorData } = params;
+
+  // A4 Landscape: 841.89 x 595.28 pt
+  const width = 841.89;
+  const height = 595.28;
+  const page = pdfDoc.addPage([width, height]);
+
+  const margin = 24;
+  const cardX = margin;
+  const cardY = margin;
+  const cardW = width - margin * 2;
+  const cardH = height - margin * 2;
+
+  // Clean White Background with Crisp Border - ZERO black fill!
+  page.drawRectangle({
+    x: cardX,
+    y: cardY,
+    width: cardW,
+    height: cardH,
+    color: COLOR_WHITE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1.5,
+  });
+
+  const centerX = width / 2;
+
+  // 1. TOP HEADER: Centered Official Logo & Session Date
+  const logoH = 46;
+  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 66;
+  const logoX = centerX - logoW / 2;
+  const logoY = cardY + cardH - logoH - 16;
+
+  if (logoImg) {
+    page.drawImage(logoImg, {
+      x: logoX,
+      y: logoY,
+      width: logoW,
+      height: logoH,
+    });
+  }
+
+  const rawExam = floorData.examName || floorData.examType || "EST";
+  const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam) || floorData.examType === "EST 2";
+  const examLabel = isEst2 ? "EST II" : "EST I";
+  const sessionDateText = toEnglishText(floorData.date) || "DECEMBER 2026";
+  const examDateHeader = `${examLabel}: ${sessionDateText}`;
+
+  const headerFontSize = 20;
+  const headerTextW = font.widthOfTextAtSize(examDateHeader, headerFontSize);
+  const headerY = logoY - 26;
+  page.drawText(examDateHeader, {
+    x: centerX - headerTextW / 2,
+    y: headerY,
+    size: headerFontSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Underline under Exam Title
+  page.drawLine({
+    start: { x: centerX - (headerTextW + 20) / 2, y: headerY - 4 },
+    end: { x: centerX + (headerTextW + 20) / 2, y: headerY - 4 },
+    thickness: 1.2,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Divider line below header
+  page.drawLine({
+    start: { x: cardX + 24, y: headerY - 16 },
+    end: { x: cardX + cardW - 24, y: headerY - 16 },
+    thickness: 0.8,
+    color: COLOR_BORDER,
+  });
+
+  // 2. SENIOR DOSSIER TAG (Centered Prominent Banner)
+  const tagText = "FLOOR SENIOR SUPERVISOR DOSSIER & SUPPLIES BAG";
+  const tagSize = 15;
+  const tagW = font.widthOfTextAtSize(tagText, tagSize);
+  const tagY = headerY - 36;
+  page.drawText(tagText, {
+    x: centerX - tagW / 2,
+    y: tagY,
+    size: tagSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+  page.drawLine({
+    start: { x: centerX - (tagW + 20) / 2, y: tagY - 4 },
+    end: { x: centerX + (tagW + 20) / 2, y: tagY - 4 },
+    thickness: 1.1,
+    color: COLOR_CHARCOAL,
+  });
+
+  // 3. VERTICALLY STACKED LOCATION & FLOOR DETAILS
+  const { center: cleanCenter, building: cleanBuilding } = splitCenterAndBuilding(
+    floorData.center,
+    floorData.building,
+  );
+  const govText = toEnglishText(floorData.governorate);
+  const bldText = cleanBuilding && cleanBuilding !== cleanCenter ? cleanBuilding : "";
+  const floorText = toEnglishText(floorData.floor) || "Floor";
+
+  interface StackedRow {
+    text: string;
+    size: number;
+    underlineThickness: number;
+  }
+
+  const rows: StackedRow[] = [];
+  if (govText) {
+    rows.push({ text: `City: ${govText}`, size: 20, underlineThickness: 1.1 });
+  }
+  if (cleanCenter) {
+    rows.push({ text: `Test Center: ${cleanCenter}`, size: 21, underlineThickness: 1.2 });
+  }
+  if (bldText) {
+    rows.push({ text: `Building: ${bldText}`, size: 20, underlineThickness: 1.1 });
+  }
+  rows.push({ text: `Floor: ${floorText}`, size: 26, underlineThickness: 1.4 });
+
+  const statsText = [
+    floorData.totalRooms > 0 ? `${floorData.totalRooms} Rooms` : null,
+    floorData.totalStudents > 0 ? `${floorData.totalStudents} Students Total` : null,
+  ].filter(Boolean).join("   •   ");
+
+  if (statsText) {
+    rows.push({ text: statsText, size: 21, underlineThickness: 1.3 });
+  }
+
+  if (floorData.roomNames && floorData.roomNames.length > 0) {
+    const roomsJoined = floorData.roomNames.join(", ");
+    rows.push({ text: `Assigned Rooms: ${roomsJoined}`, size: 16.5, underlineThickness: 1.0 });
+  }
+
+  const startY = tagY - 36;
+  const bottomY = cardY + 152;
+  const totalSpan = startY - bottomY;
+  const stepY = rows.length > 1 ? totalSpan / (rows.length - 1) : 40;
+
+  for (let idx = 0; idx < rows.length; idx++) {
+    const r = rows[idx];
+    const rowY = startY - idx * stepY;
+
+    let effSize = r.size;
+    let textW = font.widthOfTextAtSize(r.text, effSize);
+    const maxW = 730;
+    if (textW > maxW) {
+      effSize = Math.max(13, (maxW / textW) * effSize);
+      textW = font.widthOfTextAtSize(r.text, effSize);
+    }
+
+    page.drawText(r.text, {
+      x: centerX - textW / 2,
+      y: rowY,
+      size: effSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    const linePadding = 18;
+    page.drawLine({
+      start: { x: centerX - (textW + linePadding) / 2, y: rowY - 5 },
+      end: { x: centerX + (textW + linePadding) / 2, y: rowY - 5 },
+      thickness: r.underlineThickness,
+      color: COLOR_CHARCOAL,
+    });
+  }
+
+  // 4. BAG ENCLOSED FLOOR SUPPLIES (WITHOUT CHECKBOXES per user specification)
+  const boxW = 730;
+  const boxH = 108;
+  const boxX = centerX - boxW / 2;
+  const boxY = cardY + 28;
+
+  page.drawRectangle({
+    x: boxX,
+    y: boxY,
+    width: boxW,
+    height: boxH,
+    color: rgb(0.97, 0.97, 0.98),
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1.2,
+  });
+
+  const boxTitle = "ENCLOSED FLOOR DOSSIERS & SUPERVISOR SUPPLIES (COMPLETE ENCLOSURE)";
+  const boxTitleSize = 10.5;
+  const boxTitleW = font.widthOfTextAtSize(boxTitle, boxTitleSize);
+  page.drawText(boxTitle, {
+    x: centerX - boxTitleW / 2,
+    y: boxY + boxH - 20,
+    size: boxTitleSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  page.drawLine({
+    start: { x: boxX + 16, y: boxY + boxH - 26 },
+    end: { x: boxX + boxW - 16, y: boxY + boxH - 26 },
+    thickness: 0.8,
+    color: COLOR_BORDER,
+  });
+
+  // 2 Columns of contents WITHOUT checkboxes (bulleted clean list)
+  const col1X = boxX + 28;
+  const col2X = centerX + 16;
+  const itemSize = 9.5;
+  const lineSpacing = 20;
+
+  const col1Items = [
+    "• Senior Floor Attendance Register",
+    "• Room Distribution & Proctor Assignments",
+    "• Floor Incident & Replacement Reports",
+  ];
+
+  const col2Items = [
+    "• Room Hallway Numbers & Signage Files",
+    "• Extra Proctor Badges & Hallway Passes",
+    "• Floor Stationary, Staplers & Supplies",
+  ];
+
+  for (let i = 0; i < col1Items.length; i++) {
+    const itemY = boxY + boxH - 48 - i * lineSpacing;
+    page.drawText(col1Items[i], {
+      x: col1X,
+      y: itemY,
+      size: itemSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+  }
+
+  for (let i = 0; i < col2Items.length; i++) {
+    const itemY = boxY + boxH - 48 - i * lineSpacing;
+    page.drawText(col2Items[i], {
+      x: col2X,
+      y: itemY,
+      size: itemSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+  }
+}
+
+/**
+ * Generates the PDF containing A4 Landscape Floor Senior Bag Placards
+ * for each floor.
+ */
+export async function generateFloorSeniorBagPlacardsPdf(
+  batches: FloorSeniorBagPlacardOption[],
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+
+  const font = await loadStickerFont(pdfDoc);
+  const logoImg = await loadLogoImage(pdfDoc);
+
+  for (const floorData of batches) {
+    drawFloorSeniorBagPlacardPage({
+      pdfDoc,
+      font,
+      logoImg,
+      floorData,
+    });
+  }
+
+  return await pdfDoc.save();
+}
+
 /**
  * Draws a single Clean Skin Emergency Reserve Bag Placard (A4 Landscape)
  * for the complete building with all its subjects combined in one single sticker.

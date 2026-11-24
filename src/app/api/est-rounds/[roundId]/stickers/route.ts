@@ -14,8 +14,10 @@ import {
   generateBatchFloorSubjectBagsPdf,
   generateBuildingCleanSkinBagsPdf,
   generateBuildingHeadBagPlacardsPdf,
+  generateFloorSeniorBagPlacardsPdf,
   type BuildingCleanSkinBagOption,
   type BuildingHeadBagPlacardOption,
+  type FloorSeniorBagPlacardOption,
   type FloorExamStickersOptions,
   type FloorSubjectPlacardData,
   type FloorRoomSubjectData,
@@ -257,6 +259,54 @@ export async function POST(
       });
 
       const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Floor_Dossiers.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // 2b. FLOOR SENIOR BAG PLACARDS (A4 Landscape Placard for Senior's Floor Bag)
+    if (type === "floor_senior_bag_placards") {
+      const floorGroups = new Map<string, EstRoundRow[]>();
+      for (const r of targetRows) {
+        const bld = (r as any).building || r.center;
+        const key = `${r.governorate}::${r.center}::${bld}::${r.floor}`;
+        const existing = floorGroups.get(key) || [];
+        existing.push(r);
+        floorGroups.set(key, existing);
+      }
+
+      const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(round.name || "") || round.examType === "EST 2";
+      const batches: FloorSeniorBagPlacardOption[] = [];
+
+      for (const [_, rows] of floorGroups.entries()) {
+        const first = rows[0];
+        const bld = (first as any).building || first.center;
+        const floorRooms = rows.map((r) => r.room);
+        const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
+
+        batches.push({
+          governorate: first.governorate,
+          center: first.center,
+          building: bld,
+          floor: first.floor,
+          examName: round.name || round.examType,
+          examType: isEst2 ? "EST 2" : "EST 1",
+          date: [roundDayStr, roundDateStr].filter(Boolean).join(", "),
+          totalRooms: rows.length,
+          totalStudents,
+          roomNames: floorRooms,
+        });
+      }
+
+      const pdfBytes = await generateFloorSeniorBagPlacardsPdf(batches);
+      const safeFilename = `${round.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_Floor_Senior_Bag_Placards.pdf`;
 
       return new NextResponse(Buffer.from(pdfBytes), {
         status: 200,
