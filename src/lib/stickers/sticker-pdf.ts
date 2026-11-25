@@ -3161,12 +3161,8 @@ function drawQuarterExamSticker(params: {
   const fl = (item.floor || "").trim();
   const room = (item.room || "").trim();
 
-  if (
-    !bld ||
-    bld.toLowerCase() === center.toLowerCase() ||
-    center.toLowerCase().includes(bld.toLowerCase()) ||
-    bld.toLowerCase().includes(center.toLowerCase())
-  ) {
+  // Clean & deduplicate building if redundant with center
+  if (isSameOrRedundantBuilding(center, bld)) {
     bld = "";
   }
   if (!center && bld) {
@@ -3176,50 +3172,50 @@ function drawQuarterExamSticker(params: {
 
   const isLandscapeSlot = width > height;
 
-  // 1. TOP HEADER SECTION
-  // Logo on top-right (NO COPY BADGE underneath per user specification)
-  const logoH = 26;
-  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 38;
-  const logoX = x + width - logoW;
-  const logoY = y + height - logoH - 2;
+  // 1. TOP HEADER SECTION: Centered & enlarged EST Logo, with centered exam title & date underneath
+  const logoH = 32;
+  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 48;
+  const logoX = x + (width - logoW) / 2;
+  const logoY = y + height - logoH - 3;
 
   if (logoImg) {
     page.drawImage(logoImg, { x: logoX, y: logoY, width: logoW, height: logoH });
   } else {
-    page.drawText("est", { x: logoX, y: logoY + 4, size: 18, font, color: COLOR_CHARCOAL });
+    page.drawText("est", { x: logoX, y: logoY + 4, size: 22, font, color: COLOR_CHARCOAL });
   }
 
-  // Top Left: Exam Title & Session Date (NO "EXAMINATION" per user request)
+  // Centered Exam Title & Session Date underneath the logo
   const dateDayStr = [item.day, item.date].filter(Boolean).join(", ") || "DECEMBER 2026";
   const headerTitle = `${examPrefix}: ${dateDayStr}`;
 
-  let headSize = 12.5;
+  let headSize = 13.5;
   let headTitleW = font.widthOfTextAtSize(headerTitle, headSize);
-  const maxHeaderTitleW = logoX - x - 10;
+  const maxHeaderTitleW = width - 16;
   if (headTitleW > maxHeaderTitleW) {
-    headSize = Math.max(9.5, (maxHeaderTitleW / headTitleW) * headSize);
+    headSize = Math.max(10, (maxHeaderTitleW / headTitleW) * headSize);
     headTitleW = font.widthOfTextAtSize(headerTitle, headSize);
   }
 
-  const headerTitleY = logoY + (logoH - headSize) / 2 + 1;
+  const headerTitleY = logoY - 17;
+  const headerTitleX = x + (width - headTitleW) / 2;
   page.drawText(headerTitle, {
-    x: x + 4,
+    x: headerTitleX,
     y: headerTitleY,
     size: headSize,
     font,
     color: COLOR_CHARCOAL,
   });
 
-  // Clean underline beneath the header title
+  // Clean underline beneath the centered header title
   page.drawLine({
-    start: { x: x + 4, y: headerTitleY - 4 },
-    end: { x: x + 4 + headTitleW, y: headerTitleY - 4 },
+    start: { x: headerTitleX, y: headerTitleY - 4 },
+    end: { x: headerTitleX + headTitleW, y: headerTitleY - 4 },
     thickness: 1.2,
     color: COLOR_CHARCOAL,
   });
 
-  // Header Divider Rule (positioned neatly beneath logo)
-  const headerBottom = logoY - 8;
+  // Header Divider Rule (positioned neatly beneath title underline)
+  const headerBottom = headerTitleY - 10;
   page.drawLine({
     start: { x: x + 4, y: headerBottom },
     end: { x: x + width - 4, y: headerBottom },
@@ -3239,9 +3235,10 @@ function drawQuarterExamSticker(params: {
     fieldRows.push({ label: "City", value: gov });
   }
   if (center) {
-    fieldRows.push({ label: "Test Center", value: center });
+    // "Center:" instead of "Test Center:" per user specification
+    fieldRows.push({ label: "Center", value: center });
   }
-  if (bld && bld !== center) {
+  if (bld && !isSameOrRedundantBuilding(center, bld)) {
     fieldRows.push({ label: "Building", value: bld });
   }
   if (fl) {
@@ -3251,20 +3248,14 @@ function drawQuarterExamSticker(params: {
   fieldRows.push({ label: "Students", value: `${item.studentCount}`, isHero: true });
   fieldRows.push({ label: "Subject", value: cleanSubj, isHero: true });
 
-  let currentY = headerBottom - 8;
-  const rowGap = isLandscapeSlot ? 2 : 3;
-
-  for (let idx = 0; idx < fieldRows.length; idx++) {
-    const row = fieldRows[idx];
-
+  // Pre-measure all rows to calculate dynamic row heights and total block height
+  const measuredRows = fieldRows.map((row) => {
     const labelText = `${row.label}: `;
-    const labelSize = row.isHero ? 12.5 : 11.5;
-    const valueSize = row.isHero ? 16.5 : 12.5;
-
+    const labelSize = row.isHero ? 14 : 13;
+    const valueSize = row.isHero ? 17.5 : 14.5;
     const labelW = font.widthOfTextAtSize(labelText, labelSize);
     const maxValW = width - 16 - labelW;
 
-    // Word wrap check: if value text is longer than maxValW, wrap into multiple lines
     let valLines: string[] = [];
     let effValueSize = valueSize;
 
@@ -3272,13 +3263,11 @@ function drawQuarterExamSticker(params: {
     if (directW <= maxValW) {
       valLines = [row.value];
     } else {
-      // Test if slight scaling down to 11.5pt fits in a single line
-      const scaledSingle = Math.max(11, (maxValW / directW) * valueSize);
-      if (scaledSingle >= 11 && font.widthOfTextAtSize(row.value, scaledSingle) <= maxValW) {
+      const scaledSingle = Math.max(12, (maxValW / directW) * valueSize);
+      if (scaledSingle >= 12 && font.widthOfTextAtSize(row.value, scaledSingle) <= maxValW) {
         valLines = [row.value];
         effValueSize = scaledSingle;
       } else {
-        // Multi-line wrapping across words
         valLines = wrapTextToLines(row.value, font, valueSize, maxValW);
         let maxLineW = 0;
         for (const l of valLines) {
@@ -3286,22 +3275,41 @@ function drawQuarterExamSticker(params: {
           if (lw > maxLineW) maxLineW = lw;
         }
         if (maxLineW > maxValW) {
-          effValueSize = Math.max(9, (maxValW / maxLineW) * valueSize);
+          effValueSize = Math.max(10, (maxValW / maxLineW) * valueSize);
         }
       }
     }
 
-    // Dynamic row height based on line count
     let rowH: number;
     if (valLines.length <= 1) {
-      rowH = isLandscapeSlot ? 26 : (row.isHero ? 34 : 31);
+      rowH = isLandscapeSlot ? 28 : (row.isHero ? 38 : 34);
     } else if (valLines.length === 2) {
-      rowH = isLandscapeSlot ? 38 : 44;
+      rowH = isLandscapeSlot ? 42 : 52;
     } else {
-      rowH = isLandscapeSlot ? 48 : 56;
+      rowH = isLandscapeSlot ? 52 : 66;
     }
 
-    const rowY = currentY - rowH;
+    return {
+      row,
+      labelText,
+      labelSize,
+      labelW,
+      valLines,
+      effValueSize,
+      rowH,
+    };
+  });
+
+  const rowGap = isLandscapeSlot ? 2 : 4;
+  const totalRowsH =
+    measuredRows.reduce((sum, r) => sum + r.rowH, 0) + (measuredRows.length - 1) * rowGap;
+  const availBodyH = headerBottom - (y + 10);
+  const topPad = Math.max(14, Math.min(28, (availBodyH - totalRowsH) / 2));
+  let currentY = headerBottom - topPad;
+
+  for (let idx = 0; idx < measuredRows.length; idx++) {
+    const m = measuredRows[idx];
+    const rowY = currentY - m.rowH;
 
     // Zebra striping: Alternate rows get a subtle, elegant soft gray background tint
     if (idx % 2 === 1) {
@@ -3309,77 +3317,77 @@ function drawQuarterExamSticker(params: {
         x: x + 2,
         y: rowY,
         width: width - 4,
-        height: rowH,
+        height: m.rowH,
         color: rgb(0.945, 0.952, 0.962),
         borderColor: rgb(0.88, 0.89, 0.91),
         borderWidth: 0.5,
       });
     }
 
-    // Draw row content (label + value line(s))
-    if (valLines.length <= 1) {
-      const textY = rowY + (rowH - labelSize) / 2 + 1;
+    // Draw row content (label + value line(s)) with generous vertical spacing
+    if (m.valLines.length <= 1) {
+      const textY = rowY + (m.rowH - m.labelSize) / 2 + 1;
       // Draw Label
-      page.drawText(labelText, {
+      page.drawText(m.labelText, {
         x: x + 8,
         y: textY,
-        size: labelSize,
+        size: m.labelSize,
         font,
         color: COLOR_CHARCOAL,
       });
       // Draw Value
-      page.drawText(valLines[0] || "", {
-        x: x + 8 + labelW,
+      page.drawText(m.valLines[0] || "", {
+        x: x + 8 + m.labelW,
         y: textY,
-        size: effValueSize,
+        size: m.effValueSize,
         font,
         color: COLOR_CHARCOAL,
       });
-    } else if (valLines.length === 2) {
-      const line1Y = rowY + rowH - 18;
+    } else if (m.valLines.length === 2) {
+      const line1Y = rowY + m.rowH - 18;
       const line2Y = rowY + 9;
 
       // Draw Label on first line
-      page.drawText(labelText, {
+      page.drawText(m.labelText, {
         x: x + 8,
         y: line1Y,
-        size: labelSize,
+        size: m.labelSize,
         font,
         color: COLOR_CHARCOAL,
       });
       // Draw Value line 1
-      page.drawText(valLines[0], {
-        x: x + 8 + labelW,
+      page.drawText(m.valLines[0], {
+        x: x + 8 + m.labelW,
         y: line1Y,
-        size: effValueSize,
+        size: m.effValueSize,
         font,
         color: COLOR_CHARCOAL,
       });
-      // Draw Value line 2 (cleanly indented)
-      page.drawText(valLines[1], {
-        x: x + 8 + labelW,
+      // Draw Value line 2 (cleanly indented, generous line separation)
+      page.drawText(m.valLines[1], {
+        x: x + 8 + m.labelW,
         y: line2Y,
-        size: effValueSize,
+        size: m.effValueSize,
         font,
         color: COLOR_CHARCOAL,
       });
     } else {
-      const step = (rowH - 12) / valLines.length;
-      const topY = rowY + rowH - step - 2;
+      const step = (m.rowH - 14) / m.valLines.length;
+      const topY = rowY + m.rowH - step - 2;
 
-      page.drawText(labelText, {
+      page.drawText(m.labelText, {
         x: x + 8,
         y: topY,
-        size: labelSize,
+        size: m.labelSize,
         font,
         color: COLOR_CHARCOAL,
       });
 
-      for (let lIdx = 0; lIdx < valLines.length; lIdx++) {
-        page.drawText(valLines[lIdx], {
-          x: x + 8 + labelW,
+      for (let lIdx = 0; lIdx < m.valLines.length; lIdx++) {
+        page.drawText(m.valLines[lIdx], {
+          x: x + 8 + m.labelW,
           y: topY - lIdx * step,
-          size: effValueSize,
+          size: m.effValueSize,
           font,
           color: COLOR_CHARCOAL,
         });
