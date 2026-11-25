@@ -293,37 +293,37 @@ export function drawQuarterLocationBlock(params: {
   // 1. City / Governorate
   if (gov) {
     const text = `City: ${gov}`;
-    let gSize = 13;
+    let gSize = 14;
     let gW = font.widthOfTextAtSize(text, gSize);
-    if (gW > maxW) gSize = Math.max(9.5, (maxW / gW) * gSize);
+    if (gW > maxW) gSize = Math.max(10.5, (maxW / gW) * gSize);
     lines.push({ text, size: gSize });
   }
 
-  // 2. Test Center (Prominent, wraps to 2 lines if long)
+  // 2. Center (Prominent, wraps to 2 lines if long) - "Center:" not "Test Center:" per user specification
   if (center) {
-    const text = `Test Center: ${center}`;
-    let cSize = 14;
+    const text = `Center: ${center}`;
+    let cSize = 15;
     let cW = font.widthOfTextAtSize(text, cSize);
     if (cW > maxW) {
       const scaledSize = (maxW / cW) * cSize;
-      if (scaledSize >= 11) {
+      if (scaledSize >= 12) {
         cSize = scaledSize;
         lines.push({ text, size: cSize });
       } else {
         // Wrap center into 2 lines
         const words = center.split(/\s+/);
-        let line1 = "Test Center: ";
+        let line1 = "Center: ";
         let line2 = "";
         for (const w of words) {
-          const test = line2 ? `${line2} ${w}` : (line1 === "Test Center: " ? `${line1}${w}` : `${line1} ${w}`);
-          if (!line2 && font.widthOfTextAtSize(test, 11.5) <= maxW) {
+          const test = line2 ? `${line2} ${w}` : (line1 === "Center: " ? `${line1}${w}` : `${line1} ${w}`);
+          if (!line2 && font.widthOfTextAtSize(test, 12.5) <= maxW) {
             line1 = test;
           } else {
             line2 = line2 ? `${line2} ${w}` : w;
           }
         }
-        if (line1) lines.push({ text: line1, size: 11.5 });
-        if (line2) lines.push({ text: line2, size: 11.5 });
+        if (line1) lines.push({ text: line1, size: 12.5 });
+        if (line2) lines.push({ text: line2, size: 12.5 });
       }
     } else {
       lines.push({ text, size: cSize });
@@ -333,24 +333,24 @@ export function drawQuarterLocationBlock(params: {
   // 3. Building (if distinct campus building)
   if (bld && bld !== center) {
     const text = `Building: ${bld}`;
-    let bSize = 13;
+    let bSize = 14.5;
     let bW = font.widthOfTextAtSize(text, bSize);
-    if (bW > maxW) bSize = Math.max(9.5, (maxW / bW) * bSize);
+    if (bW > maxW) bSize = Math.max(10.5, (maxW / bW) * bSize);
     lines.push({ text, size: bSize });
   }
 
   // 4. Floor (if floor is present)
   if (fl) {
     const text = `Floor: ${fl}`;
-    let fSize = 12.5;
+    let fSize = 13.5;
     let fW = font.widthOfTextAtSize(text, fSize);
-    if (fW > maxW) fSize = Math.max(9.5, (maxW / fW) * fSize);
+    if (fW > maxW) fSize = Math.max(10, (maxW / fW) * fSize);
     lines.push({ text, size: fSize });
   }
 
-  // Fallback: If empty, show "TEST CENTER"
+  // Fallback: If empty, show "CENTER"
   if (lines.length === 0) {
-    lines.push({ text: "TEST CENTER", size: 12 });
+    lines.push({ text: "CENTER", size: 13 });
   }
 
   // 3. Render lines vertically spaced with generous padding from the header line!
@@ -365,11 +365,11 @@ export function drawQuarterLocationBlock(params: {
       font,
       color: COLOR_CHARCOAL,
     });
-    currY -= (item.size + 4.5);
+    currY -= (item.size + 5);
   }
 
-  // Draw divider line under location block with 3pt spacing below bottom text
-  const locDividerY = currY - 3;
+  // Draw divider line under location block with 4pt spacing below bottom text
+  const locDividerY = currY - 4;
   page.drawLine({
     start: { x: x + 4, y: locDividerY },
     end: { x: x + width - 4, y: locDividerY },
@@ -2393,13 +2393,13 @@ function drawQuarterPlacard(params: {
 
   // 1. Room / Floor / Head Hero Section (Badge tag EST 1 - ROOM/FLOOR/HEAD removed per user specification)
   const heroValue = isExamPapers ? "EXAM PAPERS" : isHead ? "HEAD" : isRoom ? `Room: ${content.room || ""}` : (content.floor || "");
-  let heroSize = isRoom ? 30 : isHead ? 28 : isExamPapers ? 26 : 26;
+  let heroSize = isRoom ? 30 : isHead ? 25 : isExamPapers ? 26 : 26;
   let heroW = font.widthOfTextAtSize(heroValue, heroSize);
   if (heroW > width - 16) {
     heroSize = Math.max(18, ((width - 16) / heroW) * heroSize);
     heroW = font.widthOfTextAtSize(heroValue, heroSize);
   }
-  const heroY = divider2Y - 14 - heroSize;
+  const heroY = divider2Y - 12 - heroSize;
   page.drawText(heroValue, {
     x: x + (width - heroW) / 2,
     y: heroY,
@@ -2408,7 +2408,7 @@ function drawQuarterPlacard(params: {
     color: COLOR_CHARCOAL,
   });
 
-  const heroDividerY = heroY - 8;
+  const heroDividerY = heroY - 7;
   page.drawLine({
     start: { x: x + 6, y: heroDividerY },
     end: { x: x + width - 6, y: heroDividerY },
@@ -2466,11 +2466,11 @@ function drawQuarterPlacard(params: {
   const hasBottomFooter = Boolean(isExamPapers);
   const bottomFooterH = hasBottomFooter ? 14 : 0;
 
-  // Bottom edge padding: exactly 4pt from inner y (16pt from slotY), mirroring the 16pt from slot top to logo
-  const chkBottomY = y + 4 + bottomFooterH;
+  // Bottom edge padding: For Head dossiers, lift the checklist up to give items comfortable spacing and eliminate dead white space
+  const chkBottomY = isHead ? y + 20 : y + 4 + bottomFooterH;
   const numItems = items.length;
-  const chkRowStep = isHead ? 13.5 : isRoom ? 15.5 : 14.5;
-  const chkBoxSize = 8.5;
+  const chkRowStep = isHead ? 21 : isRoom ? 15.5 : 14.5;
+  const chkBoxSize = isHead ? 9.5 : 8.5;
 
   for (let i = 0; i < numItems; i++) {
     // i = 0 is first item (rendered highest), i = numItems - 1 is last item (rendered lowest)
@@ -2490,7 +2490,7 @@ function drawQuarterPlacard(params: {
     page.drawText(items[i], {
       x: boxX + chkBoxSize + 6,
       y: itemBoxY + 1.2,
-      size: isHead ? 7.6 : 7.4,
+      size: isHead ? 8.5 : 7.4,
       font,
       color: COLOR_CHARCOAL,
     });
@@ -2507,7 +2507,7 @@ function drawQuarterPlacard(params: {
   });
 
   // Checklist Title
-  const chkTitleSize = 8;
+  const chkTitleSize = isHead ? 8.5 : 8;
   const chkTitleY = chkUnderTitleY + 4;
   page.drawText(chkTitle, {
     x: x + 6,
@@ -2837,10 +2837,10 @@ function drawQuarterPlacard(params: {
             ? `${content.totalStudents} Students`
             : "BUILDING HEAD DOSSIER";
 
-    let totalSize = 13;
+    let totalSize = 14;
     let totalW = font.widthOfTextAtSize(headSubText, totalSize);
     if (totalW > width - 16) {
-      totalSize = Math.max(9, ((width - 16) / totalW) * totalSize);
+      totalSize = Math.max(10, ((width - 16) / totalW) * totalSize);
       totalW = font.widthOfTextAtSize(headSubText, totalSize);
     }
     const totalY = chkDividerY + 6 + (availMidH - totalSize) / 2;

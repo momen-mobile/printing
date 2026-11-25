@@ -1004,7 +1004,7 @@ describe("generateStickerPdf", () => {
 
         // Verifies divider line is placed safely below unified location rows with generous top clearance
         expect(dividerY).toBeLessThan(340);
-        expect(dividerY).toBeGreaterThan(270);
+        expect(dividerY).toBeGreaterThan(260);
       });
     });
 
