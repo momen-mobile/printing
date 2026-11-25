@@ -2217,9 +2217,9 @@ export interface MasterManifestHierarchyRow {
 }
 
 /**
- * Resolves active subject columns for Master Manifest across all rooms in the dataset.
- * Automatically excludes subjects with zero candidates across all rooms,
- * while keeping subjects that are present in any room.
+ * Resolves standard unified subject columns for Master Manifest:
+ * - For EST 1: Literacy, Math, Essay (all official cycle subjects unified)
+ * - For EST 2: Math 1, Biology, Chemistry, Math 2 (all official cycle subjects unified)
  */
 export function resolveManifestSubjectColumns(
   options: LogisticsStickerOptions,
@@ -2227,31 +2227,18 @@ export function resolveManifestSubjectColumns(
   isEst2: boolean,
 ): { code: string; label: string }[] {
   if (!isEst2) {
-    const candidateEst1 = [
+    return [
       { code: "LIT", label: "Literacy" },
       { code: "MATH", label: "Math" },
       { code: "ESSAY", label: "Essay" },
     ];
-    const filtered = candidateEst1.filter((s) => {
-      const sumRooms = allRooms.reduce((sum, r) => sum + getRoomSubjectCount(r, s.code, false), 0);
-      const centerVal = options.centerSubjectsMap ? options.centerSubjectsMap[s.code] || 0 : 0;
-      return sumRooms > 0 || centerVal > 0;
-    });
-    return filtered.length > 0 ? filtered : candidateEst1.slice(0, 2);
   } else {
-    const candidateEst2 = [
+    return [
       { code: "MATH1", label: "Math 1" },
       { code: "BIO", label: "Biology" },
       { code: "CHEM", label: "Chemistry" },
-      { code: "PHY", label: "Physics" },
       { code: "MATH2", label: "Math 2" },
     ];
-    const filtered = candidateEst2.filter((s) => {
-      const sumRooms = allRooms.reduce((sum, r) => sum + getRoomSubjectCount(r, s.code, true), 0);
-      const centerVal = options.centerSubjectsMap ? options.centerSubjectsMap[s.code] || 0 : 0;
-      return sumRooms > 0 || centerVal > 0;
-    });
-    return filtered.length > 0 ? filtered : candidateEst2.filter((s) => s.code !== "CHEM");
   }
 }
 
@@ -2287,16 +2274,14 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
   const centerName = cleanVenueName(options.center || "Test Center", options.governorate || "");
   const { building: cleanBuilding } = splitCenterAndBuilding(options.center, options.building);
   const buildingName = cleanBuilding && cleanBuilding.toLowerCase() !== centerName.toLowerCase() ? cleanBuilding : "";
-  const venueTitle = buildingName ? `${centerName} • ${buildingName}` : centerName;
+  const govName = toEnglishText(options.governorate) || "";
 
   const examLabel = isEst2 ? "EST II" : "EST I";
-  const sessionText = toEnglishText(options.date) || "DECEMBER 2026";
-  const govText = toEnglishText(options.governorate) || "";
 
-  // 1. Header (Top of sheet): Prominent Venue / Test Center name on top
+  // 1. Header (Top of sheet)
   const headerTopY = height - margin;
-  const logoH = 34;
-  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 48;
+  const logoH = 32;
+  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 46;
   const logoX = tableX + tableW - logoW;
   const logoY = headerTopY - logoH;
 
@@ -2308,6 +2293,19 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
       height: logoH,
     });
   }
+
+  // Large Prominent Exam Label positioned directly next to the Logo (e.g. EST I  [est])
+  const examTagSize = 22;
+  const examTagW = font.widthOfTextAtSize(examLabel, examTagSize);
+  const examTagX = logoX - examTagW - 14;
+  const examTagY = logoY + (logoH - examTagSize) / 2 + 1;
+  page.drawText(examLabel, {
+    x: examTagX,
+    y: examTagY,
+    size: examTagSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
 
   // Page numbering right under logo
   if (totalPages > 1) {
@@ -2323,13 +2321,18 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     });
   }
 
-  // Center / Venue Title (Prominent, large)
-  const title1 = `TEST CENTER: ${venueTitle.toUpperCase()}`;
-  let t1Size = 17.5;
-  const maxT1W = logoX - tableX - 16;
+  // Location Hierarchy on top-left: City -> Test Center -> Building (if distinct)
+  const locParts: string[] = [];
+  if (govName) locParts.push(`City: ${govName}`);
+  if (centerName) locParts.push(`Test Center: ${centerName}`);
+  if (buildingName) locParts.push(`Building: ${buildingName}`);
+  const title1 = locParts.join("   •   ");
+
+  let t1Size = 14.5;
+  const maxT1W = examTagX - tableX - 14;
   let t1W = font.widthOfTextAtSize(title1, t1Size);
   if (t1W > maxT1W) {
-    t1Size = Math.max(12, (maxT1W / t1W) * t1Size);
+    t1Size = Math.max(10.5, (maxT1W / t1W) * t1Size);
   }
   page.drawText(title1, {
     x: tableX,
@@ -2339,13 +2342,17 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     color: COLOR_CHARCOAL,
   });
 
-  // Subtitle Line: Exam Level • Master Blueprint Manifest • Date • City
-  const subLineParts = [
-    `${examLabel} MASTER BLUEPRINT MANIFEST`,
-    sessionText,
-    govText ? `City: ${govText}` : null,
-  ].filter(Boolean);
-  const title2 = subLineParts.join("   •   ");
+  // Subtitle Line: Date, Day, and Cycle
+  const dayText = toEnglishText(options.roundDay) || "";
+  const fullDate = toEnglishText(options.roundDateStr) || "";
+  const cycleText = toEnglishText(options.date) || "December 2026";
+
+  const dateParts: string[] = [];
+  const dayDateStr = [dayText, fullDate].filter(Boolean).join(", ");
+  if (dayDateStr) dateParts.push(`Date: ${dayDateStr}`);
+  if (cycleText && cycleText !== fullDate) dateParts.push(`Cycle: ${cycleText}`);
+  const title2 = dateParts.length > 0 ? dateParts.join("   •   ") : `Date: ${cycleText}`;
+
   page.drawText(title2, {
     x: tableX,
     y: headerTopY - t1Size - 14,
@@ -2361,7 +2368,7 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
   const sigBoxH = sigBlockH - sigHeaderH;
   const sigY = bottomMargin;
 
-  // Blue header: "Packing & Verification Team"
+  // Blue header: "Packing Team" per user specification
   page.drawRectangle({
     x: tableX,
     y: sigY + sigBoxH,
@@ -2372,7 +2379,7 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     borderWidth: 0.8,
   });
 
-  page.drawText("Packing & Verification Team", {
+  page.drawText("Packing Team", {
     x: tableX + 12,
     y: sigY + sigBoxH + 3.5,
     size: 8.5,
@@ -2464,7 +2471,7 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
 
   // Subject Checkbox Columns
   for (const s of subjectCols) {
-    cols.push({ key: `chk_${s.code}`, label: `${s.label} [✓]`, width: subjColW, x: curX, isCheck: true, code: s.code });
+    cols.push({ key: `chk_${s.code}`, label: `${s.label} [ ]`, width: subjColW, x: curX, isCheck: true, code: s.code });
     curX += subjColW;
   }
 
