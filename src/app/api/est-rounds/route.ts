@@ -6,6 +6,7 @@ import { OWNER_ID } from "@/lib/auth";
 import {
   ensureEstExamRoundTable,
   parseEstExcelWorkbook,
+  parseAnyEstWorkbook,
   type EstRoundRow,
   type EstRoundSummaryStats,
 } from "@/lib/est-rounds";
@@ -68,11 +69,7 @@ export async function POST(request: Request) {
       fileName = file.name;
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(new Uint8Array(buffer), { type: "array" });
-      const parsed = parseEstExcelWorkbook(workbook, file.name);
-
-      sheetData = parsed.rows;
-      summaryStats = parsed.stats;
-      examType = (formData.get("examType") as string) || parsed.examType;
+      const combined = parseAnyEstWorkbook(workbook, file.name);
 
       const formName = (formData.get("name") as string)?.trim();
       const formCycle = (formData.get("cycleName") as string)?.trim();
@@ -80,6 +77,60 @@ export async function POST(request: Request) {
       const formDate = (formData.get("roundDate") as string)?.trim();
 
       cycleName = formCycle || "December 2026";
+
+      // If sheet contains BOTH EST 1 and EST 2 columns, auto-split and upsert both rounds!
+      if (combined.isCombined && combined.est1 && combined.est2) {
+        const est1Name = formName && formName.includes("EST 1") ? formName : `EST 1 - ${cycleName}`;
+        const existingEst1 = await prisma.estExamRound.findFirst({ where: { name: est1Name } });
+        const est1Payload = {
+          userId: OWNER_ID,
+          name: est1Name,
+          examType: "EST 1",
+          roundDate: formDate ? new Date(formDate) : new Date("2026-12-11T00:00:00Z"),
+          roundDay: formDay || "Friday",
+          cycleName,
+          fileName,
+          sheetData: combined.est1.rows as any,
+          summaryStats: combined.est1.stats as any,
+          status: "active",
+        };
+        const round1 = existingEst1
+          ? await prisma.estExamRound.update({ where: { id: existingEst1.id }, data: est1Payload })
+          : await prisma.estExamRound.create({ data: est1Payload });
+
+        const est2Name = formName && formName.includes("EST 2") ? formName : `EST 2 - ${cycleName}`;
+        const existingEst2 = await prisma.estExamRound.findFirst({ where: { name: est2Name } });
+        const est2Payload = {
+          userId: OWNER_ID,
+          name: est2Name,
+          examType: "EST 2",
+          roundDate: new Date("2026-12-12T00:00:00Z"),
+          roundDay: "Saturday",
+          cycleName,
+          fileName,
+          sheetData: combined.est2.rows as any,
+          summaryStats: combined.est2.stats as any,
+          status: "active",
+        };
+        const round2 = existingEst2
+          ? await prisma.estExamRound.update({ where: { id: existingEst2.id }, data: est2Payload })
+          : await prisma.estExamRound.create({ data: est2Payload });
+
+        return NextResponse.json({
+          success: true,
+          round: round1,
+          rounds: [round1, round2],
+          isCombined: true,
+          message: `Successfully created/updated both EST 1 (${combined.est1.rows.length} rooms) and EST 2 (${combined.est2.rows.length} rooms).`,
+        });
+      }
+
+      // Single exam sheet fallback
+      const parsed = combined.single || parseEstExcelWorkbook(workbook, file.name);
+
+      sheetData = parsed.rows;
+      summaryStats = parsed.stats;
+      examType = (formData.get("examType") as string) || parsed.examType;
 
       if (examType === "EST 2") {
         name = formName || `EST 2 - ${cycleName}`;

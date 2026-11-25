@@ -181,11 +181,19 @@ export default function EstRoundsPage() {
         throw new Error(data.error || "Failed to upload and parse Excel sheet");
       }
 
-      toast.success(
-        isAr
-          ? `تم رفع ومعالجة شيت الدورة بنجاح (${data.round?.name || "EST Round"})`
-          : `Successfully imported EST round (${data.round?.name || "EST Round"})`,
-      );
+      if (data.isCombined) {
+        toast.success(
+          isAr
+            ? "تم رفع ومعالجة الشيت الموحد بنجاح وتقسيمه تلقائياً إلى دورتي EST 1 و EST 2!"
+            : "Successfully imported unified master sheet, split into EST 1 and EST 2!",
+        );
+      } else {
+        toast.success(
+          isAr
+            ? `تم رفع ومعالجة شيت الدورة بنجاح (${data.round?.name || "EST Round"})`
+            : `Successfully imported EST round (${data.round?.name || "EST Round"})`,
+        );
+      }
 
       await fetchRounds({ selectRoundId: data.round?.id });
       if (fileInputRef.current) fileInputRef.current.value = "";

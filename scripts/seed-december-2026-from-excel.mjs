@@ -160,31 +160,25 @@ function normalizeFloor(rawFloor, rawRoom, center) {
 }
 
 async function main() {
-  const sourceNetworkPath = "\\\\192.168.1.230\\Dev\\printing\\Stats per Room (1).xlsx";
-  const fallbackNetworkPath = "\\\\192.168.1.230\\Dev\\printing\\Stats per Room.xlsx";
+  const localCsvPath = "./src/lib/assets/Stats-per-Room.csv";
   const localAssetPath = "./src/lib/assets/Stats-per-Room.xlsx";
 
-  if (fs.existsSync(sourceNetworkPath)) {
-    console.log(`Copying latest Excel from network: ${sourceNetworkPath} -> ${localAssetPath}...`);
-    try {
-      fs.copyFileSync(sourceNetworkPath, localAssetPath);
-    } catch (err) {
-      console.warn("Could not copy from source network path:", err.message);
-    }
+  let rawData = [];
+
+  if (fs.existsSync(localCsvPath)) {
+    console.log(`Reading updated CSV from ${localCsvPath}...`);
+    const csvContent = fs.readFileSync(localCsvPath, "utf8");
+    const wb = XLSX.read(csvContent, { type: "string" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    rawData = XLSX.utils.sheet_to_json(sheet);
+  } else {
+    const filePath = localAssetPath;
+    console.log(`Reading Excel file from ${filePath}...`);
+    const buf = fs.readFileSync(filePath);
+    const wb = XLSX.read(buf, { type: "buffer" });
+    const sheet = wb.Sheets["02-Stats per Room"] || wb.Sheets[wb.SheetNames[0]];
+    rawData = XLSX.utils.sheet_to_json(sheet);
   }
-
-  const filePath = fs.existsSync(localAssetPath)
-    ? localAssetPath
-    : fs.existsSync(sourceNetworkPath)
-      ? sourceNetworkPath
-      : fallbackNetworkPath;
-
-  console.log(`Reading Excel file from ${filePath}...`);
-
-  const buf = fs.readFileSync(filePath);
-  const wb = XLSX.read(buf, { type: "buffer" });
-  const sheet = wb.Sheets["02-Stats per Room"] || wb.Sheets[wb.SheetNames[0]];
-  const rawData = XLSX.utils.sheet_to_json(sheet);
 
   console.log(`Total rows in Excel sheet: ${rawData.length}`);
 

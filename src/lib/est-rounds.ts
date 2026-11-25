@@ -6,6 +6,7 @@ import {
   stripGovernorateFromName,
 } from "./stickers/est-reference-data";
 import { getSubjectSortKey } from "./stickers/est-room-data";
+import { isSameOrRedundantBuilding } from "./stickers/sticker-pdf";
 
 export { getSubjectSortKey };
 
@@ -510,5 +511,200 @@ export function parseEstExcelWorkbook(
     sheetName,
     rows,
     stats,
+  };
+}
+
+export interface ParsedCombinedEstResult {
+  isCombined: boolean;
+  est1?: ParsedEstRoundResult;
+  est2?: ParsedEstRoundResult;
+  single?: ParsedEstRoundResult;
+}
+
+/**
+ * Intelligent parser that handles both:
+ * 1. Unified Combined Master Sheets (containing both EST I & EST II columns),
+ *    splitting them automatically into dedicated EST 1 and EST 2 rounds.
+ * 2. Dedicated single-exam sheets (either pure EST 1 or pure EST 2).
+ */
+export function parseAnyEstWorkbook(
+  workbook: XLSX.WorkBook,
+  fileName?: string,
+): ParsedCombinedEstResult {
+  const sheetNames = workbook.SheetNames || [];
+  if (sheetNames.length === 0) {
+    throw new Error("Excel workbook contains no sheets");
+  }
+
+  // Find the primary sheet (02-Stats per Room, or containing "Stats" or "EST" or the first sheet)
+  const sheetName =
+    sheetNames.find((s) => /02-Stats|Stats\s*per\s*Room/i.test(s)) ||
+    sheetNames.find((s) => /EST/i.test(s)) ||
+    sheetNames[0];
+
+  const worksheet = workbook.Sheets[sheetName];
+  if (!worksheet) {
+    throw new Error(`Sheet "${sheetName}" not found in workbook`);
+  }
+
+  const rawJson: any[] = XLSX.utils.sheet_to_json(worksheet);
+  if (!Array.isArray(rawJson) || rawJson.length === 0) {
+    const single = parseEstExcelWorkbook(workbook, fileName);
+    return { isCombined: false, single };
+  }
+
+  // Check if first row has combined EST I and EST II columns
+  const firstRow = rawJson[0] || {};
+  const keys = Object.keys(firstRow).map((k) => k.trim().toLowerCase());
+  const hasEst1Col = keys.some((k) => /students\s*est\s*i\b|est\s*i\b|est\s*1\b/i.test(k));
+  const hasEst2Col = keys.some(
+    (k) => /students\s*est\s*ii\b|est\s*ii\b|est\s*2\b|math\s*1\b|biology\b/i.test(k),
+  );
+
+  if (hasEst1Col && hasEst2Col) {
+    const est1Rows: EstRoundRow[] = [];
+    const est2Rows: EstRoundRow[] = [];
+    let lastGov = "Alexandria";
+
+    for (let i = 0; i < rawJson.length; i++) {
+      const r = rawJson[i];
+      const rawGov = String(r["Governorate AR"] || r["Governorate"] || r["Gov"] || "").trim();
+      if (rawGov && !/^total$/i.test(rawGov)) lastGov = rawGov;
+
+      const center = String(r["Center"] || r["Test Center"] || r["School"] || "").trim();
+      const rawRoom = String(r["Room"] || r["Room#"] || "").trim();
+      if (!center || !rawRoom || /^total$/i.test(center) || /^total$/i.test(rawGov)) continue;
+
+      const rawBuilding = String(r["Building"] || center).trim() || center;
+      const building = isSameOrRedundantBuilding(center, rawBuilding) ? center : rawBuilding;
+      const gov = lastGov;
+
+      let floor = "1st Floor";
+      let room = rawRoom;
+      if (r["Floor"] && String(r["Floor"]).trim()) {
+        floor = String(r["Floor"]).trim();
+      } else {
+        const extracted = extractFloorAndRoom(rawRoom, center);
+        floor = extracted.floor;
+        room = extracted.room || rawRoom;
+      }
+
+      const est1Students = Number(r["Students EST I"] || r["EST I"] || r["EST 1"]) || 0;
+      const est2Students = Number(r["Students EST II"] || r["EST II"] || r["EST 2"]) || 0;
+      const withEssay = Number(r["Students with Essay"] || r["Essay"]) || 0;
+      const m1 = Number(r["Students Math 1"] || r["Math 1"] || r["MATH1"]) || 0;
+      const bio = Number(r["Students Biology"] || r["Biology"] || r["BIO"]) || 0;
+      const phy = Number(r["Students Physics"] || r["Physics"] || r["PHY"]) || 0;
+      const chem = Number(r["Students Chemistry"] || r["Chemistry"] || r["CHEM"]) || 0;
+      const m2 = Number(r["Students Math 2"] || r["Math 2"] || r["MATH2"]) || 0;
+
+      // 1. EST 1 Row
+      if (est1Students > 0) {
+        const breakdown: string[] = [`Literacy: ${est1Students}`, `Math: ${est1Students}`];
+        if (withEssay > 0) breakdown.push(`Essay: ${withEssay}`);
+
+        est1Rows.push({
+          id: `est1-row-${est1Rows.length + 1}`,
+          index: est1Rows.length + 1,
+          governorate: gov,
+          center,
+          building,
+          floor,
+          room,
+          rawRoom,
+          subjects: {
+            LIT: est1Students,
+            MATH: est1Students,
+            ESSAY: withEssay,
+          },
+          totalStudents: est1Students,
+          breakdownText: breakdown.join("  |  "),
+        } as any);
+      }
+
+      // 2. EST 2 Row
+      if (est2Students > 0 || m1 > 0 || m2 > 0 || bio > 0 || chem > 0 || phy > 0) {
+        const breakdown: string[] = [];
+        if (m1 > 0) breakdown.push(`Math 1: ${m1}`);
+        if (m2 > 0) breakdown.push(`Math 2: ${m2}`);
+        if (bio > 0) breakdown.push(`Biology: ${bio}`);
+        if (chem > 0) breakdown.push(`Chemistry: ${chem}`);
+        if (phy > 0) breakdown.push(`Physics: ${phy}`);
+
+        const totalStudents = est2Students || Math.max(m1, m2, bio, chem, phy, 0);
+
+        est2Rows.push({
+          id: `est2-row-${est2Rows.length + 1}`,
+          index: est2Rows.length + 1,
+          governorate: gov,
+          center,
+          building,
+          floor,
+          room,
+          rawRoom,
+          subjects: {
+            MATH1: m1,
+            MATH2: m2,
+            BIO: bio,
+            CHEM: chem,
+            PHY: phy,
+          },
+          totalStudents,
+          breakdownText: breakdown.join("  |  "),
+        } as any);
+      }
+    }
+
+    const calcStats = (rows: EstRoundRow[]): EstRoundSummaryStats => {
+      const govs = new Set<string>();
+      const centers = new Set<string>();
+      const floors = new Set<string>();
+      const subjectTotals: Record<string, number> = {};
+
+      rows.forEach((r) => {
+        govs.add(r.governorate);
+        centers.add(r.center);
+        floors.add(`${r.governorate}::${r.center}::${r.floor}`);
+        Object.entries(r.subjects || {}).forEach(([code, count]) => {
+          subjectTotals[code] = (subjectTotals[code] || 0) + count;
+        });
+      });
+
+      const totalStudents = rows.reduce((s, r) => s + r.totalStudents, 0);
+
+      return {
+        totalGovernorates: govs.size,
+        totalCenters: centers.size,
+        totalFloors: floors.size,
+        totalRooms: rows.length,
+        totalStudents,
+        subjectTotals,
+        governoratesList: Array.from(govs),
+        centersList: Array.from(centers),
+      };
+    };
+
+    return {
+      isCombined: true,
+      est1: {
+        examType: "EST 1",
+        sheetName,
+        rows: est1Rows,
+        stats: calcStats(est1Rows),
+      },
+      est2: {
+        examType: "EST 2",
+        sheetName,
+        rows: est2Rows,
+        stats: calcStats(est2Rows),
+      },
+    };
+  }
+
+  // Fallback to single exam sheet parsing
+  const single = parseEstExcelWorkbook(workbook, fileName);
+  return {
+    isCombined: false,
+    single,
   };
 }

@@ -1,0 +1,340 @@
+Governorate AR,Center,Building,Floor,Room,Students EST I,Students EST II,Students without Essay,Students with Essay,Students Math 1,Students Biology,Students Chemistry,Students Math 2
+Alexandria,Arab Academy Abu Qir,Eng. Building B,2nd Floor,202,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Eng. Building B,2nd Floor,204,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Eng. Building B,2nd Floor,206,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Eng. Building B,2nd Floor,208,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Eng. Building B,2nd Floor,210,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Eng. Building B,2nd Floor,214,11,0,11,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Eng. Building B,2nd Floor,216,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,2nd Floor,204,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,2nd Floor,205,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,2nd Floor,219,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,3rd Floor,304,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,3rd Floor,305,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,3rd Floor,319,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,4th Floor,404,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,4th Floor,405,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,4th Floor,424,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,5th Floor,504,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,5th Floor,505,20,0,20,0,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,5th Floor,507,20,0,18,2,0,0,0,0
+Alexandria,Arab Academy Abu Qir,Pharmacy,5th Floor,513,20,0,20,0,0,0,0,0
+Alexandria,Future International School,Future International School,3rd floor,12A,15,15,15,0,15,15,0,0
+Alexandria,Future International School,Future International School,3rd floor,12B,15,15,15,0,15,15,0,0
+Alexandria,Future International School,Future International School,3rd floor,12C,15,15,15,0,15,15,0,0
+Alexandria,Future International School,Future International School,3rd floor,11A,15,15,15,0,15,15,0,0
+Alexandria,Future International School,Future International School,3rd floor,11B,15,15,15,0,15,15,0,0
+Alexandria,Future International School,Future International School,3rd floor,11C,15,15,15,0,15,15,0,0
+Alexandria,Future International School,Future International School,3rd floor,10B,15,15,15,0,15,15,0,0
+Alexandria,Future International School,Future International School,3rd floor,MathsClass,15,16,15,0,4,15,0,11
+Alexandria,Taymour English School,Taymour English School,1st floor,Room 1,15,30,15,0,13,15,0,2
+Alexandria,Taymour English School,Taymour English School,1st floor,Room 2,15,30,15,0,15,15,0,0
+Alexandria,Taymour English School,Taymour English School,1st floor,Room 3,15,30,15,0,15,15,0,0
+Alexandria,Taymour English School,Taymour English School,3rd Floor,Room 4,15,30,15,0,15,15,0,0
+Alexandria,Taymour English School,Taymour English School,3rd Floor,Room 5,15,30,15,0,15,15,0,0
+Alexandria,Taymour English School,Taymour English School,3rd Floor,Room 6,15,15,15,0,0,15,0,0
+Alexandria,Taymour English School,Taymour English School,3rd Floor,Room 7,15,13,15,0,0,13,0,0
+Alexandria,Taymour English School,Taymour English School,4th Floor,Room 8,15,0,15,0,0,0,0,0
+Alexandria,Taymour English School,Taymour English School,4th Floor,Room 9,15,0,15,0,0,0,0,0
+Alexandria,Taymour English School,Taymour English School,4th Floor,Room 10,15,0,15,0,0,0,0,0
+Alexandria,Taymour English School,Taymour English School,4th Floor,Room 11,14,0,14,0,0,0,0,0
+Alexandria,Pioneers International School,Pioneers International School,3rd floor,Nebraska,14,27,14,0,7,14,1,5
+Alexandria,Pioneers International School,Pioneers International School,3rd floor,Nevada,15,30,15,0,15,15,0,0
+Alexandria,Pioneers International School,Pioneers International School,3rd floor,New Mexico,14,30,14,0,15,15,0,0
+Alexandria,Pioneers International School,Pioneers International School,3rd floor,New Jersey,15,30,15,0,15,15,0,0
+Alexandria,Pioneers International School,Pioneers International School,3rd floor,New York,15,30,15,0,15,15,0,0
+Alexandria,Pioneers International School,Pioneers International School,3rd floor,Colimbia,15,30,15,0,15,15,0,0
+Alexandria,Pioneers International School,Pioneers International School,3rd floor,North Carolina,15,30,15,0,15,15,0,0
+Alexandria,Pioneers International School,Pioneers International School,3rd floor,Colorado,15,25,15,0,10,15,0,0
+Alexandria,Pioneers International School,Pioneers International School,3rd floor,California,15,23,15,0,8,15,0,0
+Alexandria,Pioneers International School,Pioneers International School,3rd floor,Chicago,15,15,15,0,0,15,0,0
+Alexandria,El Zahraa International School - American Division,El Zahraa International School - American Division,1st floor,Room 1,15,15,15,0,15,15,0,0
+Alexandria,El Zahraa International School - American Division,El Zahraa International School - American Division,1st floor,Room 2,15,15,15,0,15,15,0,0
+Alexandria,El Zahraa International School - American Division,El Zahraa International School - American Division,1st floor,Room 3,15,15,15,0,15,15,0,0
+Alexandria,El Zahraa International School - American Division,El Zahraa International School - American Division,1st floor,Room 4,15,15,15,0,15,15,0,0
+Alexandria,El Zahraa International School - American Division,El Zahraa International School - American Division,1st floor,Room 5,15,15,15,0,15,15,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,1st Floor,A101,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,1st Floor,A110,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,1st Floor,A111,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,1st Floor,A117,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,1st Floor,A118,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,1st Floor,A119,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,1st Floor,A120,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,1st Floor,A121,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,3th Floor,A301,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,3th Floor,A319,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,3th Floor,A320,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,3th Floor,A321,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,4th Floor,A401,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,4th Floor,A403,29,0,29,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,4th Floor,A414,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,4th Floor,A415,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building A,4th Floor,A416,30,0,30,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,1st Floor,B005,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,1st Floor,B102,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,1st Floor,B103,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,1st Floor,B104,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,1st Floor,B105,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,1st Floor,B106,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,1st Floor,B107,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,2nd Floor,B201,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,2nd Floor,B202,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,2nd Floor,B204,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,2nd Floor,B205,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,2nd Floor,B206,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,2nd Floor,B207,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,3th Floor,B301,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,3th Floor,B302,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,3th Floor,B304,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,3th Floor,B305,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,4th Floor,B401,20,0,20,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,4th Floor,B402,9,0,9,0,0,0,0,0
+Cairo,Arab Academy Sheraton,Engineering Building B,4th Floor,B404,20,0,20,0,0,0,0,0
+Cairo,Future University,Business,Basement,C1.3 lec hall,20,0,20,0,0,0,0,0
+Cairo,Future University,Business,Basement,C1.7 lec hall,40,0,40,0,0,0,0,0
+Cairo,Future University,Business,Basement,C1.8 lec hall,40,0,40,0,0,0,0,0
+Cairo,Future University,Business,Basement,C1.9 lec hall,40,0,40,0,0,0,0,0
+Cairo,Future University,Business,1st,C3.2 lec hall,25,0,25,0,0,0,0,0
+Cairo,Future University,Business,1st,C3.3 lec hall,20,0,20,0,0,0,0,0
+Cairo,Future University,Business,1st,C3.4 lec hall,40,0,40,0,0,0,0,0
+Cairo,Future University,Business,2nd,C4.1,20,0,20,0,0,0,0,0
+Cairo,Future University,Business,2nd,C4.2,19,0,19,0,0,0,0,0
+Cairo,Future University,Business,2nd,C4.3,15,0,15,0,0,0,0,0
+Cairo,Future University,Business,2nd,C4.4 lec hall,45,0,45,0,0,0,0,0
+Cairo,Future University,Business,3rd,C5.10,21,0,21,0,0,0,0,0
+Cairo,Future University,Business,3rd,C5.3,15,0,15,0,0,0,0,0
+Cairo,Future University,Business,3rd,C5.4 lecture hall,40,0,40,0,0,0,0,0
+Cairo,Future University,Business,3rd,C5.6,21,0,21,0,0,0,0,0
+Cairo,Future University,Business,3rd,C5.7,43,0,43,0,0,0,0,0
+Cairo,Future University,Business,3rd,C5.8,18,0,18,0,0,0,0,0
+Cairo,Future University,Business,3rd,C5.9,20,0,20,0,0,0,0,0
+Cairo,Future University,Political Sc.,Basement,F1.2 lec hall,40,0,40,0,0,0,0,0
+Cairo,Future University,Political Sc.,Ground,F2.2 lec hall,40,0,40,0,0,0,0,0
+Cairo,Future University,Political Sc.,1st,F3.1 lec hall,20,0,20,0,0,0,0,0
+Cairo,Future University,Political Sc.,1st,F3.2 lec hall,40,0,40,0,0,0,0,0
+Cairo,Future University,Political Sc.,1st,F3.5,15,0,15,0,0,0,0,0
+Cairo,Future University,Political Sc.,1st,F3.6,15,0,15,0,0,0,0,0
+Cairo,Future University,Political Sc.,2nd,F4.2 lec hall,39,0,39,0,0,0,0,0
+Cairo,Future University,Political Sc.,2nd,F4.3,23,0,23,0,0,0,0,0
+Cairo,Future University,Political Sc.,2nd,F4.4,30,0,30,0,0,0,0,0
+Cairo,Future University,Political Sc.,2nd,F4.5,15,0,15,0,0,0,0,0
+Cairo,Future University,Political Sc.,2nd,F4.6,15,0,15,0,0,0,0,0
+Cairo,Rawasy Misr International School,Rawasy Misr International School,3rd floor,6A,15,17,15,0,8,15,0,7
+Cairo,Rawasy Misr International School,Rawasy Misr International School,3rd floor,6B,15,15,13,2,15,15,0,0
+Cairo,Rawasy Misr International School,Rawasy Misr International School,3rd floor,7A,15,15,15,0,15,15,0,0
+Cairo,Rawasy Misr International School,Rawasy Misr International School,3rd floor,8A,15,15,15,0,15,15,0,0
+Cairo,Rawasy Misr International School,Rawasy Misr International School,3rd floor,9A,15,15,15,0,15,15,0,0
+Cairo,Rawasy Misr International School,Rawasy Misr International School,3rd floor,10A,15,15,15,0,15,15,0,0
+Cairo,Rawasy Misr International School,Rawasy Misr International School,3rd floor,11A,15,15,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-1,15,15,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-2,15,25,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-3,15,30,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-4,15,30,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-5,15,30,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-6,15,30,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-7,15,15,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-8,15,14,15,0,14,14,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-9,15,15,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-10,15,15,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-11,15,15,15,0,15,15,0,0
+Cairo,Hotep International School,Hotep International School,3rd Floor,Seniors-12,15,15,15,0,15,15,0,0
+Cairo,Integrated Thebes American College,Integrated Thebes International School,4th floor,Room No.402,15,15,15,0,15,15,0,0
+Cairo,Integrated Thebes American College,Integrated Thebes International School,4th floor,Room No.403,15,15,15,0,15,15,0,0
+Cairo,Integrated Thebes American College,Integrated Thebes International School,4th floor,Room No.404,15,15,15,0,15,15,0,0
+Cairo,Integrated Thebes American College,Integrated Thebes International School,4th floor,Room No.405,15,15,15,0,15,15,0,0
+Cairo,Integrated Thebes American College,Integrated Thebes International School,4th floor,Room No.406,15,15,15,0,15,15,0,0
+Cairo,Integrated Thebes American College,Integrated Thebes International School,4th floor,Room No.407,15,15,15,0,15,15,0,0
+Cairo,Integrated Thebes American College,Integrated Thebes International School,4th floor,Room No.408,15,15,15,0,15,15,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,1st floor,12B,15,20,15,0,15,15,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,1st floor,12C,15,30,15,0,15,15,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,1st floor,11B,15,30,15,0,15,15,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,1st floor,11C,15,29,15,0,14,15,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,1st floor,10B,15,10,15,0,0,10,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,1st floor,10C,15,0,15,0,0,0,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,1st floor,9C,15,0,15,0,0,0,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,2nd Floor,12A,15,0,15,0,0,0,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,2nd Floor,12D,15,0,15,0,0,0,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,2nd Floor,11A,15,0,15,0,0,0,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,2nd Floor,11D,15,0,15,0,0,0,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,2nd Floor,10A,15,0,15,0,0,0,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,2nd Floor,10D,15,0,15,0,0,0,0,0
+Cairo,Al-Andalus International School,Al-andalus international School,2nd Floor,9A,15,0,15,0,0,0,0,0
+Damietta,Horus University,Engineering,2nd Floor,E205,30,0,28,2,0,0,0,0
+Damietta,Horus University,Engineering,2nd Floor,E211,21,0,21,0,0,0,0,0
+Damietta,Horus University,Engineering,2nd Floor,E212,21,0,21,0,0,0,0,0
+Damietta,Horus University,Engineering,2nd Floor,E214,21,0,21,0,0,0,0,0
+Damietta,Horus University,Engineering,3rd Floor,E310,30,0,30,0,0,0,0,0
+Damietta,Horus University,Engineering,3rd Floor,E316,21,0,21,0,0,0,0,0
+Damietta,Horus University,Engineering,3rd Floor,E317,21,0,21,0,0,0,0,0
+Damietta,Horus University,Engineering,3rd Floor,E319,20,0,20,0,0,0,0,0
+Damietta,Horus University,Engineering,3rd Floor,E320,20,0,20,0,0,0,0,0
+Damietta,Horus University,Engineering,4th Floor,E414,30,0,30,0,0,0,0,0
+Damietta,Horus University,Engineering,4th Floor,E418,20,0,20,0,0,0,0,0
+Damietta,Horus University,Engineering,4th Floor,E419,20,0,20,0,0,0,0,0
+Damietta,Horus University,Engineering,4th Floor,E420,20,0,20,0,0,0,0,0
+Damietta,Horus University,Engineering,4th Floor,E421,20,0,20,0,0,0,0,0
+Damietta,Horus University,Engineering,4th Floor,E422,20,0,20,0,0,0,0,0
+Damietta,Horus University,Engineering,4th Floor,E426,26,0,26,0,0,0,0,0
+Damietta,Horus University,Medicine,1st Floor,M2.118,0,35,0,0,21,25,0,4
+Damietta,Horus University,Medicine,1st Floor,M2.102,0,35,0,0,25,25,0,0
+Damietta,Horus University,Medicine,1st Floor,M2.103,0,36,0,0,25,25,0,0
+Damietta,Horus University,Medicine,1st Floor,M2.121,0,33,0,0,24,24,0,0
+Giza,AAST Smart Village,Building B,First Floor,B104,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B105,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B106,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B107,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B109,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B110,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B111,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B112,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B114,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B116,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B117,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B118,24,0,24,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B119,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,First Floor,B120,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,2nd Floor,B202,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,2nd Floor,B203,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,2nd Floor,B204,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,2nd Floor,B205,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,2nd Floor,B207,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,2nd Floor,B209,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,2nd Floor,B211,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,2nd Floor,B213,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,2nd Floor,B215,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B405,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B406,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B407,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B408,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B409,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B411,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B413,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B414,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B415,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B416,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B417,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B418,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B419,25,0,25,0,0,0,0,0
+Giza,AAST Smart Village,Building B,4th Floor,B421,27,0,27,0,0,0,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,2nd Floor,Room No.1,15,14,10,5,14,14,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,2nd Floor,Room No.2,15,15,15,0,15,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,2nd Floor,Room No.3,15,15,15,0,15,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,2nd Floor,Room No.4,15,15,15,0,15,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,2nd Floor,Room No.5,15,15,15,0,15,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,2nd Floor,Room No.6,15,15,15,0,15,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,2nd Floor,Room No.7,15,15,15,0,15,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,3rd Floor,Room No.8,15,15,15,0,15,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,3rd Floor,Room No.9,15,15,15,0,15,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,3rd Floor,Room No.10,15,18,15,0,8,15,0,7
+Giza,Pioneer Misr International School,Pioneers Misr International School,3rd Floor,Room No.11,15,21,15,0,7,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,3rd Floor,Room No.12,15,30,15,0,15,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,3rd Floor,Room No.13,15,30,15,0,15,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,3rd Floor,Room No.14,15,29,15,0,14,15,0,0
+Giza,Pioneer Misr International School,Pioneers Misr International School,3rd Floor,Room No.15,0,14,0,0,0,14,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 1,12,21,12,0,11,12,2,1
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 2,12,21,12,0,12,12,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 3,12,17,12,0,12,12,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 4,12,15,12,0,12,12,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 5,12,19,12,0,12,12,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 6,12,15,12,0,12,12,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 7,12,19,12,0,12,12,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 8,12,17,12,0,12,12,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 9,12,19,12,0,12,12,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 10,12,12,12,0,12,12,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room11,12,12,12,0,12,12,0,0
+Giza,Map International Schools,Map International Schools,3rd Floor,Room 12,12,12,12,0,12,12,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,1st floor,Room 1.1,15,16,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,1st floor,Room 1.2,15,17,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,1st floor,Room 1.3,15,30,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,1st floor,Room 1.4,15,30,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,1st floor,Room 1.5,15,30,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,1st floor,Room 1.6,15,30,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,1st floor,Room 1.7,15,15,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,1st floor,Room 1.8,15,15,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,2nd Floor,Room 1.9,15,15,9,6,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,2nd Floor,Room 1.10,15,15,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,2nd Floor,Room 1.11,15,15,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,2nd Floor,Room 1.12,15,16,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,2nd Floor,Room 1.13,15,30,15,0,15,15,0,0
+Cairo,Sun of Glory International School,Sun of Glory International School,2nd Floor,Room 1.14,15,30,15,0,15,15,0,0
+Cairo,Mastery International School,Mastery International School,2nd Floor,202,15,25,15,0,6,15,1,9
+Cairo,Mastery International School,Mastery International School,2nd Floor,203,15,24,15,0,7,15,1,8
+Cairo,Mastery International School,Mastery International School,2nd Floor,205,15,15,15,0,15,15,0,0
+Cairo,Mastery International School,Mastery International School,2nd Floor,214,15,30,15,0,15,15,0,0
+Cairo,Mastery International School,Mastery International School,2nd Floor,215,15,30,15,0,15,15,0,0
+Cairo,Mastery International School,Mastery International School,2nd Floor,216,15,30,15,0,15,15,0,0
+Cairo,Mastery International School,Mastery International School,2nd Floor,217,14,28,14,0,13,15,0,0
+Giza,New Vision International School,New Vision International School,1st floor,American Building No.1,15,15,15,0,9,15,0,6
+Giza,New Vision International School,New Vision International School,1st floor,American Building No.2,14,21,14,0,15,15,0,0
+Giza,New Vision International School,New Vision International School,1st floor,American Building No.3,15,19,13,2,15,15,0,0
+Giza,New Vision International School,New Vision International School,1st floor,American Building No.4,15,23,15,0,15,15,0,0
+Giza,New Vision International School,New Vision International School,1st floor,American Building No.5,15,22,15,0,15,15,0,0
+Giza,New Vision International School,New Vision International School,1st floor,American Building No.6,15,20,15,0,15,15,0,0
+Giza,New Vision International School,New Vision International School,2nd floor,American Building No.7,15,20,15,0,15,15,0,0
+Giza,New Vision International School,New Vision International School,2nd floor,American Building No.8,15,18,15,0,14,14,0,0
+Giza,New Vision International School,New Vision International School,2nd floor,American Building No.9,15,22,15,0,15,15,0,0
+Giza,New Vision International School,New Vision International School,2nd floor,American Building No.10,15,17,15,0,15,15,0,0
+Giza,New Vision International School,New Vision International School,2nd floor,American Building No.11,15,23,15,0,15,15,0,0
+Giza,New Vision International School,New Vision International School,2nd floor,American Building No.12,15,19,15,0,4,15,0,0
+Giza,New Vision International School,New Vision International School,2nd floor,American Building No.13,15,15,15,0,0,15,0,0
+Minya,Deraya University,Dentistry,1st,class1,30,28,30,0,16,20,0,4
+Minya,Deraya University,Dentistry,1st,class2,30,32,30,0,20,20,0,0
+Minya,Deraya University,Dentistry,1st,class3,30,27,30,0,20,20,0,0
+Minya,Deraya University,Dentistry,2nd,Class 4,30,0,30,0,0,0,0,0
+Minya,Deraya University,Dentistry,2nd,Class 5,30,0,30,0,0,0,0,0
+Minya,Deraya University,Dentistry,2nd,Class 6,30,0,30,0,0,0,0,0
+Minya,Deraya University,Dentistry,ground Floor,Hall 1,45,0,42,3,0,0,0,0
+Minya,Deraya University,Dentistry,ground Floor,Hall 2,45,0,45,0,0,0,0,0
+Minya,Deraya University,Dentistry,ground Floor,Hall 3,45,0,45,0,0,0,0,0
+Minya,Deraya University,Dentistry,1st,Hall 4,45,34,45,0,25,24,0,0
+Minya,Deraya University,Dentistry,1st,Hall 5,45,36,45,0,23,20,0,0
+Minya,Deraya University,Dentistry,1st,Hall 6,45,41,45,0,25,24,0,0
+Minya,Deraya University,Dentistry,2nd,Hall 7,45,34,45,0,25,24,0,0
+Minya,Deraya University,Dentistry,2nd,Hall 8,25,36,25,0,25,24,0,0
+Minya,Deraya University,Business,1st Floor,Hall A,45,0,45,0,0,0,0,0
+Minya,Deraya University,Business,1st Floor,Hall B,45,0,45,0,0,0,0,0
+Minya,Deraya University,Business,1st Floor,Hall C,45,0,45,0,0,0,0,0
+Minya,Deraya University,Business,2nd Floor,Hall D,43,0,43,0,0,0,0,0
+Minya,Deraya University,Business,1st Floor,class 4,19,0,19,0,0,0,0,0
+Minya,Deraya University,Business,1st Floor,class 5,20,0,20,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,1st floor,4101,15,19,15,0,11,12,0,1
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,1st floor,4102,15,17,15,0,11,12,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,1st floor,4103,15,14,15,0,11,12,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,1st floor,4104,15,15,15,0,11,11,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,1st floor,4105,15,0,15,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,2nd floor,4106,15,0,15,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,2nd floor,4107,15,0,15,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,2nd floor,4108,15,0,15,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,2nd floor,4109,15,0,15,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,2nd floor,4110,15,0,15,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,2nd floor,4111,15,0,15,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,2nd floor,4112,15,0,15,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,2nd floor,4113,15,0,15,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,3rd Floor,4114,13,0,13,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,3rd Floor,4115,13,0,13,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,3rd Floor,4116,12,0,12,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,3rd Floor,4117,12,0,12,0,0,0,0,0
+Suez,St.Fatima Badr International School,St.Fatima Badr International School,3rd Floor,4118,12,0,12,0,0,0,0,0
+Menofia,Al Ryada University For Science And Technology,Engineering,,E118,23,19,23,0,14,16,0,0
+Menofia,Al Ryada University For Science And Technology,Engineering,,E121,23,20,23,0,14,17,0,0
+Menofia,Al Ryada University For Science And Technology,Engineering,,E221,22,0,22,0,0,0,0,0
+Menofia,Al Ryada University For Science And Technology,Engineering,,E231,21,0,20,1,0,0,0,0
+Qaliubiya,Al Alamiya Modern School - International,Al Alamiya Modern School - International,4th Floor,G5-C,15,14,14,1,11,11,0,0
+Qaliubiya,Al Alamiya Modern School - International,Al Alamiya Modern School - International,4th Floor,G6-A,15,15,15,0,10,8,0,0
+Qaliubiya,Al Alamiya Modern School - International,Al Alamiya Modern School - International,4th Floor,G6-C,15,0,15,0,0,0,0,0
+Qaliubiya,Al Alamiya Modern School - International,Al Alamiya Modern School - International,4th Floor,G7A,15,0,15,0,0,0,0,0
+Menofia,Irtiqaa International School,Irtiqaa International School,3rd Floor,8A,12,10,12,0,9,5,0,0
+Menofia,Irtiqaa International School,Irtiqaa International School,3rd Floor,8B,12,0,12,0,0,0,0,0
+Menofia,Irtiqaa International School,Irtiqaa International School,3rd Floor,9A,12,0,12,0,0,0,0,0
+Menofia,Irtiqaa International School,Irtiqaa International School,3rd Floor,9B,12,0,12,0,0,0,0,0
+Menofia,Irtiqaa International School,Irtiqaa International School,3rd Floor,10A,12,0,12,0,0,0,0,0
+Dakahlia,Tiba Modern International Schools,Tiba Modern International Schools,3rd Floor,AD3A,15,18,15,0,14,15,0,0
+Dakahlia,Tiba Modern International Schools,Tiba Modern International Schools,3rd Floor,AD4A,15,19,15,0,14,15,0,0
+Dakahlia,Tiba Modern International Schools,Tiba Modern International Schools,3rd Floor,AD5A,15,6,15,0,6,6,0,0
+Dakahlia,Tiba Modern International Schools,Tiba Modern International Schools,3rd Floor,AD6A,15,0,15,0,0,0,0,0
+Dakahlia,Tiba Modern International Schools,Tiba Modern International Schools,3rd Floor,AD7A,15,0,15,0,0,0,0,0
+Dakahlia,Mansoura College International School,Mansoura College International School,1st floor,Room 1,15,18,15,0,14,15,0,0
+Dakahlia,Mansoura College International School,Mansoura College International School,1st floor,Room 2,15,17,15,0,12,15,0,1
+Dakahlia,Mansoura College International School,Mansoura College International School,1st floor,Room 3,15,0,15,0,0,0,0,0
+Dakahlia,Mansoura College International School,Mansoura College International School,1st floor,Room 4,15,0,15,0,0,0,0,0
+Dakahlia,Mansoura College International School,Mansoura College International School,1st floor,Room 5,15,0,15,0,0,0,0,0
