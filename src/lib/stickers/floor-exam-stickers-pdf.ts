@@ -324,6 +324,7 @@ function drawFloorSubjectPlacardPage(params: {
     size: number;
     underlineThickness: number;
     isSubject?: boolean;
+    noUnderline?: boolean;
   }
 
   const rows: StackedRow[] = [];
@@ -346,10 +347,7 @@ function drawFloorSubjectPlacardPage(params: {
   if (totalRooms > 0) {
     roomsRowText += `   (In Bag: _____ / ${totalRooms})`;
   }
-  if (totalBags && totalBags > 1 && bagIndex) {
-    roomsRowText += `   •   Bag ${bagIndex} of ${totalBags}`;
-  }
-  rows.push({ text: roomsRowText, size: 23, underlineThickness: 1.3 });
+  rows.push({ text: roomsRowText, size: 23, underlineThickness: 0, noUnderline: true });
 
   // Calculate vertical positions: evenly distributed from startY to bottomY with fixed, comfortable spacing
   const startY = headerY - 46;
@@ -377,14 +375,16 @@ function drawFloorSubjectPlacardPage(params: {
       color: COLOR_CHARCOAL,
     });
 
-    // Clean underline directly beneath each text line
-    const linePadding = 18;
-    page.drawLine({
-      start: { x: centerX - (textW + linePadding) / 2, y: rowY - 5 },
-      end: { x: centerX + (textW + linePadding) / 2, y: rowY - 5 },
-      thickness: r.underlineThickness,
-      color: COLOR_CHARCOAL,
-    });
+    // Clean underline directly beneath each text line (omitted if noUnderline is true)
+    if (!r.noUnderline && r.underlineThickness > 0) {
+      const linePadding = 18;
+      page.drawLine({
+        start: { x: centerX - (textW + linePadding) / 2, y: rowY - 5 },
+        end: { x: centerX + (textW + linePadding) / 2, y: rowY - 5 },
+        thickness: r.underlineThickness,
+        color: COLOR_CHARCOAL,
+      });
+    }
   }
 }
 
