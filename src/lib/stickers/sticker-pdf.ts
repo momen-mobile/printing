@@ -1992,6 +1992,7 @@ function drawQuarterPlacard(params: {
   const isExamPapers = Boolean(content.isExamDossier);
   const isHead = !isExamPapers && (content.level === "building_head" || Boolean(content.isHead) || (!Boolean(content.floor) && !Boolean(content.room) && content.level === "building"));
   const isRoom = !isHead && !isExamPapers && content.level === "room";
+  const isFloor = !isHead && !isExamPapers && !isRoom;
   const margin = 12;
   const x = slotX + margin;
   const y = slotY + margin;
@@ -2053,7 +2054,7 @@ function drawQuarterPlacard(params: {
       governorate: content.governorate,
       center: content.center,
       building: content.building,
-      floor: content.floor,
+      floor: isFloor ? undefined : content.floor,
       isHead,
       x,
       width,
@@ -2073,8 +2074,14 @@ function drawQuarterPlacard(params: {
     page.drawLine({ start: { x: dividerX, y: bodyBottom + 6 }, end: { x: dividerX, y: bodyTop }, thickness: 1, color: COLOR_BORDER });
 
     // Left Column: Hero Value (Badge tag EST 1 - ROOM/FLOOR/HEAD removed per user specification)
-    const heroValue = isExamPapers ? "EXAM PAPERS" : isHead ? "HEAD" : isRoom ? `Room: ${content.room || ""}` : (content.floor || "");
-    let heroSize = isRoom ? 30 : isHead ? 28 : isExamPapers ? 26 : 26;
+    const heroValue = isExamPapers
+      ? "EXAM PAPERS"
+      : isHead
+      ? "HEAD"
+      : isRoom
+      ? `Room: ${content.room || ""}`
+      : `Senior: ${content.floor || ""}`;
+    let heroSize = isRoom ? 30 : isHead ? 28 : isFloor ? 22 : isExamPapers ? 26 : 26;
     let heroW = font.widthOfTextAtSize(heroValue, heroSize);
     if (heroW > leftW - 8) {
       heroSize = Math.max(16, ((leftW - 8) / heroW) * heroSize);
@@ -2082,7 +2089,7 @@ function drawQuarterPlacard(params: {
     }
     const heroY = bodyTop - 14 - heroSize;
     const leftDividerY = heroY - 10;
-    if (!isHead) {
+    if (!isHead && !isFloor) {
       page.drawText(heroValue, { x: leftX + (leftW - heroW) / 2, y: heroY, size: heroSize, font, color: COLOR_CHARCOAL });
       page.drawLine({ start: { x: leftX + 8, y: leftDividerY }, end: { x: leftX + leftW - 8, y: leftDividerY }, thickness: 0.8, color: COLOR_BORDER });
     }
@@ -2193,23 +2200,41 @@ function drawQuarterPlacard(params: {
       page.drawText("HEAD", { x: leftX + (leftW - heroW) / 2, y: headY, size: heroSize, font, color: COLOR_CHARCOAL });
       page.drawText(headSubText, { x: leftX + (leftW - totalW) / 2, y: subY, size: totalSize, font, color: COLOR_CHARCOAL });
     } else {
-      // Floor level: Display list of rooms in this floor
+      // Floor level: Display Senior: [Floor] and list of rooms together
       const rooms = content.childNames || [];
       const childRoomsCount = content.childCount || rooms.length;
       const floorHeader = `ROOMS (${childRoomsCount}):`;
       const fhSize = 8;
-      page.drawText(floorHeader, { x: leftX + 4, y: leftDividerY - 14, size: fhSize, font, color: COLOR_MUTED });
+      const fhW = font.widthOfTextAtSize(floorHeader, fhSize);
 
-      const availH = leftDividerY - 20 - (bodyBottom + 4);
+      const chunks: string[] = [];
       if (rooms.length > 0) {
-        // Chunk into lines of 4 rooms
-        const chunks: string[] = [];
         for (let i = 0; i < rooms.length; i += 4) {
           chunks.push(rooms.slice(i, i + 4).join("  •  "));
         }
-        const lineCount = chunks.length;
-        const step = Math.min(18, Math.max(13, (availH - 18) / lineCount));
-        const startY = leftDividerY - 26;
+      }
+      const lineCount = chunks.length;
+      const step = 14;
+
+      const availH = bodyTop - (bodyBottom + 6);
+      const visualHeroH = heroSize * 0.75;
+      const gapAfterHero = 10;
+      const visualFhH = fhSize * 0.75;
+      const gapAfterFh = 6;
+      const roomsChunkH = lineCount > 0 ? (lineCount - 1) * step + 9.5 * 0.75 : 0;
+      const totalBlockH = lineCount > 0
+        ? visualHeroH + gapAfterHero + visualFhH + gapAfterFh + roomsChunkH
+        : visualHeroH + 10 + 12 * 0.75;
+
+      const subY = bodyBottom + 6 + (availH - totalBlockH) / 2;
+      const hY = subY + totalBlockH - visualHeroH;
+
+      page.drawText(heroValue, { x: leftX + (leftW - heroW) / 2, y: hY, size: heroSize, font, color: COLOR_CHARCOAL });
+
+      if (lineCount > 0) {
+        const hdrY = hY - gapAfterHero - visualFhH;
+        page.drawText(floorHeader, { x: leftX + (leftW - fhW) / 2, y: hdrY, size: fhSize, font, color: COLOR_MUTED });
+        const startY = hdrY - gapAfterFh - 9.5 * 0.75;
         for (let cIdx = 0; cIdx < lineCount; cIdx++) {
           const chunkText = chunks[cIdx];
           let cSize = 9.5;
@@ -2226,37 +2251,11 @@ function drawQuarterPlacard(params: {
             color: COLOR_CHARCOAL,
           });
         }
-
-        // Bottom Total Students Bar
-        if (typeof content.totalStudents === "number" && content.totalStudents > 0) {
-          const totText = `${content.totalStudents} STUDENTS TOTAL`;
-          const totSize = 9;
-          const totW = font.widthOfTextAtSize(totText, totSize);
-          const barY = bodyBottom + 4;
-          page.drawRectangle({
-            x: leftX + 4,
-            y: barY - 1,
-            width: leftW - 8,
-            height: 14,
-            color: rgb(0.92, 0.92, 0.92),
-            borderColor: COLOR_CHARCOAL,
-            borderWidth: 0.6,
-          });
-          page.drawText(totText, {
-            x: leftX + (leftW - totW) / 2,
-            y: barY + 2.5,
-            size: totSize,
-            font,
-            color: COLOR_CHARCOAL,
-          });
-        }
       } else {
-        const floorSubText = typeof content.totalStudents === "number" && content.totalStudents > 0
-          ? `${content.totalStudents} STUDENTS TOTAL`
-          : childRoomsCount > 0 ? `${childRoomsCount} ROOMS INCLUDED` : "SENIOR DOSSIER";
+        const floorSubText = childRoomsCount > 0 ? `${childRoomsCount} ROOMS INCLUDED` : "SENIOR DOSSIER";
         let totalSize = 12;
         let totalW = font.widthOfTextAtSize(floorSubText, totalSize);
-        page.drawText(floorSubText, { x: leftX + (leftW - totalW) / 2, y: leftDividerY - 24, size: totalSize, font, color: COLOR_CHARCOAL });
+        page.drawText(floorSubText, { x: leftX + (leftW - totalW) / 2, y: hY - 10 - totalSize * 0.75, size: totalSize, font, color: COLOR_CHARCOAL });
       }
     }
 
@@ -2394,7 +2393,7 @@ function drawQuarterPlacard(params: {
     governorate: content.governorate,
     center: content.center,
     building: content.building,
-    floor: content.floor,
+    floor: isFloor ? undefined : content.floor,
     isHead,
     x,
     width,
@@ -2402,8 +2401,14 @@ function drawQuarterPlacard(params: {
   });
 
   // 1. Room / Floor / Head Hero Section (Badge tag EST 1 - ROOM/FLOOR/HEAD removed per user specification)
-  const heroValue = isExamPapers ? "EXAM PAPERS" : isHead ? "HEAD" : isRoom ? `Room: ${content.room || ""}` : (content.floor || "");
-  let heroSize = isRoom ? 30 : isHead ? 26 : isExamPapers ? 26 : 26;
+  const heroValue = isExamPapers
+    ? "EXAM PAPERS"
+    : isHead
+    ? "HEAD"
+    : isRoom
+    ? `Room: ${content.room || ""}`
+    : `Senior: ${content.floor || ""}`;
+  let heroSize = isRoom ? 30 : isHead ? 26 : isFloor ? 24 : 26;
   let heroW = font.widthOfTextAtSize(heroValue, heroSize);
   if (heroW > width - 16) {
     heroSize = Math.max(18, ((width - 16) / heroW) * heroSize);
@@ -2412,7 +2417,7 @@ function drawQuarterPlacard(params: {
   const heroY = divider2Y - 12 - heroSize;
 
   let heroDividerY = heroY - 7;
-  if (!isHead) {
+  if (!isHead && !isFloor) {
     page.drawText(heroValue, {
       x: x + (width - heroW) / 2,
       y: heroY,
@@ -2428,7 +2433,7 @@ function drawQuarterPlacard(params: {
       color: COLOR_BORDER,
     });
   } else {
-    // For Head stickers: No line under HEAD! Spans cleanly between divider2Y and chkDividerY
+    // For Head & Floor stickers: No line under Hero! Spans cleanly between divider2Y and chkDividerY
     heroDividerY = divider2Y;
   }
 
@@ -2884,27 +2889,50 @@ function drawQuarterPlacard(params: {
       color: COLOR_CHARCOAL,
     });
   } else {
-    // Floor level: Display list of rooms in this floor
+    // Floor level: Display Senior: [Floor] and list of rooms together without any divider line!
     const rooms = content.childNames || [];
     const childRoomsCount = content.childCount || rooms.length;
     const floorHdr = `ROOMS (${childRoomsCount}):`;
     const fhSize = 8.5;
     const fhW = font.widthOfTextAtSize(floorHdr, fhSize);
 
+    const chunks: string[] = [];
     if (rooms.length > 0) {
-      const chunks: string[] = [];
       for (let i = 0; i < rooms.length; i += 4) {
         chunks.push(rooms.slice(i, i + 4).join("   •   "));
       }
-      const lineCount = chunks.length;
-      const step = 15;
-      const blockH = 16 + lineCount * step;
-      const topOffset = Math.max(0, (availMidH - blockH) / 2);
-      const startHdrY = heroDividerY - 14 - topOffset;
+    }
+    const lineCount = chunks.length;
+    const step = 15;
 
+    const availFloorH = divider2Y - chkDividerY;
+    const visualHeroH = heroSize * 0.75;
+    const gapAfterHero = 12;
+    const visualFhH = fhSize * 0.75;
+    const gapAfterFh = 8;
+    const roomsChunkH = lineCount > 0 ? (lineCount - 1) * step + 9.5 * 0.75 : 0;
+    const totalBlockH = lineCount > 0
+      ? visualHeroH + gapAfterHero + visualFhH + gapAfterFh + roomsChunkH
+      : visualHeroH + 12 + 13 * 0.75;
+
+    const topOffset = Math.max(8, (availFloorH - totalBlockH) / 2);
+    const hY = divider2Y - topOffset - visualHeroH;
+
+    // 1. Draw Senior: 2nd Floor
+    page.drawText(heroValue, {
+      x: x + (width - heroW) / 2,
+      y: hY,
+      size: heroSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    if (lineCount > 0) {
+      // 2. Draw Rooms directly underneath without any dividing line!
+      const startHdrY = hY - gapAfterHero - visualFhH;
       page.drawText(floorHdr, { x: x + (width - fhW) / 2, y: startHdrY, size: fhSize, font, color: COLOR_MUTED });
 
-      const startY = startHdrY - 14;
+      const startY = startHdrY - gapAfterFh - 9.5 * 0.75;
       for (let cIdx = 0; cIdx < lineCount; cIdx++) {
         const chunkText = chunks[cIdx];
         let cSize = 9.5;
@@ -2929,13 +2957,13 @@ function drawQuarterPlacard(params: {
       let totalSize = 13;
       let totalW = font.widthOfTextAtSize(floorSubText, totalSize);
       if (totalW > width - 16) {
-        totalSize = Math.max(9.5, ((width - 16) / totalW) * totalSize);
+        totalSize = Math.max(10, ((width - 16) / totalW) * totalSize);
         totalW = font.widthOfTextAtSize(floorSubText, totalSize);
       }
-      const totalY = chkDividerY + 6 + (availMidH - totalSize) / 2;
+      const subY = hY - 12 - totalSize * 0.75;
       page.drawText(floorSubText, {
         x: x + (width - totalW) / 2,
-        y: totalY,
+        y: subY,
         size: totalSize,
         font,
         color: COLOR_CHARCOAL,
