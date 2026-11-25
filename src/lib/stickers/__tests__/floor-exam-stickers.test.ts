@@ -5,6 +5,7 @@ import {
   generateBuildingCleanSkinBagsPdf,
   generateBuildingHeadBagPlacardsPdf,
   generateFloorSeniorBagPlacardsPdf,
+  getSubjectBagCopies,
   type FloorSubjectPlacardData,
 } from "../floor-exam-stickers-pdf";
 
@@ -88,7 +89,18 @@ describe("generateFloorExamStickersPdf", () => {
     });
 
     const doc = await PDFDocument.load(pdfBytes);
-    expect(doc.getPageCount()).toBe(1);
+    // 12 rooms > 10 rooms => generates 3 bag copies
+    expect(doc.getPageCount()).toBe(3);
+  });
+
+  it("calculates correct bag copy counts based on room thresholds", () => {
+    expect(getSubjectBagCopies(1)).toBe(1);
+    expect(getSubjectBagCopies(6)).toBe(1);
+    expect(getSubjectBagCopies(7)).toBe(2);
+    expect(getSubjectBagCopies(10)).toBe(2);
+    expect(getSubjectBagCopies(11)).toBe(3);
+    expect(getSubjectBagCopies(15)).toBe(3);
+    expect(getSubjectBagCopies(20)).toBe(4);
   });
 
   it("generates Building Clean Skin Bag Placards in A4 Landscape with all subjects combined for the complete building", async () => {

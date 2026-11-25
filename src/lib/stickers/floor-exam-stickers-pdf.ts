@@ -77,6 +77,19 @@ export function isSchoolCenter(centerName?: string): boolean {
 }
 
 /**
+ * Determines the number of bag placard copies based on the room count:
+ * - <= 6 rooms: 1 copy (fits in 1 bag)
+ * - 7 to 10 rooms: 2 copies (split into 2 bags)
+ * - > 10 rooms: 3 copies (split into 3 bags)
+ */
+export function getSubjectBagCopies(totalRooms: number): number {
+  if (totalRooms <= 6) return 1;
+  if (totalRooms <= 10) return 2;
+  if (totalRooms <= 15) return 3;
+  return Math.max(3, Math.ceil(totalRooms / 5));
+}
+
+/**
  * Generates official Floor Exam Stickers (A4 Landscape Placards).
  * Each subject tested on this floor gets its own dedicated A4 bag placard.
  * Placed on the outside of the floor bag containing the subject's room envelopes.
@@ -112,15 +125,20 @@ export async function generateFloorExamStickersPdf(
 
   for (let idx = 0; idx < totalSubjects; idx++) {
     const subj = subjects[idx];
-    drawFloorSubjectPlacardPage({
-      pdfDoc,
-      font,
-      logoImg,
-      options,
-      subject: subj,
-      subjectIndex: idx,
-      totalSubjects,
-    });
+    const totalBags = getSubjectBagCopies(subj.totalRooms);
+    for (let bIdx = 1; bIdx <= totalBags; bIdx++) {
+      drawFloorSubjectPlacardPage({
+        pdfDoc,
+        font,
+        logoImg,
+        options,
+        subject: subj,
+        subjectIndex: idx,
+        totalSubjects,
+        bagIndex: bIdx,
+        totalBags,
+      });
+    }
   }
 
   return await pdfDoc.save();
@@ -149,15 +167,20 @@ export async function generateBatchFloorSubjectBagsPdf(
 
     for (let idx = 0; idx < totalSubjects; idx++) {
       const subj = subjects[idx];
-      drawFloorSubjectPlacardPage({
-        pdfDoc,
-        font,
-        logoImg,
-        options,
-        subject: subj,
-        subjectIndex: idx,
-        totalSubjects,
-      });
+      const totalBags = getSubjectBagCopies(subj.totalRooms);
+      for (let bIdx = 1; bIdx <= totalBags; bIdx++) {
+        drawFloorSubjectPlacardPage({
+          pdfDoc,
+          font,
+          logoImg,
+          options,
+          subject: subj,
+          subjectIndex: idx,
+          totalSubjects,
+          bagIndex: bIdx,
+          totalBags,
+        });
+      }
     }
   }
 
@@ -172,8 +195,10 @@ function drawFloorSubjectPlacardPage(params: {
   subject: FloorSubjectPlacardData;
   subjectIndex: number;
   totalSubjects: number;
+  bagIndex?: number;
+  totalBags?: number;
 }) {
-  const { pdfDoc, font, logoImg, options, subject } = params;
+  const { pdfDoc, font, logoImg, options, subject, bagIndex, totalBags } = params;
 
   // A4 Landscape: 841.89 x 595.28 pt
   const width = 841.89;
@@ -211,6 +236,32 @@ function drawFloorSubjectPlacardPage(params: {
       y: logoY,
       width: logoW,
       height: logoH,
+    });
+  }
+
+  // Prominent Bag Number Badge in top-right corner if multi-bag
+  if (totalBags && totalBags > 1 && bagIndex) {
+    const bagTagText = `BAG ${bagIndex} OF ${totalBags}`;
+    const bTagSize = 13;
+    const bTagW = font.widthOfTextAtSize(bagTagText, bTagSize);
+    const bTagH = 24;
+    const bTagX = cardX + cardW - bTagW - 28;
+    const bTagY = cardY + cardH - bTagH - 16;
+    page.drawRectangle({
+      x: bTagX - 10,
+      y: bTagY - 3,
+      width: bTagW + 20,
+      height: bTagH,
+      color: rgb(0.95, 0.95, 0.95),
+      borderColor: COLOR_CHARCOAL,
+      borderWidth: 1.2,
+    });
+    page.drawText(bagTagText, {
+      x: bTagX,
+      y: bTagY + 4,
+      size: bTagSize,
+      font,
+      color: COLOR_CHARCOAL,
     });
   }
 
@@ -289,7 +340,16 @@ function drawFloorSubjectPlacardPage(params: {
     rows.push({ text: `Floor: ${floorText}`, size: 22, underlineThickness: 1.2 });
   }
   rows.push({ text: `Subject: ${subjDisplayName}`, size: 32, underlineThickness: 1.5, isSubject: true });
-  rows.push({ text: `Rooms: ${subject.totalRooms}`, size: 26, underlineThickness: 1.3 });
+
+  const totalRooms = subject.totalRooms || 0;
+  let roomsRowText = `Rooms: ${totalRooms}`;
+  if (totalRooms > 0) {
+    roomsRowText += `   (In Bag: _____ / ${totalRooms})`;
+  }
+  if (totalBags && totalBags > 1 && bagIndex) {
+    roomsRowText += `   •   Bag ${bagIndex} of ${totalBags}`;
+  }
+  rows.push({ text: roomsRowText, size: 23, underlineThickness: 1.3 });
 
   // Calculate vertical positions: evenly distributed from startY to bottomY with fixed, comfortable spacing
   const startY = headerY - 46;
