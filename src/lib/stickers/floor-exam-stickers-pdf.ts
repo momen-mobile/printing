@@ -64,7 +64,7 @@ async function loadStickerFont(pdfDoc: PDFDocument): Promise<any> {
       try {
         const fontBytes = fs.readFileSync(fp);
         return await pdfDoc.embedFont(fontBytes, { subset: true });
-      } catch {}
+      } catch { }
     }
   }
 
@@ -93,15 +93,15 @@ export async function generateFloorExamStickersPdf(
   const rawSubjects = options.subjects && options.subjects.length > 0
     ? options.subjects
     : [
-        {
-          subjectCode: "LIT",
-          subjectName: "Literacy 1",
-          examType: "EST 1" as const,
-          totalRooms: 1,
-          totalCandidates: 25,
-          rooms: [{ roomName: "Room 101", candidateCount: 25 }],
-        },
-      ];
+      {
+        subjectCode: "LIT",
+        subjectName: "Literacy 1",
+        examType: "EST 1" as const,
+        totalRooms: 1,
+        totalCandidates: 25,
+        rooms: [{ roomName: "Room 101", candidateCount: 25 }],
+      },
+    ];
 
   // Strictly enforce canonical chronological exam period order
   const subjects = [...rawSubjects].sort(
@@ -488,13 +488,13 @@ export async function resolveFloorSubjectsData(params: {
   return Array.from(subjectMap.values())
     .sort((a, b) => getSubjectSortKey(a.subjectCode) - getSubjectSortKey(b.subjectCode))
     .map((s) => ({
-    subjectCode: s.subjectCode,
-    subjectName: s.subjectName,
-    examType: s.examType,
-    totalRooms: s.rooms.length,
-    totalCandidates: s.rooms.reduce((acc, r) => acc + r.candidateCount, 0),
-    rooms: s.rooms,
-  }));
+      subjectCode: s.subjectCode,
+      subjectName: s.subjectName,
+      examType: s.examType,
+      totalRooms: s.rooms.length,
+      totalCandidates: s.rooms.reduce((acc, r) => acc + r.candidateCount, 0),
+      rooms: s.rooms,
+    }));
 }
 
 export interface BuildingCleanSkinBagOption {

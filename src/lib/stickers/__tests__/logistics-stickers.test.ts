@@ -227,8 +227,9 @@ describe("Logistics Stickers PDF Generator", () => {
     const doc = await PDFDocument.load(est2PdfBytes);
     expect(doc.getPageCount()).toBe(1);
     const page = doc.getPage(0);
-    expect(page.getWidth()).toBeCloseTo(595.28, 1);
-    expect(page.getHeight()).toBeCloseTo(841.89, 1);
+    // A4 Landscape per Director requirement: 841.89 x 595.28 pt
+    expect(page.getWidth()).toBeCloseTo(841.89, 1);
+    expect(page.getHeight()).toBeCloseTo(595.28, 1);
   });
 
   it("generates standalone Clean Skin Dispatch Log PDF (Strictly 1 Page)", async () => {

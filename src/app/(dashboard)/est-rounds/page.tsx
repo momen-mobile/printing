@@ -1285,7 +1285,7 @@ export default function EstRoundsPage() {
                   onClick={() => void handleGeneratePdf("manifest")}
                   disabled={isGenerating}
                   className="flex items-center gap-3.5 p-3.5 rounded-xl border border-sky-500/30 bg-sky-500/5 hover:bg-sky-500/10 hover:border-sky-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
-                  title={isAr ? "ورقة مقاس A4 واحدة تجمع كافة تفاصيل السنتر والمبنى: الأدوار، القاعات، ومواد وأعداد EST 1 و EST 2" : "Master Center & Building Manifest (Single-Page Blueprint)"}
+                  title={isAr ? "ورقة بالعرض A4 تجمع كافة تفاصيل السنتر والمبنى: الأدوار، القاعات، ومواد وأعداد EST 1 و EST 2 مع تظليل وتمييز إحصائي متقن" : "Master Center & Building Manifest (A4 Landscape Blueprint)"}
                 >
                   <span className="size-10 rounded-xl bg-sky-500/20 text-sky-700 dark:text-sky-300 flex items-center justify-center font-bold shrink-0">
                     {isGenerating && activeActionType === "manifest" ? <Loader2 className="size-5 animate-spin" /> : <ClipboardList className="size-5" />}
@@ -1296,11 +1296,11 @@ export default function EstRoundsPage() {
                         {isAr ? "بيان الحصر العام" : "Master Manifest"}
                       </div>
                       <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-800 dark:text-sky-200 font-mono">
-                        Strict 1-Pg
+                        A4 Landscape
                       </span>
                     </div>
                     <div className="text-[11px] text-muted line-clamp-1">
-                      {isAr ? "مخطط الحصر الشامل لكافة اللجان والمواد" : "Blueprint A4"}
+                      {isAr ? "مخطط الحصر الشامل لكافة اللجان والمواد بالعرض" : "Landscape Blueprint A4"}
                     </div>
                   </div>
                 </button>

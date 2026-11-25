@@ -2217,13 +2217,52 @@ export interface MasterManifestHierarchyRow {
 }
 
 /**
- * Official EST Master Manifest Page (A4 Portrait: 595.28 x 841.89 pt)
- * Matches the official Director & Operations layout:
- * - Large title & logo at the top
- * - Royal Blue header with Exam, Rooms #, Total Candidates, Subject Counts, and Subject Checkbox columns
- * - Hierarchical rows: Center -> Building -> Floor -> Rooms
- * - Checkboxes [ ] for each room with active subject enrollment
- * - Royal Blue Packing Team section with 4 verification & signature boxes at the bottom
+ * Resolves active subject columns for Master Manifest across all rooms in the dataset.
+ * Automatically excludes subjects with zero candidates across all rooms,
+ * while keeping subjects that are present in any room.
+ */
+export function resolveManifestSubjectColumns(
+  options: LogisticsStickerOptions,
+  allRooms: Array<NormalizedRoom>,
+  isEst2: boolean,
+): { code: string; label: string }[] {
+  if (!isEst2) {
+    const candidateEst1 = [
+      { code: "LIT", label: "Literacy" },
+      { code: "MATH", label: "Math" },
+      { code: "ESSAY", label: "Essay" },
+    ];
+    const filtered = candidateEst1.filter((s) => {
+      const sumRooms = allRooms.reduce((sum, r) => sum + getRoomSubjectCount(r, s.code, false), 0);
+      const centerVal = options.centerSubjectsMap ? options.centerSubjectsMap[s.code] || 0 : 0;
+      return sumRooms > 0 || centerVal > 0;
+    });
+    return filtered.length > 0 ? filtered : candidateEst1.slice(0, 2);
+  } else {
+    const candidateEst2 = [
+      { code: "MATH1", label: "Math 1" },
+      { code: "BIO", label: "Biology" },
+      { code: "CHEM", label: "Chemistry" },
+      { code: "PHY", label: "Physics" },
+      { code: "MATH2", label: "Math 2" },
+    ];
+    const filtered = candidateEst2.filter((s) => {
+      const sumRooms = allRooms.reduce((sum, r) => sum + getRoomSubjectCount(r, s.code, true), 0);
+      const centerVal = options.centerSubjectsMap ? options.centerSubjectsMap[s.code] || 0 : 0;
+      return sumRooms > 0 || centerVal > 0;
+    });
+    return filtered.length > 0 ? filtered : candidateEst2.filter((s) => s.code !== "CHEM");
+  }
+}
+
+/**
+ * Official EST Master Manifest Page (A4 Landscape: 841.89 x 595.28 pt)
+ * Matches the official Director & Operations specifications:
+ * - A4 Landscape layout
+ * - Large, prominent Test Center / Venue name on top
+ * - Consistent subject columns across all pages (excluding zero-student subjects like unused Physics)
+ * - Alternating gray zebra striping for rows & distinct soft blue/gray highlight for total rows
+ * - Royal Blue Packing Team section with 4 verification & signature boxes across bottom
  */
 export async function drawOfficialMasterBuildingManifestPortraitPage(
   pdfDoc: PDFDocument,
@@ -2236,32 +2275,31 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
   pageIndex = 1,
   totalPages = 1,
 ): Promise<any> {
-  const width = 595.28;
-  const height = 841.89;
+  // A4 Landscape per user specification: 841.89 x 595.28 pt
+  const width = 841.89;
+  const height = 595.28;
   const page = pdfDoc.addPage([width, height]);
 
-  const margin = 20;
+  const margin = 24;
   const tableX = margin;
-  const tableW = width - margin * 2; // 555.28 pt
+  const tableW = width - margin * 2; // 793.89 pt
 
-  const manifestTitle = formatManifestHeaderTitle(options);
+  const centerName = cleanVenueName(options.center || "Test Center", options.governorate || "");
+  const { building: cleanBuilding } = splitCenterAndBuilding(options.center, options.building);
+  const buildingName = cleanBuilding && cleanBuilding.toLowerCase() !== centerName.toLowerCase() ? cleanBuilding : "";
+  const venueTitle = buildingName ? `${centerName} • ${buildingName}` : centerName;
+
   const examLabel = isEst2 ? "EST II" : "EST I";
+  const sessionText = toEnglishText(options.date) || "DECEMBER 2026";
+  const govText = toEnglishText(options.governorate) || "";
 
-  // 1. Header (Top of sheet)
-  const headerY = height - margin - 38;
-  page.drawText(manifestTitle, {
-    x: tableX,
-    y: headerY + 12,
-    size: 19,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  // Top-right Logo
+  // 1. Header (Top of sheet): Prominent Venue / Test Center name on top
+  const headerTopY = height - margin;
   const logoH = 34;
   const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 48;
   const logoX = tableX + tableW - logoW;
-  const logoY = headerY + 4;
+  const logoY = headerTopY - logoH;
+
   if (logoImg) {
     page.drawImage(logoImg, {
       x: logoX,
@@ -2271,14 +2309,59 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     });
   }
 
+  // Page numbering right under logo
+  if (totalPages > 1) {
+    const pageText = `Page ${pageIndex} of ${totalPages}`;
+    const pSize = 8;
+    const pW = font.widthOfTextAtSize(pageText, pSize);
+    page.drawText(pageText, {
+      x: logoX + (logoW - pW) / 2,
+      y: logoY - 10,
+      size: pSize,
+      font,
+      color: COLOR_MUTED,
+    });
+  }
+
+  // Center / Venue Title (Prominent, large)
+  const title1 = `TEST CENTER: ${venueTitle.toUpperCase()}`;
+  let t1Size = 17.5;
+  const maxT1W = logoX - tableX - 16;
+  let t1W = font.widthOfTextAtSize(title1, t1Size);
+  if (t1W > maxT1W) {
+    t1Size = Math.max(12, (maxT1W / t1W) * t1Size);
+  }
+  page.drawText(title1, {
+    x: tableX,
+    y: headerTopY - t1Size,
+    size: t1Size,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Subtitle Line: Exam Level • Master Blueprint Manifest • Date • City
+  const subLineParts = [
+    `${examLabel} MASTER BLUEPRINT MANIFEST`,
+    sessionText,
+    govText ? `City: ${govText}` : null,
+  ].filter(Boolean);
+  const title2 = subLineParts.join("   •   ");
+  page.drawText(title2, {
+    x: tableX,
+    y: headerTopY - t1Size - 14,
+    size: 9.5,
+    font,
+    color: COLOR_MUTED,
+  });
+
   // 2. Packing Team Signature Block at the bottom
-  const bottomMargin = 22;
-  const sigBlockH = 62;
-  const sigHeaderH = 16;
+  const bottomMargin = 16;
+  const sigBlockH = 50;
+  const sigHeaderH = 14;
   const sigBoxH = sigBlockH - sigHeaderH;
   const sigY = bottomMargin;
 
-  // Blue header: "Packing Team"
+  // Blue header: "Packing & Verification Team"
   page.drawRectangle({
     x: tableX,
     y: sigY + sigBoxH,
@@ -2289,15 +2372,15 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     borderWidth: 0.8,
   });
 
-  page.drawText("Packing Team", {
-    x: tableX + 10,
-    y: sigY + sigBoxH + 4,
+  page.drawText("Packing & Verification Team", {
+    x: tableX + 12,
+    y: sigY + sigBoxH + 3.5,
     size: 8.5,
     font,
     color: COLOR_WHITE,
   });
 
-  // 4 Signature Boxes
+  // 4 Signature Boxes across full landscape width (198.47 pt each)
   const sigColW = tableW / 4;
   for (let i = 0; i < 4; i++) {
     const bx = tableX + i * sigColW;
@@ -2312,23 +2395,23 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     });
 
     const lSize = 7.2;
-    page.drawText("Name: .......................................", {
-      x: bx + 8,
-      y: sigY + sigBoxH - 14,
+    page.drawText("Name: .....................................................", {
+      x: bx + 10,
+      y: sigY + sigBoxH - 11,
       size: lSize,
       font,
       color: COLOR_CHARCOAL,
     });
-    page.drawText("Signature: ..................................", {
-      x: bx + 8,
-      y: sigY + sigBoxH - 28,
+    page.drawText("Signature: ................................................", {
+      x: bx + 10,
+      y: sigY + sigBoxH - 22,
       size: lSize,
       font,
       color: COLOR_CHARCOAL,
     });
-    page.drawText("Date: .......................................", {
-      x: bx + 8,
-      y: sigY + 6,
+    page.drawText("Date: .....................................................", {
+      x: bx + 10,
+      y: sigY + 5,
       size: lSize,
       font,
       color: COLOR_CHARCOAL,
@@ -2336,15 +2419,16 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
   }
 
   // 3. Table Layout
-  const tableTop = headerY - 6;
-  const tableBottomMin = sigY + sigBlockH + 10;
+  const tableTop = headerTopY - 40;
+  const tableBottomMin = sigY + sigBlockH + 8;
   const thH = 22;
   const thY = tableTop - thH;
 
-  const N = subjectCols.length;
-  const col1W = N <= 3 ? 145 : N === 4 ? 125 : 105;
-  const col2W = N <= 3 ? 42 : N === 4 ? 38 : 35;
-  const col3W = N <= 3 ? 48 : N === 4 ? 44 : 38;
+  const N = Math.max(1, subjectCols.length);
+  // Column Widths in Landscape (tableW = 793.89 pt):
+  const col1W = 190;
+  const col2W = 54;
+  const col3W = 60;
   const remainingW = tableW - (col1W + col2W + col3W);
   const subjColW = remainingW / (2 * N);
 
@@ -2360,27 +2444,27 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
   const cols: ManifestColDef[] = [];
   let curX = tableX;
 
-  // Col 1: Exam & Date Title
-  cols.push({ key: "name", label: manifestTitle, width: col1W, x: curX });
+  // Col 1: Location & Room Directory
+  cols.push({ key: "name", label: "Location & Room Directory", width: col1W, x: curX });
   curX += col1W;
 
   // Col 2: Rooms #
   cols.push({ key: "rooms", label: "Rooms #", width: col2W, x: curX });
   curX += col2W;
 
-  // Col 3: EST II / EST I
-  cols.push({ key: "total", label: examLabel, width: col3W, x: curX });
+  // Col 3: Total Candidates
+  cols.push({ key: "total", label: `${examLabel} Total`, width: col3W, x: curX });
   curX += col3W;
 
   // Subject Count Columns
   for (const s of subjectCols) {
-    cols.push({ key: `cnt_${s.code}`, label: s.label, width: subjColW, x: curX, code: s.code });
+    cols.push({ key: `cnt_${s.code}`, label: `${s.label} Count`, width: subjColW, x: curX, code: s.code });
     curX += subjColW;
   }
 
   // Subject Checkbox Columns
   for (const s of subjectCols) {
-    cols.push({ key: `chk_${s.code}`, label: s.label, width: subjColW, x: curX, isCheck: true, code: s.code });
+    cols.push({ key: `chk_${s.code}`, label: `${s.label} [✓]`, width: subjColW, x: curX, isCheck: true, code: s.code });
     curX += subjColW;
   }
 
@@ -2396,13 +2480,13 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
   });
 
   for (const col of cols) {
-    let lblSize = 7.5;
+    let lblSize = 8;
     let tw = font.widthOfTextAtSize(col.label, lblSize);
     if (tw > col.width - 4) {
-      lblSize = Math.max(6, ((col.width - 4) / tw) * lblSize);
+      lblSize = Math.max(6.5, ((col.width - 4) / tw) * lblSize);
       tw = font.widthOfTextAtSize(col.label, lblSize);
     }
-    const tx = col.key === "name" ? col.x + 6 : col.x + (col.width - tw) / 2;
+    const tx = col.key === "name" ? col.x + 8 : col.x + (col.width - tw) / 2;
     page.drawText(col.label, {
       x: tx,
       y: thY + (thH - lblSize) / 2 + 1,
@@ -2412,19 +2496,21 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     });
   }
 
-  // 4. Data Rows
-  const floorGapH = 6;
+  // 4. Data Rows with Zebra Striping & Distinct Total Rows
+  const floorGapH = 4;
   const floorCount = manifestRows.filter((r) => r.type === "floor").length;
   const totalGapsH = floorCount * floorGapH;
   const availRowsH = thY - tableBottomMin - totalGapsH;
-  const baseRowH = Math.min(19.5, Math.max(15, availRowsH / Math.max(1, manifestRows.length)));
+  const baseRowH = Math.min(21, Math.max(16, availRowsH / Math.max(1, manifestRows.length)));
 
   let curY = thY;
+  let roomCounter = 0;
+
   for (let idx = 0; idx < manifestRows.length; idx++) {
     const row = manifestRows[idx];
 
-    // Clean white horizontal separator gap before each floor section!
-    if (row.type === "floor") {
+    // Clean white horizontal separator gap before each floor section
+    if (row.type === "floor" && idx > 0) {
       page.drawRectangle({
         x: tableX,
         y: curY - floorGapH,
@@ -2449,23 +2535,33 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
       curY -= floorGapH;
     }
 
-    const rowH = row.type === "floor" ? baseRowH + 1 : baseRowH;
+    const rowH = (row.type === "center" || row.type === "floor") ? baseRowH + 1.5 : baseRowH;
     const rowY = curY - rowH;
 
     // Background color per row type
     let bg = COLOR_WHITE;
     let isBold = false;
+    let isSubtotal = false;
+
     if (row.type === "center") {
-      bg = rgb(0.91, 0.94, 0.98);
+      // Center Grand Total Row: prominent soft blue-gray highlight
+      bg = rgb(0.82, 0.88, 0.96);
       isBold = true;
+      isSubtotal = true;
     } else if (row.type === "building") {
-      bg = rgb(0.94, 0.96, 0.98);
+      // Building Total Row
+      bg = rgb(0.88, 0.92, 0.97);
       isBold = true;
+      isSubtotal = true;
     } else if (row.type === "floor") {
-      bg = rgb(0.96, 0.96, 0.97);
+      // Floor Subtotal Row: distinct cool medium-gray bar
+      bg = rgb(0.90, 0.91, 0.94);
       isBold = true;
-    } else if (idx % 2 === 1) {
-      bg = rgb(0.98, 0.99, 1.0);
+      isSubtotal = true;
+    } else {
+      // Room rows: alternating light gray / white zebra striping
+      roomCounter++;
+      bg = roomCounter % 2 === 1 ? rgb(0.96, 0.965, 0.975) : rgb(1.0, 1.0, 1.0);
     }
 
     page.drawRectangle({
@@ -2476,21 +2572,21 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
       color: bg,
     });
 
-    // Horizontal bottom border line
+    // Horizontal bottom border line (stronger for subtotal rows)
     page.drawLine({
       start: { x: tableX, y: rowY },
       end: { x: tableX + tableW, y: rowY },
-      thickness: 0.5,
-      color: COLOR_BORDER,
+      thickness: isSubtotal ? 0.8 : 0.45,
+      color: isSubtotal ? COLOR_CHARCOAL : COLOR_BORDER,
     });
 
-    // Vertical column divider lines within this row (stops at row boundaries so the white gap remains clean)
+    // Vertical column divider lines within this row
     for (let i = 1; i < cols.length; i++) {
       const vx = cols[i].x;
       page.drawLine({
         start: { x: vx, y: rowY },
         end: { x: vx, y: rowY + rowH },
-        thickness: 0.5,
+        thickness: 0.45,
         color: COLOR_BORDER,
       });
     }
@@ -2498,13 +2594,14 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     // Cell values
     // 1. Name
     const nameCol = cols[0];
-    let nSize = isBold ? 8.5 : 8.2;
+    let nSize = isSubtotal ? 9.2 : 8.5;
     let nw = font.widthOfTextAtSize(row.name, nSize);
-    if (nw > nameCol.width - 12) {
-      nSize = Math.max(6.5, ((nameCol.width - 12) / nw) * nSize);
+    if (nw > nameCol.width - 16) {
+      nSize = Math.max(7, ((nameCol.width - 16) / nw) * nSize);
     }
-    const nameIndent = row.type === "room" ? 14 : row.type === "floor" ? 8 : 6;
-    page.drawText(row.name, {
+    const nameIndent = row.type === "room" ? 18 : row.type === "floor" ? 10 : 8;
+    const prefixBullet = row.type === "room" ? "• " : "";
+    page.drawText(`${prefixBullet}${row.name}`, {
       x: nameCol.x + nameIndent,
       y: rowY + (rowH - nSize) / 2 + 1,
       size: nSize,
@@ -2515,11 +2612,11 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     // 2. Rooms #
     const roomsCol = cols[1];
     const rText = String(row.roomsCount);
-    const rw = font.widthOfTextAtSize(rText, 8.5);
+    const rw = font.widthOfTextAtSize(rText, 8.8);
     page.drawText(rText, {
       x: roomsCol.x + (roomsCol.width - rw) / 2,
-      y: rowY + (rowH - 8.5) / 2 + 1,
-      size: 8.5,
+      y: rowY + (rowH - 8.8) / 2 + 1,
+      size: 8.8,
       font,
       color: COLOR_CHARCOAL,
     });
@@ -2527,11 +2624,11 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     // 3. Total Students
     const totCol = cols[2];
     const totText = String(row.totalStudents);
-    const totW = font.widthOfTextAtSize(totText, 8.5);
+    const totW = font.widthOfTextAtSize(totText, isSubtotal ? 9.2 : 8.8);
     page.drawText(totText, {
       x: totCol.x + (totCol.width - totW) / 2,
-      y: rowY + (rowH - 8.5) / 2 + 1,
-      size: 8.5,
+      y: rowY + (rowH - 8.8) / 2 + 1,
+      size: isSubtotal ? 9.2 : 8.8,
       font,
       color: COLOR_CHARCOAL,
     });
@@ -2541,11 +2638,12 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
       const sCol = cols.find((c) => c.key === `cnt_${s.code}`)!;
       const cnt = row.subjectCounts[s.code] || 0;
       const cStr = String(cnt);
-      const cw = font.widthOfTextAtSize(cStr, 8.2);
+      const cFontSize = isSubtotal ? 9 : 8.5;
+      const cw = font.widthOfTextAtSize(cStr, cFontSize);
       page.drawText(cStr, {
         x: sCol.x + (sCol.width - cw) / 2,
-        y: rowY + (rowH - 8.2) / 2 + 1,
-        size: 8.2,
+        y: rowY + (rowH - cFontSize) / 2 + 1,
+        size: cFontSize,
         font,
         color: COLOR_CHARCOAL,
       });
@@ -2557,7 +2655,7 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
       if (row.hasCheckboxes) {
         const cnt = row.subjectCounts[s.code] || 0;
         if (cnt > 0) {
-          const cbSize = 9.5;
+          const cbSize = 10;
           const cbX = cCol.x + (cCol.width - cbSize) / 2;
           const cbY = rowY + (rowH - cbSize) / 2;
           page.drawRectangle({
@@ -2567,7 +2665,18 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
             height: cbSize,
             color: COLOR_WHITE,
             borderColor: COLOR_CHARCOAL,
-            borderWidth: 0.8,
+            borderWidth: 0.9,
+          });
+        } else {
+          // Dash for zero enrollment in this room
+          const dash = "—";
+          const dw = font.widthOfTextAtSize(dash, 8);
+          page.drawText(dash, {
+            x: cCol.x + (cCol.width - dw) / 2,
+            y: rowY + (rowH - 8) / 2 + 1,
+            size: 8,
+            font,
+            color: COLOR_MUTED,
           });
         }
       }
@@ -2609,26 +2718,7 @@ export async function drawMasterBuildingManifestPage(
   const rawExam = options.examName || "EST";
   const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
 
-  let subjectCols: { code: string; label: string }[] = [];
-  if (!isEst2) {
-    subjectCols = [
-      { code: "LIT", label: "Literacy" },
-      { code: "MATH", label: "Math" },
-      { code: "ESSAY", label: "Essay" },
-    ];
-  } else {
-    const hasChem =
-      allRooms.some((r) => getRoomSubjectCount(r, "CHEM", true) > 0) ||
-      Boolean(options.centerSubjectsMap && (options.centerSubjectsMap["CHEM"] || 0) > 0);
-
-    subjectCols = [
-      { code: "MATH1", label: "Math 1" },
-      { code: "BIO", label: "Biology" },
-      ...(hasChem ? [{ code: "CHEM", label: "Chemistry" }] : []),
-      { code: "PHY", label: "Physics" },
-      { code: "MATH2", label: "Math 2" },
-    ];
-  }
+  const subjectCols = resolveManifestSubjectColumns(options, allRooms, isEst2);
 
   const buildingTotalRooms = allRooms.length;
   const buildingTotalStudents = allRooms.reduce((s, r) => s + (r.studentCount || 0), 0);
@@ -3047,26 +3137,7 @@ export async function generateMasterBuildingManifestPdf(
   const rawExam = options.examName || "EST";
   const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
 
-  let subjectCols: { code: string; label: string }[] = [];
-  if (!isEst2) {
-    subjectCols = [
-      { code: "LIT", label: "Literacy" },
-      { code: "MATH", label: "Math" },
-      { code: "ESSAY", label: "Essay" },
-    ];
-  } else {
-    const hasChem =
-      allRooms.some((r) => getRoomSubjectCount(r, "CHEM", true) > 0) ||
-      Boolean(options.centerSubjectsMap && (options.centerSubjectsMap["CHEM"] || 0) > 0);
-
-    subjectCols = [
-      { code: "MATH1", label: "Math 1" },
-      { code: "BIO", label: "Biology" },
-      ...(hasChem ? [{ code: "CHEM", label: "Chemistry" }] : []),
-      { code: "PHY", label: "Physics" },
-      { code: "MATH2", label: "Math 2" },
-    ];
-  }
+  const subjectCols = resolveManifestSubjectColumns(options, allRooms, isEst2);
 
   const buildingTotalRooms = allRooms.length;
   const buildingTotalStudents = allRooms.reduce((s, r) => s + (r.studentCount || 0), 0);
@@ -3149,7 +3220,7 @@ export async function generateMasterBuildingManifestPdf(
     }
   }
 
-  const maxRowsPerPage = 32;
+  const maxRowsPerPage = 22;
   const totalPages = Math.max(1, Math.ceil(allRows.length / maxRowsPerPage));
 
   for (let pIdx = 1; pIdx <= totalPages; pIdx++) {
