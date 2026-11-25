@@ -2282,8 +2282,8 @@ function drawQuarterPlacard(params: {
       ]
       : isHead
         ? [
-          "1. Control Register",
-          "2. Blank White Paper",
+          "1. Control Room Register",
+          "2. Scratch Paper",
           "3. Mobile Collection Files",
           "4. Proctor & Senior Sheets",
           "5. Student & Proctor Misconduct Forms",
@@ -2450,8 +2450,8 @@ function drawQuarterPlacard(params: {
     ]
     : isHead
     ? [
-      "1. Control Register",
-      "2. Blank White Paper",
+      "1. Control Room Register",
+      "2. Scratch Paper",
       "3. Mobile Collection Files",
       "4. Proctor & Senior Sheets",
       "5. Student & Proctor Misconduct Forms",

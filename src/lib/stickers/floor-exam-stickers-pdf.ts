@@ -737,7 +737,7 @@ function drawBuildingHeadBagPlacardPage(params: {
   const lineSpacing = 20;
 
   const col1Items = [
-    "• Building Control Register",
+    "• Control Room Register",
     "• Proctor & Senior Attendance Registers",
     "• Student & Proctor Misconduct Forms",
   ];
@@ -745,7 +745,7 @@ function drawBuildingHeadBagPlacardPage(params: {
   const col2Items = [
     "• Mobile & Valuables Collection Files",
     "• Room Numbers & Candidate Signage",
-    "• Blank White Paper, Staplers & Supplies",
+    "• Scratch Paper, Staplers & Supplies",
   ];
 
   for (let i = 0; i < col1Items.length; i++) {
