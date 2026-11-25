@@ -354,7 +354,7 @@ export function drawQuarterLocationBlock(params: {
   }
 
   // 3. Render lines vertically spaced with generous padding from the header line!
-  let currY = headerBottom - 16;
+  let currY = headerBottom - 25;
   for (let i = 0; i < lines.length; i++) {
     const item = lines[i];
     const textW = font.widthOfTextAtSize(item.text, item.size);
@@ -2081,10 +2081,11 @@ function drawQuarterPlacard(params: {
       heroW = font.widthOfTextAtSize(heroValue, heroSize);
     }
     const heroY = bodyTop - 14 - heroSize;
-    page.drawText(heroValue, { x: leftX + (leftW - heroW) / 2, y: heroY, size: heroSize, font, color: COLOR_CHARCOAL });
-
     const leftDividerY = heroY - 10;
-    page.drawLine({ start: { x: leftX + 8, y: leftDividerY }, end: { x: leftX + leftW - 8, y: leftDividerY }, thickness: 0.8, color: COLOR_BORDER });
+    if (!isHead) {
+      page.drawText(heroValue, { x: leftX + (leftW - heroW) / 2, y: heroY, size: heroSize, font, color: COLOR_CHARCOAL });
+      page.drawLine({ start: { x: leftX + 8, y: leftDividerY }, end: { x: leftX + leftW - 8, y: leftDividerY }, thickness: 0.8, color: COLOR_BORDER });
+    }
 
     if (isRoom) {
       const subjectLines = getVerticalSubjectLines(content, true);
@@ -2175,13 +2176,22 @@ function drawQuarterPlacard(params: {
           : typeof content.totalStudents === "number" && content.totalStudents > 0
             ? `${content.totalStudents} Students`
             : "HEAD DOSSIER";
-      let totalSize = 12;
+      let totalSize = 13;
       let totalW = font.widthOfTextAtSize(headSubText, totalSize);
       if (totalW > leftW - 8) {
         totalSize = Math.max(8.5, ((leftW - 8) / totalW) * totalSize);
         totalW = font.widthOfTextAtSize(headSubText, totalSize);
       }
-      page.drawText(headSubText, { x: leftX + (leftW - totalW) / 2, y: leftDividerY - 20, size: totalSize, font, color: COLOR_CHARCOAL });
+      const availH = bodyTop - (bodyBottom + 6);
+      const visualHeadH = heroSize * 0.75;
+      const visualSubH = totalSize * 0.75;
+      const textGap = 10;
+      const totalVisualH = visualHeadH + textGap + visualSubH;
+      const subY = bodyBottom + 6 + (availH - totalVisualH) / 2;
+      const headY = subY + visualSubH + textGap;
+
+      page.drawText("HEAD", { x: leftX + (leftW - heroW) / 2, y: headY, size: heroSize, font, color: COLOR_CHARCOAL });
+      page.drawText(headSubText, { x: leftX + (leftW - totalW) / 2, y: subY, size: totalSize, font, color: COLOR_CHARCOAL });
     } else {
       // Floor level: Display list of rooms in this floor
       const rooms = content.childNames || [];
@@ -2393,28 +2403,34 @@ function drawQuarterPlacard(params: {
 
   // 1. Room / Floor / Head Hero Section (Badge tag EST 1 - ROOM/FLOOR/HEAD removed per user specification)
   const heroValue = isExamPapers ? "EXAM PAPERS" : isHead ? "HEAD" : isRoom ? `Room: ${content.room || ""}` : (content.floor || "");
-  let heroSize = isRoom ? 30 : isHead ? 25 : isExamPapers ? 26 : 26;
+  let heroSize = isRoom ? 30 : isHead ? 26 : isExamPapers ? 26 : 26;
   let heroW = font.widthOfTextAtSize(heroValue, heroSize);
   if (heroW > width - 16) {
     heroSize = Math.max(18, ((width - 16) / heroW) * heroSize);
     heroW = font.widthOfTextAtSize(heroValue, heroSize);
   }
   const heroY = divider2Y - 12 - heroSize;
-  page.drawText(heroValue, {
-    x: x + (width - heroW) / 2,
-    y: heroY,
-    size: heroSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
 
-  const heroDividerY = heroY - 7;
-  page.drawLine({
-    start: { x: x + 6, y: heroDividerY },
-    end: { x: x + width - 6, y: heroDividerY },
-    thickness: 0.6,
-    color: COLOR_BORDER,
-  });
+  let heroDividerY = heroY - 7;
+  if (!isHead) {
+    page.drawText(heroValue, {
+      x: x + (width - heroW) / 2,
+      y: heroY,
+      size: heroSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    page.drawLine({
+      start: { x: x + 6, y: heroDividerY },
+      end: { x: x + width - 6, y: heroDividerY },
+      thickness: 0.6,
+      color: COLOR_BORDER,
+    });
+  } else {
+    // For Head stickers: No line under HEAD! Spans cleanly between divider2Y and chkDividerY
+    heroDividerY = divider2Y;
+  }
 
   // ---------------------------------------------------------------------------
   // 3. Checklist Section (Anchored at the BOTTOM of the Quarter Sticker)
@@ -2843,10 +2859,26 @@ function drawQuarterPlacard(params: {
       totalSize = Math.max(10, ((width - 16) / totalW) * totalSize);
       totalW = font.widthOfTextAtSize(headSubText, totalSize);
     }
-    const totalY = chkDividerY + 6 + (availMidH - totalSize) / 2;
+
+    const availHeadH = divider2Y - chkDividerY;
+    const visualHeadH = heroSize * 0.75;
+    const visualSubH = totalSize * 0.75;
+    const textGap = 12;
+    const totalVisualH = visualHeadH + textGap + visualSubH;
+    const subY = chkDividerY + (availHeadH - totalVisualH) / 2;
+    const headY = subY + visualSubH + textGap;
+
+    page.drawText("HEAD", {
+      x: x + (width - heroW) / 2,
+      y: headY,
+      size: heroSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
     page.drawText(headSubText, {
       x: x + (width - totalW) / 2,
-      y: totalY,
+      y: subY,
       size: totalSize,
       font,
       color: COLOR_CHARCOAL,
