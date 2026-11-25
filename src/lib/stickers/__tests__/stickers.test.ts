@@ -9,6 +9,7 @@ import {
   buildExamStickerItemsForRoom,
   cleanVenueName,
   drawQuarterLocationBlock,
+  isSameOrRedundantBuilding,
 } from "../sticker-pdf";
 import {
   parseEst1FileName,
@@ -983,6 +984,32 @@ describe("generateStickerPdf", () => {
       it("cleans venue names and removes duplicate governorate prefixes", () => {
         expect(cleanVenueName("Alexandria - Future International School", "Alexandria")).toBe("Future International School");
         expect(cleanVenueName("Future International School", "Alexandria")).toBe("Future International School");
+      });
+
+      it("correctly identifies redundant or same school building names", () => {
+        // User's specific case: singular vs plural School
+        expect(
+          isSameOrRedundantBuilding("Pioneer Misr International School", "Pioneers Misr International School"),
+        ).toBe(true);
+        expect(
+          isSameOrRedundantBuilding("Pioneers Misr International School", "Pioneer Misr International School"),
+        ).toBe(true);
+
+        // Identical names
+        expect(isSameOrRedundantBuilding("Taymour English School", "Taymour English School")).toBe(true);
+
+        // Generic building placeholder
+        expect(isSameOrRedundantBuilding("Pioneer Misr International School", "Main Building")).toBe(true);
+        expect(isSameOrRedundantBuilding("Pioneer Misr International School", "School")).toBe(true);
+
+        // Empty / missing building
+        expect(isSameOrRedundantBuilding("Pioneer Misr International School", "")).toBe(true);
+        expect(isSameOrRedundantBuilding("Pioneer Misr International School", undefined)).toBe(true);
+
+        // Distinct university campus buildings MUST be preserved
+        expect(isSameOrRedundantBuilding("Arab Academy Abu Qir", "Engineering Building B")).toBe(false);
+        expect(isSameOrRedundantBuilding("Arab Academy Abu Qir", "Pharmacy")).toBe(false);
+        expect(isSameOrRedundantBuilding("Future University", "Business")).toBe(false);
       });
 
       it("draws quarter location block across multiple clean rows without overflow", async () => {

@@ -4,7 +4,7 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { EST_LOGO_BASE64 } from "./est-logo-base64";
 import { getFloorSortWeight } from "./est-reference-data";
-import { cleanVenueName } from "./sticker-pdf";
+import { cleanVenueName, isSameOrRedundantBuilding } from "./sticker-pdf";
 
 export interface RoomDetail {
   room: string;
@@ -346,8 +346,8 @@ export function splitCenterAndBuilding(
   let c = toEnglishText(rawCenter || "").trim();
   let b = toEnglishText(rawBuilding || "").trim();
 
-  // If rawBuilding is missing, identical to center, or empty
-  if (!b || b.toLowerCase() === c.toLowerCase()) {
+  // If rawBuilding is missing, redundant, identical to center, or represents the same school
+  if (!b || isSameOrRedundantBuilding(c, b)) {
     // Regex matching university campuses with faculties or buildings
     const facMatch = c.match(
       /^(.*?)(?:\s*[-–—:]\s*|\s+)(Faculty\s+of\s+.*|College\s+of\s+.*|Building\s+[A-Za-z0-9].*|Eng\.\s*Building.*|Pharmacy.*|Campus.*)$/i,
@@ -398,7 +398,7 @@ export function splitCenterAndBuilding(
     }
   }
 
-  const isDistinctCampus = Boolean(b && b.toLowerCase() !== c.toLowerCase());
+  const isDistinctCampus = Boolean(b && !isSameOrRedundantBuilding(c, b));
   return {
     center: c,
     building: isDistinctCampus ? b : "",
@@ -2761,7 +2761,7 @@ export function buildMasterManifestPages(
     hasCheckboxes: false,
   });
 
-  if (buildingName.toLowerCase() !== centerName.toLowerCase()) {
+  if (buildingName && !isSameOrRedundantBuilding(centerName, buildingName)) {
     headerRows.push({
       type: "building",
       name: buildingName,

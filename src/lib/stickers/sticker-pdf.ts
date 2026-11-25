@@ -228,6 +228,73 @@ export function isSchoolCenter(centerName?: string): boolean {
 }
 
 /**
+ * Determines if building is the same venue or redundant with the test center:
+ * In schools and standalone centers, the school name is often repeated or slightly varied
+ * in the building column (e.g. "Pioneer Misr International School" vs "Pioneers Misr International School").
+ * When this returns true, the building should NOT be printed separately because the center is the school itself.
+ */
+export function isSameOrRedundantBuilding(rawCenter?: string, rawBuilding?: string): boolean {
+  const b = (rawBuilding || "").trim();
+  const c = (rawCenter || "").trim();
+
+  if (!b) return true;
+  if (!c) return false;
+
+  const bLower = b.toLowerCase();
+  const cLower = c.toLowerCase();
+
+  // 1. Direct or case-insensitive equality
+  if (bLower === cLower) return true;
+
+  // 2. Generic placeholders
+  if (/^(main\s*building|main|school|the\s*school|campus|same|default|-)$/i.test(bLower)) {
+    return true;
+  }
+
+  // 3. If building has an explicit distinct university faculty/building keyword not in center, it's NOT redundant
+  const distinctBuildingKeyword = /(?:faculty\s+of|college\s+of|building\s+[a-z0-9]|pharmacy|dentistry|medicine|engineering|arts|law|commerce|science|nursing)/i;
+  if (distinctBuildingKeyword.test(bLower) && !distinctBuildingKeyword.test(cLower)) {
+    return false;
+  }
+
+  // 4. If both contain school/academy keywords, they represent the same school facility
+  const schoolRegex = /school|مدرسة|مدارس|مدرسه|اكاديمية|academy|college|lycee|lycée/i;
+  const cIsSchool = schoolRegex.test(c);
+  const bIsSchool = schoolRegex.test(b);
+  if (cIsSchool && bIsSchool) {
+    return true;
+  }
+
+  // 5. Token & stem matching (handles plurals like "Pioneer" vs "Pioneers", punctuation, etc.)
+  const tokenizeAndStem = (str: string) =>
+    str
+      .toLowerCase()
+      .replace(/[^\w\s\u0600-\u06FF]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 0)
+      .map((w) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w));
+
+  const cTokens = tokenizeAndStem(c);
+  const bTokens = tokenizeAndStem(b);
+
+  const cJoined = cTokens.join(" ");
+  const bJoined = bTokens.join(" ");
+
+  if (cJoined === bJoined || cJoined.includes(bJoined) || bJoined.includes(cJoined)) {
+    return true;
+  }
+
+  const cSet = new Set(cTokens);
+  const bSet = new Set(bTokens);
+  const intersect = [...bSet].filter((t) => cSet.has(t));
+  if (bSet.size > 0 && intersect.length / bSet.size >= 0.75) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Strips governorate prefix from center name if already present.
  */
 export function cleanVenueName(center: string, governorate: string): string {
@@ -269,13 +336,8 @@ export function drawQuarterLocationBlock(params: {
   let bld = (params.building || "").trim();
   const fl = (params.floor || "").trim();
 
-  // Deduplicate building if identical to center, or contained in center
-  if (
-    !bld ||
-    bld.toLowerCase() === center.toLowerCase() ||
-    center.toLowerCase().includes(bld.toLowerCase()) ||
-    bld.toLowerCase().includes(center.toLowerCase())
-  ) {
+  // Deduplicate building if identical to center, redundant, or represents the same school
+  if (isSameOrRedundantBuilding(center, bld)) {
     bld = "";
   }
 
@@ -331,7 +393,7 @@ export function drawQuarterLocationBlock(params: {
   }
 
   // 3. Building (if distinct campus building)
-  if (bld && bld !== center) {
+  if (bld && !isSameOrRedundantBuilding(center, bld)) {
     const text = `Building: ${bld}`;
     let bSize = 14.5;
     let bW = font.widthOfTextAtSize(text, bSize);

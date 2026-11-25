@@ -7,6 +7,7 @@ import {
   generateBatchStickerPdf,
   generateBatchExamStickersPdf,
   isSchoolCenter,
+  isSameOrRedundantBuilding,
   expandSubjectName,
   getSubjectSortKey,
 } from "@/lib/stickers/sticker-pdf";
@@ -157,7 +158,7 @@ export async function POST(
         fields: [
           { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: row.governorate },
           { key: "center", label: "Test Center", labelAr: "السنتر", value: row.center },
-          ...((row as any).building && (row as any).building !== row.center ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (row as any).building }] : []),
+          ...((row as any).building && !isSameOrRedundantBuilding(row.center, (row as any).building) ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (row as any).building }] : []),
           { key: "floor", label: "Floor", labelAr: "الدور", value: row.floor },
           { key: "room", label: "Room", labelAr: "القاعة", value: row.room },
         ] as StickerFieldItem[],
@@ -203,7 +204,8 @@ export async function POST(
       // Group target rows by governorate + center + building + floor
       const floorGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
-        const bld = (r as any).building || r.center;
+        const rawBld = (r as any).building || r.center;
+        const bld = isSameOrRedundantBuilding(r.center, rawBld) ? r.center : rawBld;
         const key = `${r.governorate}::${r.center}::${bld}::${r.floor}`;
         const existing = floorGroups.get(key) || [];
         existing.push(r);
@@ -216,7 +218,7 @@ export async function POST(
         const isSchool = isSchoolCenter(first.center);
         const floorRooms = rows.map((r) => r.room);
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
-        const isCampus = (first as any).building && (first as any).building.toLowerCase() !== first.center.toLowerCase();
+        const isCampus = Boolean((first as any).building && !isSameOrRedundantBuilding(first.center, (first as any).building));
 
         floorContents.push({
           level: "floor",
@@ -236,7 +238,7 @@ export async function POST(
           examDay: roundDayStr,
           governorate: first.governorate,
           center: first.center,
-          building: (first as any).building || first.center,
+          building: isCampus ? (first as any).building : first.center,
           floor: first.floor,
           childCount: rows.length,
           childLabel: "Rooms",
@@ -276,7 +278,8 @@ export async function POST(
     if (type === "floor_senior_bag_placards") {
       const floorGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
-        const bld = (r as any).building || r.center;
+        const rawBld = (r as any).building || r.center;
+        const bld = isSameOrRedundantBuilding(r.center, rawBld) ? r.center : rawBld;
         const key = `${r.governorate}::${r.center}::${bld}::${r.floor}`;
         const existing = floorGroups.get(key) || [];
         existing.push(r);
@@ -288,7 +291,8 @@ export async function POST(
 
       for (const [_, rows] of floorGroups.entries()) {
         const first = rows[0];
-        const bld = (first as any).building || first.center;
+        const rawBld = (first as any).building || first.center;
+        const bld = isSameOrRedundantBuilding(first.center, rawBld) ? first.center : rawBld;
         const floorRooms = rows.map((r) => r.room);
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
 
@@ -561,7 +565,8 @@ export async function POST(
     if (type === "head_placards") {
       const centerGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
-        const bld = (r as any).building || r.center;
+        const rawBld = (r as any).building || r.center;
+        const bld = isSameOrRedundantBuilding(r.center, rawBld) ? r.center : rawBld;
         const key = `${r.governorate}::${r.center}::${bld}`;
         const existing = centerGroups.get(key) || [];
         existing.push(r);
@@ -574,7 +579,7 @@ export async function POST(
         const isSchool = isSchoolCenter(first.center);
         const uniqueFloors = Array.from(new Set(rows.map((r) => r.floor)));
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
-        const isCampus = (first as any).building && (first as any).building.toLowerCase() !== first.center.toLowerCase();
+        const isCampus = Boolean((first as any).building && !isSameOrRedundantBuilding(first.center, (first as any).building));
 
         headContents.push({
           level: "building_head",
@@ -595,7 +600,7 @@ export async function POST(
           examDay: roundDayStr,
           governorate: first.governorate,
           center: first.center,
-          building: (first as any).building || first.center,
+          building: isCampus ? (first as any).building : first.center,
           childCount: uniqueFloors.length,
           childLabel: "Floors",
           childNames: uniqueFloors,

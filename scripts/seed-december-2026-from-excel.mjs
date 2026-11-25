@@ -4,6 +4,36 @@ import fs from "fs";
 
 const prisma = new PrismaClient();
 
+export function isSameOrRedundantBuilding(rawCenter, rawBuilding) {
+  const b = (rawBuilding || "").trim();
+  const c = (rawCenter || "").trim();
+  if (!b) return true;
+  if (!c) return false;
+  if (b.toLowerCase() === c.toLowerCase()) return true;
+  if (/^(main\s*building|main|school|the\s*school|campus|same|default|-)$/i.test(b)) return true;
+  const distinctBuildingKeyword = /(?:faculty\s+of|college\s+of|building\s+[a-z0-9]|pharmacy|dentistry|medicine|engineering|arts|law|commerce|science|nursing)/i;
+  if (distinctBuildingKeyword.test(b) && !distinctBuildingKeyword.test(c)) return false;
+  const schoolRegex = /school|مدرسة|مدارس|مدرسه|اكاديمية|academy|college|lycee|lycée/i;
+  if (schoolRegex.test(c) && schoolRegex.test(b)) return true;
+  const tokenizeAndStem = (str) =>
+    str
+      .toLowerCase()
+      .replace(/[^\w\s\u0600-\u06FF]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 0)
+      .map((w) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w));
+  const cTokens = tokenizeAndStem(c);
+  const bTokens = tokenizeAndStem(b);
+  const cJoined = cTokens.join(" ");
+  const bJoined = bTokens.join(" ");
+  if (cJoined === bJoined || cJoined.includes(bJoined) || bJoined.includes(cJoined)) return true;
+  const cSet = new Set(cTokens);
+  const bSet = new Set(bTokens);
+  const intersect = [...bSet].filter((t) => cSet.has(t));
+  if (bSet.size > 0 && intersect.length / bSet.size >= 0.75) return true;
+  return false;
+}
+
 function normalizeFloorTitle(floorStr) {
   const clean = floorStr.trim();
   if (/^ground$/i.test(clean)) return "Ground";
@@ -176,7 +206,8 @@ async function main() {
     // Skip empty or total rows
     if (!center || !rawRoom || /^total$/i.test(center) || /^total$/i.test(rawGov)) continue;
 
-    const building = String(r["Building"] || center).trim() || center;
+    const rawBuilding = String(r["Building"] || center).trim() || center;
+    const building = isSameOrRedundantBuilding(center, rawBuilding) ? center : rawBuilding;
     const gov = lastGov;
     const floor = normalizeFloor(r["Floor"], rawRoom, center);
     const room = rawRoom;
