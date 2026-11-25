@@ -2971,13 +2971,13 @@ export interface BatchExamStickersPdfOptions {
  */
 /**
  * Draws a single Quarter-A4 Exam Subject Sticker (2 copies per subject per room).
- * Designed with modern, high-contrast UI/UX hierarchy for official EST examination envelopes:
- * - Header: EST Branding + Exam Level + Clean non-overlapping Session Date + COPY Badge
- * - Location Card: Compact, neatly structured venue details (Test Center, Building, Floor, City)
- * - Hero Room Card: Large, bold, centered Room number (30pt)
- * - Subject Card: Prominent Exam Subject name (e.g. Literacy, Math)
- * - Students Card: Clear, verified student count (e.g. 20 Students)
- * - Footer: Purpose designation (Question Papers Envelope vs Answer Sheets Envelope)
+ * Clean, uncluttered layout matching official operational envelope sticker specifications:
+ * - Top-left: Underlined Session Header (e.g. EST I: Friday, December 11, 2026) - NO "EXAMINATION" word.
+ * - Top-right: Official EST Logo + COPY X OF Y Badge placed neatly underneath.
+ * - Clean divider line.
+ * - Vertically stacked details with fixed, comfortable spacing and bold values:
+ *   City -> Test Center -> Building -> Floor -> Room# -> Students -> Subject
+ * - NO footer clutter, NO overlapping text, strictly "Math" not "Mathematics".
  */
 function drawQuarterExamSticker(params: {
   page: any;
@@ -2991,7 +2991,7 @@ function drawQuarterExamSticker(params: {
 }) {
   const { page, font, logoImg, item, slotX, slotY, slotWidth, slotHeight } = params;
 
-  const margin = 12;
+  const margin = 14;
   const x = slotX + margin;
   const y = slotY + margin;
   const width = slotWidth - margin * 2;
@@ -3024,286 +3024,12 @@ function drawQuarterExamSticker(params: {
 
   const isLandscapeSlot = width > height;
 
-  if (isLandscapeSlot) {
-    // Landscape 2-Column UI/UX layout
-    // ----------------------------------------------------
-    const headerH = 34;
-    const headerY = y + height - headerH;
-
-    // Logo on right
-    const logoH = 26;
-    const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 38;
-    const logoX = x + width - logoW;
-    const logoY = headerY + (headerH - logoH) / 2;
-    if (logoImg) {
-      page.drawImage(logoImg, { x: logoX, y: logoY, width: logoW, height: logoH });
-    } else {
-      page.drawText("est", { x: logoX, y: logoY + 4, size: 18, font, color: COLOR_CHARCOAL });
-    }
-
-    // Copy Badge next to logo
-    const copyText = `COPY ${item.copyIndex} OF ${item.totalCopies}`;
-    const copySize = 8.5;
-    const copyW = font.widthOfTextAtSize(copyText, copySize);
-    const copyBadgeW = copyW + 12;
-    const copyBadgeH = 18;
-    const copyBadgeX = logoX - copyBadgeW - 8;
-    const copyBadgeY = headerY + (headerH - copyBadgeH) / 2;
-
-    page.drawRectangle({
-      x: copyBadgeX,
-      y: copyBadgeY,
-      width: copyBadgeW,
-      height: copyBadgeH,
-      color: COLOR_WHITE,
-      borderColor: COLOR_CHARCOAL,
-      borderWidth: 1.1,
-    });
-    page.drawText(copyText, {
-      x: copyBadgeX + (copyBadgeW - copyW) / 2,
-      y: copyBadgeY + (copyBadgeH - copySize) / 2 + 1,
-      size: copySize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-
-    // Left Title
-    page.drawText(`${examPrefix} EXAMINATION`, {
-      x: x + 2,
-      y: headerY + 18,
-      size: 13,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-    const dateDayStr = [item.day, item.date].filter(Boolean).join(", ") || "DECEMBER 2026";
-    page.drawText(dateDayStr, {
-      x: x + 2,
-      y: headerY + 4,
-      size: 9,
-      font,
-      color: COLOR_MUTED,
-    });
-
-    // Header divider
-    page.drawLine({
-      start: { x: x + 2, y: headerY - 4 },
-      end: { x: x + width - 2, y: headerY - 4 },
-      thickness: 0.8,
-      color: COLOR_BORDER,
-    });
-
-    // 2-Column Body
-    const bodyTop = headerY - 10;
-    const colGap = 12;
-    const colW = (width - colGap) / 2;
-    const col1X = x;
-    const col2X = x + colW + colGap;
-
-    // Column 1: Location Card + Room Card
-    const locH = 80;
-    const locY = bodyTop - locH;
-    page.drawRectangle({
-      x: col1X,
-      y: locY,
-      width: colW,
-      height: locH,
-      color: rgb(0.97, 0.97, 0.98),
-      borderColor: COLOR_BORDER,
-      borderWidth: 0.8,
-    });
-
-    page.drawText("LOCATION & VENUE", {
-      x: col1X + 8,
-      y: locY + locH - 14,
-      size: 8,
-      font,
-      color: COLOR_MUTED,
-    });
-    page.drawLine({
-      start: { x: col1X + 8, y: locY + locH - 18 },
-      end: { x: col1X + colW - 8, y: locY + locH - 18 },
-      thickness: 0.5,
-      color: COLOR_BORDER,
-    });
-
-    page.drawText(`Test Center: ${center}`, {
-      x: col1X + 8,
-      y: locY + locH - 32,
-      size: 10.5,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-
-    const bldFloorText = [bld ? `Building: ${bld}` : null, fl ? `Floor: ${fl}` : null].filter(Boolean).join("  •  ");
-    if (bldFloorText) {
-      page.drawText(bldFloorText, {
-        x: col1X + 8,
-        y: locY + locH - 48,
-        size: 9.5,
-        font,
-        color: COLOR_CHARCOAL,
-      });
-    }
-
-    if (gov && gov.toLowerCase() !== center.toLowerCase()) {
-      page.drawText(`City: ${gov}`, {
-        x: col1X + 8,
-        y: locY + locH - 64,
-        size: 9,
-        font,
-        color: COLOR_MUTED,
-      });
-    }
-
-    // Room Card (Hero)
-    const roomH = bodyTop - locH - 8 - y;
-    const roomY = y + 8;
-    page.drawRectangle({
-      x: col1X,
-      y: roomY,
-      width: colW,
-      height: roomH,
-      color: COLOR_WHITE,
-      borderColor: COLOR_CHARCOAL,
-      borderWidth: 1.5,
-    });
-
-    page.drawText("ROOM / HALL", {
-      x: col1X + (colW - font.widthOfTextAtSize("ROOM / HALL", 8.5)) / 2,
-      y: roomY + roomH - 14,
-      size: 8.5,
-      font,
-      color: COLOR_MUTED,
-    });
-    page.drawLine({
-      start: { x: col1X + 16, y: roomY + roomH - 18 },
-      end: { x: col1X + colW - 16, y: roomY + roomH - 18 },
-      thickness: 0.6,
-      color: COLOR_BORDER,
-    });
-
-    let rSize = 30;
-    let rW = font.widthOfTextAtSize(room, rSize);
-    if (rW > colW - 16) {
-      rSize = Math.max(16, ((colW - 16) / rW) * rSize);
-      rW = font.widthOfTextAtSize(room, rSize);
-    }
-    page.drawText(room, {
-      x: col1X + (colW - rW) / 2,
-      y: roomY + (roomH - rSize) / 2 - 3,
-      size: rSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-
-    // Column 2: Subject Card + Students Card + Footer
-    const subjH = 68;
-    const subjY = bodyTop - subjH;
-    page.drawRectangle({
-      x: col2X,
-      y: subjY,
-      width: colW,
-      height: subjH,
-      color: rgb(0.97, 0.97, 0.99),
-      borderColor: COLOR_CHARCOAL,
-      borderWidth: 1.3,
-    });
-
-    page.drawText("EXAM SUBJECT", {
-      x: col2X + (colW - font.widthOfTextAtSize("EXAM SUBJECT", 8.5)) / 2,
-      y: subjY + subjH - 14,
-      size: 8.5,
-      font,
-      color: COLOR_MUTED,
-    });
-    page.drawLine({
-      start: { x: col2X + 16, y: subjY + subjH - 18 },
-      end: { x: col2X + colW - 16, y: subjY + subjH - 18 },
-      thickness: 0.6,
-      color: COLOR_BORDER,
-    });
-
-    const subjDisplay = cleanSubj.toUpperCase();
-    let sSize = 22;
-    let sW = font.widthOfTextAtSize(subjDisplay, sSize);
-    if (sW > colW - 16) {
-      sSize = Math.max(14, ((colW - 16) / sW) * sSize);
-      sW = font.widthOfTextAtSize(subjDisplay, sSize);
-    }
-    page.drawText(subjDisplay, {
-      x: col2X + (colW - sW) / 2,
-      y: subjY + (subjH - sSize) / 2 - 4,
-      size: sSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-
-    // Students Card
-    const studH = 58;
-    const studY = subjY - 8 - studH;
-    page.drawRectangle({
-      x: col2X,
-      y: studY,
-      width: colW,
-      height: studH,
-      color: COLOR_WHITE,
-      borderColor: COLOR_CHARCOAL,
-      borderWidth: 1.2,
-    });
-
-    page.drawText("STUDENTS IN ROOM", {
-      x: col2X + (colW - font.widthOfTextAtSize("STUDENTS IN ROOM", 8.5)) / 2,
-      y: studY + studH - 14,
-      size: 8.5,
-      font,
-      color: COLOR_MUTED,
-    });
-    page.drawLine({
-      start: { x: col2X + 16, y: studY + studH - 18 },
-      end: { x: col2X + colW - 16, y: studY + studH - 18 },
-      thickness: 0.6,
-      color: COLOR_BORDER,
-    });
-
-    const countText = `${item.studentCount} CANDIDATES`;
-    let cntSize = 18;
-    let cntW = font.widthOfTextAtSize(countText, cntSize);
-    if (cntW > colW - 16) {
-      cntSize = Math.max(12, ((colW - 16) / cntW) * cntSize);
-      cntW = font.widthOfTextAtSize(countText, cntSize);
-    }
-    page.drawText(countText, {
-      x: col2X + (colW - cntW) / 2,
-      y: studY + (studH - cntSize) / 2 - 4,
-      size: cntSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
-
-    // Envelope Footer
-    const footerText = `COPY ${item.copyIndex} OF ${item.totalCopies} • ${item.copyIndex === 1 ? "QUESTION PAPERS ENVELOPE" : "ANSWER SHEETS ENVELOPE"}`;
-    const fW = font.widthOfTextAtSize(footerText, 7.5);
-    page.drawText(footerText, {
-      x: col2X + (colW - fW) / 2,
-      y: y + 4,
-      size: 7.5,
-      font,
-      color: COLOR_MUTED,
-    });
-
-    return;
-  }
-
-  // ----------------------------------------------------
-  // Portrait Layout (Default for 4-Up A4 Sheets)
-  // ----------------------------------------------------
-
-  // 1. TOP HEADER SECTION (Safe 2-tier layout - ZERO collision possible!)
-  const topY = y + height;
+  // 1. TOP HEADER SECTION
+  // Logo on top-right
   const logoH = 26;
   const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 38;
-  const logoX = x + width - logoW - 2;
-  const logoY = topY - logoH - 2;
+  const logoX = x + width - logoW;
+  const logoY = y + height - logoH - 2;
 
   if (logoImg) {
     page.drawImage(logoImg, { x: logoX, y: logoY, width: logoW, height: logoH });
@@ -3311,14 +3037,14 @@ function drawQuarterExamSticker(params: {
     page.drawText("est", { x: logoX, y: logoY + 4, size: 18, font, color: COLOR_CHARCOAL });
   }
 
-  // Copy Badge positioned below logo at top-right
+  // Copy Badge positioned underneath the logo at top-right
   const copyText = `COPY ${item.copyIndex} OF ${item.totalCopies}`;
   const copySize = 8;
   const copyW = font.widthOfTextAtSize(copyText, copySize);
   const copyBadgeW = copyW + 10;
   const copyBadgeH = 16;
-  const copyBadgeX = x + width - copyBadgeW - 2;
-  const copyBadgeY = logoY - copyBadgeH - 4;
+  const copyBadgeX = x + width - copyBadgeW;
+  const copyBadgeY = logoY - copyBadgeH - 3;
 
   page.drawRectangle({
     x: copyBadgeX,
@@ -3337,255 +3063,107 @@ function drawQuarterExamSticker(params: {
     color: COLOR_CHARCOAL,
   });
 
-  // Top Left: Exam Title & Session Date (stacked cleanly, no collision!)
-  const examTitle = `${examPrefix} EXAMINATION`;
-  page.drawText(examTitle, {
-    x: x + 2,
-    y: topY - 14,
-    size: 13.5,
+  // Top Left: Exam Title & Session Date (NO "EXAMINATION" per user request)
+  const dateDayStr = [item.day, item.date].filter(Boolean).join(", ") || "DECEMBER 2026";
+  const headerTitle = `${examPrefix}: ${dateDayStr}`;
+
+  let headSize = 12.5;
+  let headTitleW = font.widthOfTextAtSize(headerTitle, headSize);
+  const maxHeaderTitleW = logoX - x - 8;
+  if (headTitleW > maxHeaderTitleW) {
+    headSize = Math.max(9.5, (maxHeaderTitleW / headTitleW) * headSize);
+    headTitleW = font.widthOfTextAtSize(headerTitle, headSize);
+  }
+
+  const headerTitleY = logoY + (logoH - headSize) / 2 + 1;
+  page.drawText(headerTitle, {
+    x: x + 4,
+    y: headerTitleY,
+    size: headSize,
     font,
     color: COLOR_CHARCOAL,
   });
 
-  const dateDayStr = [item.day, item.date].filter(Boolean).join(", ") || "DECEMBER 2026";
-  let dSize = 9.5;
-  let dW = font.widthOfTextAtSize(dateDayStr, dSize);
-  const maxDateW = copyBadgeX - x - 8;
-  if (dW > maxDateW) {
-    dSize = Math.max(8, (maxDateW / dW) * dSize);
-  }
-  page.drawText(dateDayStr, {
-    x: x + 2,
-    y: topY - 28,
-    size: dSize,
-    font,
-    color: COLOR_MUTED,
+  // Clean underline beneath the header title
+  page.drawLine({
+    start: { x: x + 4, y: headerTitleY - 4 },
+    end: { x: x + 4 + headTitleW, y: headerTitleY - 4 },
+    thickness: 1.2,
+    color: COLOR_CHARCOAL,
   });
 
   // Header Divider Rule
-  const headerDividerY = copyBadgeY - 6;
+  const headerBottom = copyBadgeY - 6;
   page.drawLine({
-    start: { x: x + 2, y: headerDividerY },
-    end: { x: x + width - 2, y: headerDividerY },
-    thickness: 1,
-    color: COLOR_CHARCOAL,
+    start: { x: x + 4, y: headerBottom },
+    end: { x: x + width - 4, y: headerBottom },
+    thickness: 0.8,
+    color: COLOR_BORDER,
   });
 
-  // 2. LOCATION & VENUE CARD (Clean, compact, and grouped)
-  const locCardTop = headerDividerY - 6;
-  const locCardH = 74;
-  const locCardBottom = locCardTop - locCardH;
-  page.drawRectangle({
-    x: x + 2,
-    y: locCardBottom,
-    width: width - 4,
-    height: locCardH,
-    color: rgb(0.97, 0.97, 0.98),
-    borderColor: rgb(0.8, 0.8, 0.83),
-    borderWidth: 0.8,
-  });
-
-  // Center Name (Prominent)
-  page.drawText("TEST CENTER", {
-    x: x + 8,
-    y: locCardTop - 13,
-    size: 7.5,
-    font,
-    color: COLOR_MUTED,
-  });
-  let cSize = 12;
-  let cW = font.widthOfTextAtSize(center, cSize);
-  const maxCenterW = width - 20;
-  if (cW > maxCenterW) {
-    cSize = Math.max(9.5, (maxCenterW / cW) * cSize);
+  // 2. VERTICAL LIST DETAILS (Clean, well-spaced, bold values, NO clutter)
+  interface FieldRow {
+    label: string;
+    value: string;
+    isHero?: boolean;
   }
-  page.drawText(center, {
-    x: x + 8,
-    y: locCardTop - 27,
-    size: cSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
 
-  page.drawLine({
-    start: { x: x + 8, y: locCardTop - 33 },
-    end: { x: x + width - 12, y: locCardTop - 33 },
-    thickness: 0.5,
-    color: rgb(0.85, 0.85, 0.88),
-  });
-
-  // Building & Floor
-  const locDetails: string[] = [];
-  if (bld && bld !== center) locDetails.push(`Building: ${bld}`);
-  if (fl) locDetails.push(`Floor: ${fl}`);
-  if (gov && gov.toLowerCase() !== center.toLowerCase()) locDetails.push(`City: ${gov}`);
-  const locLine = locDetails.join("   •   ");
-
-  let locLSize = 9;
-  let locLW = font.widthOfTextAtSize(locLine, locLSize);
-  if (locLW > maxCenterW) {
-    locLSize = Math.max(7.5, (maxCenterW / locLW) * locLSize);
+  const fieldRows: FieldRow[] = [];
+  if (gov && gov.toLowerCase() !== center.toLowerCase()) {
+    fieldRows.push({ label: "City", value: gov });
   }
-  page.drawText(locLine, {
-    x: x + 8,
-    y: locCardTop - 47,
-    size: locLSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  // 3. HERO ROOM CARD (High-Contrast Bold Centerpiece!)
-  const roomCardTop = locCardBottom - 6;
-  const roomCardH = 70;
-  const roomCardBottom = roomCardTop - roomCardH;
-
-  page.drawRectangle({
-    x: x + 2,
-    y: roomCardBottom,
-    width: width - 4,
-    height: roomCardH,
-    color: COLOR_WHITE,
-    borderColor: COLOR_CHARCOAL,
-    borderWidth: 1.5,
-  });
-
-  const roomTitle = "ROOM / HALL";
-  const rtW = font.widthOfTextAtSize(roomTitle, 8);
-  page.drawText(roomTitle, {
-    x: x + (width - rtW) / 2,
-    y: roomCardTop - 13,
-    size: 8,
-    font,
-    color: COLOR_MUTED,
-  });
-
-  page.drawLine({
-    start: { x: x + 24, y: roomCardTop - 17 },
-    end: { x: x + width - 24, y: roomCardTop - 17 },
-    thickness: 0.6,
-    color: rgb(0.85, 0.85, 0.88),
-  });
-
-  let heroRSize = 30;
-  let heroRW = font.widthOfTextAtSize(room, heroRSize);
-  const maxRoomW = width - 16;
-  if (heroRW > maxRoomW) {
-    heroRSize = Math.max(16, (maxRoomW / heroRW) * heroRSize);
-    heroRW = font.widthOfTextAtSize(room, heroRSize);
+  if (center) {
+    fieldRows.push({ label: "Test Center", value: center });
   }
-  page.drawText(room, {
-    x: x + (width - heroRW) / 2,
-    y: roomCardBottom + (roomCardH - 18 - heroRSize) / 2 + 2,
-    size: heroRSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  // 4. EXAM SUBJECT CARD
-  const subjCardTop = roomCardBottom - 6;
-  const subjCardH = 64;
-  const subjCardBottom = subjCardTop - subjCardH;
-
-  page.drawRectangle({
-    x: x + 2,
-    y: subjCardBottom,
-    width: width - 4,
-    height: subjCardH,
-    color: rgb(0.97, 0.97, 0.99),
-    borderColor: COLOR_CHARCOAL,
-    borderWidth: 1.3,
-  });
-
-  const subTitle = "EXAM SUBJECT";
-  const stW = font.widthOfTextAtSize(subTitle, 8);
-  page.drawText(subTitle, {
-    x: x + (width - stW) / 2,
-    y: subjCardTop - 13,
-    size: 8,
-    font,
-    color: COLOR_MUTED,
-  });
-
-  page.drawLine({
-    start: { x: x + 24, y: subjCardTop - 17 },
-    end: { x: x + width - 24, y: subjCardTop - 17 },
-    thickness: 0.6,
-    color: rgb(0.85, 0.85, 0.88),
-  });
-
-  const subjUpper = cleanSubj.toUpperCase();
-  let heroSSize = 22;
-  let heroSW = font.widthOfTextAtSize(subjUpper, heroSSize);
-  if (heroSW > width - 16) {
-    heroSSize = Math.max(14, ((width - 16) / heroSW) * heroSSize);
-    heroSW = font.widthOfTextAtSize(subjUpper, heroSSize);
+  if (bld && bld !== center) {
+    fieldRows.push({ label: "Building", value: bld });
   }
-  page.drawText(subjUpper, {
-    x: x + (width - heroSW) / 2,
-    y: subjCardBottom + (subjCardH - 18 - heroSSize) / 2 + 2,
-    size: heroSSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  // 5. STUDENTS COUNT CARD
-  const studCardTop = subjCardBottom - 6;
-  const studCardH = 56;
-  const studCardBottom = studCardTop - studCardH;
-
-  page.drawRectangle({
-    x: x + 2,
-    y: studCardBottom,
-    width: width - 4,
-    height: studCardH,
-    color: COLOR_WHITE,
-    borderColor: COLOR_CHARCOAL,
-    borderWidth: 1.2,
-  });
-
-  const studTitle = "CANDIDATES IN ROOM";
-  const sdtW = font.widthOfTextAtSize(studTitle, 8);
-  page.drawText(studTitle, {
-    x: x + (width - sdtW) / 2,
-    y: studCardTop - 13,
-    size: 8,
-    font,
-    color: COLOR_MUTED,
-  });
-
-  page.drawLine({
-    start: { x: x + 24, y: studCardTop - 17 },
-    end: { x: x + width - 24, y: studCardTop - 17 },
-    thickness: 0.6,
-    color: rgb(0.85, 0.85, 0.88),
-  });
-
-  const studCountStr = `${item.studentCount} STUDENTS`;
-  let heroCSize = 20;
-  let heroCW = font.widthOfTextAtSize(studCountStr, heroCSize);
-  if (heroCW > width - 16) {
-    heroCSize = Math.max(13, ((width - 16) / heroCW) * heroCSize);
-    heroCW = font.widthOfTextAtSize(studCountStr, heroCSize);
+  if (fl) {
+    fieldRows.push({ label: "Floor", value: fl });
   }
-  page.drawText(studCountStr, {
-    x: x + (width - heroCW) / 2,
-    y: studCardBottom + (studCardH - 18 - heroCSize) / 2 + 2,
-    size: heroCSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
+  fieldRows.push({ label: "Room#", value: room, isHero: true });
+  fieldRows.push({ label: "Students", value: `${item.studentCount}`, isHero: true });
+  fieldRows.push({ label: "Subject", value: cleanSubj, isHero: true });
 
-  // 6. ENVELOPE DESIGNATION FOOTER
-  const packetType = item.copyIndex === 1 ? "QUESTION PAPERS ENVELOPE" : "ANSWER SHEETS ENVELOPE";
-  const footerText = `COPY ${item.copyIndex} OF ${item.totalCopies}   •   ${packetType}`;
-  const footW = font.widthOfTextAtSize(footerText, 7.5);
-  page.drawText(footerText, {
-    x: x + (width - footW) / 2,
-    y: y + 4,
-    size: 7.5,
-    font,
-    color: COLOR_CHARCOAL,
-  });
+  const startY = headerBottom - 26;
+  const lineSpacing = isLandscapeSlot ? 26 : 36;
+
+  for (let idx = 0; idx < fieldRows.length; idx++) {
+    const row = fieldRows[idx];
+    const rowY = startY - idx * lineSpacing;
+
+    const labelText = `${row.label}: `;
+    const labelSize = row.isHero ? 13.5 : 12;
+    const valueSize = row.isHero ? 17.5 : 13.5;
+
+    const labelW = font.widthOfTextAtSize(labelText, labelSize);
+    let effValueSize = valueSize;
+    let valueW = font.widthOfTextAtSize(row.value, effValueSize);
+    const maxValW = width - 12 - labelW;
+
+    if (valueW > maxValW) {
+      effValueSize = Math.max(9.5, (maxValW / valueW) * effValueSize);
+      valueW = font.widthOfTextAtSize(row.value, effValueSize);
+    }
+
+    // Draw Label
+    page.drawText(labelText, {
+      x: x + 6,
+      y: rowY,
+      size: labelSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+
+    // Draw Value (bold/prominent)
+    page.drawText(row.value, {
+      x: x + 6 + labelW,
+      y: rowY,
+      size: effValueSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+  }
 }
 
 /**
