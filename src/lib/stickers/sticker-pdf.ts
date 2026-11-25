@@ -3014,7 +3014,7 @@ function drawQuarterExamSticker(params: {
   const isLandscapeSlot = width > height;
 
   // 1. TOP HEADER SECTION
-  // Logo on top-right
+  // Logo on top-right (NO COPY BADGE underneath per user specification)
   const logoH = 26;
   const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 38;
   const logoX = x + width - logoW;
@@ -3026,39 +3026,13 @@ function drawQuarterExamSticker(params: {
     page.drawText("est", { x: logoX, y: logoY + 4, size: 18, font, color: COLOR_CHARCOAL });
   }
 
-  // Copy Badge positioned underneath the logo at top-right
-  const copyText = `COPY ${item.copyIndex} OF ${item.totalCopies}`;
-  const copySize = 8;
-  const copyW = font.widthOfTextAtSize(copyText, copySize);
-  const copyBadgeW = copyW + 10;
-  const copyBadgeH = 16;
-  const copyBadgeX = x + width - copyBadgeW;
-  const copyBadgeY = logoY - copyBadgeH - 3;
-
-  page.drawRectangle({
-    x: copyBadgeX,
-    y: copyBadgeY,
-    width: copyBadgeW,
-    height: copyBadgeH,
-    color: COLOR_WHITE,
-    borderColor: COLOR_CHARCOAL,
-    borderWidth: 1.1,
-  });
-  page.drawText(copyText, {
-    x: copyBadgeX + (copyBadgeW - copyW) / 2,
-    y: copyBadgeY + (copyBadgeH - copySize) / 2 + 1,
-    size: copySize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
   // Top Left: Exam Title & Session Date (NO "EXAMINATION" per user request)
   const dateDayStr = [item.day, item.date].filter(Boolean).join(", ") || "DECEMBER 2026";
   const headerTitle = `${examPrefix}: ${dateDayStr}`;
 
   let headSize = 12.5;
   let headTitleW = font.widthOfTextAtSize(headerTitle, headSize);
-  const maxHeaderTitleW = logoX - x - 8;
+  const maxHeaderTitleW = logoX - x - 10;
   if (headTitleW > maxHeaderTitleW) {
     headSize = Math.max(9.5, (maxHeaderTitleW / headTitleW) * headSize);
     headTitleW = font.widthOfTextAtSize(headerTitle, headSize);
@@ -3081,8 +3055,8 @@ function drawQuarterExamSticker(params: {
     color: COLOR_CHARCOAL,
   });
 
-  // Header Divider Rule
-  const headerBottom = copyBadgeY - 6;
+  // Header Divider Rule (positioned neatly beneath logo)
+  const headerBottom = logoY - 8;
   page.drawLine({
     start: { x: x + 4, y: headerBottom },
     end: { x: x + width - 4, y: headerBottom },
@@ -3090,7 +3064,7 @@ function drawQuarterExamSticker(params: {
     color: COLOR_BORDER,
   });
 
-  // 2. VERTICAL LIST DETAILS (Clean, well-spaced, bold values, NO clutter)
+  // 2. VERTICAL LIST DETAILS (Zebra Striped Rows & Dynamic Multi-Line Text Wrapping)
   interface FieldRow {
     label: string;
     value: string;
@@ -3114,44 +3088,142 @@ function drawQuarterExamSticker(params: {
   fieldRows.push({ label: "Students", value: `${item.studentCount}`, isHero: true });
   fieldRows.push({ label: "Subject", value: cleanSubj, isHero: true });
 
-  const startY = headerBottom - 26;
-  const lineSpacing = isLandscapeSlot ? 26 : 36;
+  let currentY = headerBottom - 8;
+  const rowGap = isLandscapeSlot ? 2 : 3;
 
   for (let idx = 0; idx < fieldRows.length; idx++) {
     const row = fieldRows[idx];
-    const rowY = startY - idx * lineSpacing;
 
     const labelText = `${row.label}: `;
-    const labelSize = row.isHero ? 13.5 : 12;
-    const valueSize = row.isHero ? 17.5 : 13.5;
+    const labelSize = row.isHero ? 12.5 : 11.5;
+    const valueSize = row.isHero ? 16.5 : 12.5;
 
     const labelW = font.widthOfTextAtSize(labelText, labelSize);
-    let effValueSize = valueSize;
-    let valueW = font.widthOfTextAtSize(row.value, effValueSize);
-    const maxValW = width - 12 - labelW;
+    const maxValW = width - 16 - labelW;
 
-    if (valueW > maxValW) {
-      effValueSize = Math.max(9.5, (maxValW / valueW) * effValueSize);
-      valueW = font.widthOfTextAtSize(row.value, effValueSize);
+    // Word wrap check: if value text is longer than maxValW, wrap into multiple lines
+    let valLines: string[] = [];
+    let effValueSize = valueSize;
+
+    const directW = font.widthOfTextAtSize(row.value, valueSize);
+    if (directW <= maxValW) {
+      valLines = [row.value];
+    } else {
+      // Test if slight scaling down to 11.5pt fits in a single line
+      const scaledSingle = Math.max(11, (maxValW / directW) * valueSize);
+      if (scaledSingle >= 11 && font.widthOfTextAtSize(row.value, scaledSingle) <= maxValW) {
+        valLines = [row.value];
+        effValueSize = scaledSingle;
+      } else {
+        // Multi-line wrapping across words
+        valLines = wrapTextToLines(row.value, font, valueSize, maxValW);
+        let maxLineW = 0;
+        for (const l of valLines) {
+          const lw = font.widthOfTextAtSize(l, valueSize);
+          if (lw > maxLineW) maxLineW = lw;
+        }
+        if (maxLineW > maxValW) {
+          effValueSize = Math.max(9, (maxValW / maxLineW) * valueSize);
+        }
+      }
     }
 
-    // Draw Label
-    page.drawText(labelText, {
-      x: x + 6,
-      y: rowY,
-      size: labelSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
+    // Dynamic row height based on line count
+    let rowH: number;
+    if (valLines.length <= 1) {
+      rowH = isLandscapeSlot ? 26 : (row.isHero ? 34 : 31);
+    } else if (valLines.length === 2) {
+      rowH = isLandscapeSlot ? 38 : 44;
+    } else {
+      rowH = isLandscapeSlot ? 48 : 56;
+    }
 
-    // Draw Value (bold/prominent)
-    page.drawText(row.value, {
-      x: x + 6 + labelW,
-      y: rowY,
-      size: effValueSize,
-      font,
-      color: COLOR_CHARCOAL,
-    });
+    const rowY = currentY - rowH;
+
+    // Zebra striping: Alternate rows get a subtle, elegant soft gray background tint
+    if (idx % 2 === 1) {
+      page.drawRectangle({
+        x: x + 2,
+        y: rowY,
+        width: width - 4,
+        height: rowH,
+        color: rgb(0.945, 0.952, 0.962),
+        borderColor: rgb(0.88, 0.89, 0.91),
+        borderWidth: 0.5,
+      });
+    }
+
+    // Draw row content (label + value line(s))
+    if (valLines.length <= 1) {
+      const textY = rowY + (rowH - labelSize) / 2 + 1;
+      // Draw Label
+      page.drawText(labelText, {
+        x: x + 8,
+        y: textY,
+        size: labelSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+      // Draw Value
+      page.drawText(valLines[0] || "", {
+        x: x + 8 + labelW,
+        y: textY,
+        size: effValueSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+    } else if (valLines.length === 2) {
+      const line1Y = rowY + rowH - 18;
+      const line2Y = rowY + 9;
+
+      // Draw Label on first line
+      page.drawText(labelText, {
+        x: x + 8,
+        y: line1Y,
+        size: labelSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+      // Draw Value line 1
+      page.drawText(valLines[0], {
+        x: x + 8 + labelW,
+        y: line1Y,
+        size: effValueSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+      // Draw Value line 2 (cleanly indented)
+      page.drawText(valLines[1], {
+        x: x + 8 + labelW,
+        y: line2Y,
+        size: effValueSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+    } else {
+      const step = (rowH - 12) / valLines.length;
+      const topY = rowY + rowH - step - 2;
+
+      page.drawText(labelText, {
+        x: x + 8,
+        y: topY,
+        size: labelSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+
+      for (let lIdx = 0; lIdx < valLines.length; lIdx++) {
+        page.drawText(valLines[lIdx], {
+          x: x + 8 + labelW,
+          y: topY - lIdx * step,
+          size: effValueSize,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+      }
+    }
+
+    currentY = rowY - rowGap;
   }
 }
 
