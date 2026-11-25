@@ -2089,18 +2089,28 @@ function drawQuarterPlacard(params: {
     }
     const heroY = bodyTop - 14 - heroSize;
     const leftDividerY = heroY - 10;
-    if (!isHead && !isFloor) {
+    if (!isHead && !isFloor && !isRoom) {
       page.drawText(heroValue, { x: leftX + (leftW - heroW) / 2, y: heroY, size: heroSize, font, color: COLOR_CHARCOAL });
       page.drawLine({ start: { x: leftX + 8, y: leftDividerY }, end: { x: leftX + leftW - 8, y: leftDividerY }, thickness: 0.8, color: COLOR_BORDER });
     }
 
     if (isRoom) {
       const subjectLines = getVerticalSubjectLines(content, true);
+      const availH = bodyTop - (bodyBottom + 6);
+      const visualHeroH = heroSize * 0.75;
+      const gapAfterHero = 12;
+      const lineCount = subjectLines.length;
+      const step = Math.min(20, Math.max(14, (availH - visualHeroH - gapAfterHero - 10) / Math.max(1, lineCount)));
+      const linesH = lineCount > 0 ? (lineCount - 1) * step + 11 * 0.75 : 0;
+      const totalBlockH = visualHeroH + gapAfterHero + linesH;
+
+      const topOffset = Math.max(6, (availH - totalBlockH) / 2);
+      const rHeroY = bodyTop - topOffset - visualHeroH;
+
+      page.drawText(heroValue, { x: leftX + (leftW - heroW) / 2, y: rHeroY, size: heroSize, font, color: COLOR_CHARCOAL });
+
       if (subjectLines.length > 0) {
-        const availSubjectH = leftDividerY - (bodyBottom + 4);
-        const lineCount = subjectLines.length;
-        const step = Math.min(22, Math.max(16, (availSubjectH - 6) / lineCount));
-        const startSubjectY = leftDividerY - 14;
+        const startSubjectY = rHeroY - gapAfterHero - 11 * 0.75;
         const baseLineSize = lineCount <= 2 ? 12 : lineCount === 3 ? 11 : 9.5;
         for (let sIdx = 0; sIdx < lineCount; sIdx++) {
           const lineText = subjectLines[sIdx];
@@ -2417,7 +2427,7 @@ function drawQuarterPlacard(params: {
   const heroY = divider2Y - 12 - heroSize;
 
   let heroDividerY = heroY - 7;
-  if (!isHead && !isFloor) {
+  if (!isHead && !isFloor && !isRoom) {
     page.drawText(heroValue, {
       x: x + (width - heroW) / 2,
       y: heroY,
@@ -2433,7 +2443,7 @@ function drawQuarterPlacard(params: {
       color: COLOR_BORDER,
     });
   } else {
-    // For Head & Floor stickers: No line under Hero! Spans cleanly between divider2Y and chkDividerY
+    // For Head, Floor & Room stickers: No line under Hero! Spans cleanly between divider2Y and chkDividerY
     heroDividerY = divider2Y;
   }
 
@@ -2634,8 +2644,23 @@ function drawQuarterPlacard(params: {
 
       const tblW = width - 12;
       const tblX = x + 6;
-      // Vertically center the table in the middle space!
-      const tblY = Math.max(chkDividerY + 6, midBottomY + (availMidH - tblH) / 2);
+
+      const availRoomH = divider2Y - chkDividerY;
+      const visualHeroH = heroSize * 0.75;
+      const gapAfterHero = 12;
+      const totalBlockH = visualHeroH + gapAfterHero + tblH;
+      const topMargin = Math.max(8, (availRoomH - totalBlockH) / 2);
+      const roomHeroY = divider2Y - topMargin - visualHeroH;
+
+      page.drawText(heroValue, {
+        x: x + (width - heroW) / 2,
+        y: roomHeroY,
+        size: heroSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+
+      const tblY = roomHeroY - gapAfterHero - tblH;
 
       // Outer table border & white background
       page.drawRectangle({
@@ -2791,7 +2816,23 @@ function drawQuarterPlacard(params: {
       const cardH = 50;
       const cardW = width - 12;
       const cardX = x + 6;
-      const cardY = chkDividerY + 6 + (availMidH - cardH) / 2;
+
+      const availRoomH = divider2Y - chkDividerY;
+      const visualHeroH = heroSize * 0.75;
+      const gapAfterHero = 12;
+      const totalBlockH = visualHeroH + gapAfterHero + cardH;
+      const topMargin = Math.max(8, (availRoomH - totalBlockH) / 2);
+      const roomHeroY = divider2Y - topMargin - visualHeroH;
+
+      page.drawText(heroValue, {
+        x: x + (width - heroW) / 2,
+        y: roomHeroY,
+        size: heroSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+
+      const cardY = roomHeroY - gapAfterHero - cardH;
       page.drawRectangle({
         x: cardX,
         y: cardY,
