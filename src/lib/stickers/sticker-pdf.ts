@@ -293,20 +293,20 @@ export function drawQuarterLocationBlock(params: {
   // 1. City / Governorate
   if (gov) {
     const text = `City: ${gov}`;
-    let gSize = 11.5;
+    let gSize = 13;
     let gW = font.widthOfTextAtSize(text, gSize);
-    if (gW > maxW) gSize = Math.max(9, (maxW / gW) * gSize);
+    if (gW > maxW) gSize = Math.max(9.5, (maxW / gW) * gSize);
     lines.push({ text, size: gSize });
   }
 
   // 2. Test Center (Prominent, wraps to 2 lines if long)
   if (center) {
     const text = `Test Center: ${center}`;
-    let cSize = 12.5;
+    let cSize = 14;
     let cW = font.widthOfTextAtSize(text, cSize);
     if (cW > maxW) {
       const scaledSize = (maxW / cW) * cSize;
-      if (scaledSize >= 10) {
+      if (scaledSize >= 11) {
         cSize = scaledSize;
         lines.push({ text, size: cSize });
       } else {
@@ -316,14 +316,14 @@ export function drawQuarterLocationBlock(params: {
         let line2 = "";
         for (const w of words) {
           const test = line2 ? `${line2} ${w}` : (line1 === "Test Center: " ? `${line1}${w}` : `${line1} ${w}`);
-          if (!line2 && font.widthOfTextAtSize(test, 10.5) <= maxW) {
+          if (!line2 && font.widthOfTextAtSize(test, 11.5) <= maxW) {
             line1 = test;
           } else {
             line2 = line2 ? `${line2} ${w}` : w;
           }
         }
-        if (line1) lines.push({ text: line1, size: 10.5 });
-        if (line2) lines.push({ text: line2, size: 10.5 });
+        if (line1) lines.push({ text: line1, size: 11.5 });
+        if (line2) lines.push({ text: line2, size: 11.5 });
       }
     } else {
       lines.push({ text, size: cSize });
@@ -333,18 +333,18 @@ export function drawQuarterLocationBlock(params: {
   // 3. Building (if distinct campus building)
   if (bld && bld !== center) {
     const text = `Building: ${bld}`;
-    let bSize = 11;
+    let bSize = 13;
     let bW = font.widthOfTextAtSize(text, bSize);
-    if (bW > maxW) bSize = Math.max(8.5, (maxW / bW) * bSize);
+    if (bW > maxW) bSize = Math.max(9.5, (maxW / bW) * bSize);
     lines.push({ text, size: bSize });
   }
 
   // 4. Floor (if floor is present)
   if (fl) {
     const text = `Floor: ${fl}`;
-    let fSize = 11;
+    let fSize = 12.5;
     let fW = font.widthOfTextAtSize(text, fSize);
-    if (fW > maxW) fSize = Math.max(8.5, (maxW / fW) * fSize);
+    if (fW > maxW) fSize = Math.max(9.5, (maxW / fW) * fSize);
     lines.push({ text, size: fSize });
   }
 
@@ -960,10 +960,15 @@ function drawA4PlacardPage(params: {
     const hasDiffBuilding = Boolean(content.building && content.building !== content.center && !isSchool);
 
     const cards = [
-      { label: "Governorate", value: content.governorate || "—" },
+      { label: "City", value: content.governorate || "—" },
     ];
-    if (hasDiffBuilding) {
-      cards.push({ label: "Center", value: content.center || "—" });
+    if (isSchool) {
+      cards.push({ label: "School / Center", value: content.center || content.building || "—" });
+    } else {
+      cards.push({ label: "Test Center", value: content.center || "—" });
+      if (hasDiffBuilding) {
+        cards.push({ label: "Building", value: content.building! });
+      }
     }
     cards.push({
       label: "Total Floors",
@@ -998,9 +1003,9 @@ function drawA4PlacardPage(params: {
 
     const subText =
       content.childNames && content.childNames.length > 0
-        ? `INCLUDED FLOORS (${childFloorsCount}) : ${content.childNames.join("  •  ")}`
+        ? `FLOORS (${childFloorsCount}) : ${content.childNames.join("  •  ")}`
         : childFloorsCount > 0
-          ? `TOTAL INCLUDED FLOORS : ${childFloorsCount} FLOORS IN THIS BUILDING`
+          ? `TOTAL FLOORS : ${childFloorsCount} FLOORS IN THIS VENUE`
           : undefined;
 
     renderHeroCard({
@@ -1011,7 +1016,7 @@ function drawA4PlacardPage(params: {
       width: bodyWidth,
       height: heroBoxHeight,
       badgeText: isSchool ? `${examTag} – TEST CENTER` : `${examTag} – BUILDING`,
-      valueText: content.building || content.center || "",
+      valueText: isSchool ? (content.center || content.building || "") : (content.building || content.center || ""),
       subText,
       accentColor: COLOR_GOLD,
     });
@@ -2084,8 +2089,8 @@ function drawQuarterPlacard(params: {
     page.drawLine({ start: { x: dividerX, y: bodyBottom + 6 }, end: { x: dividerX, y: bodyTop }, thickness: 1, color: COLOR_BORDER });
 
     // Left Column: Hero Value (Badge tag EST 1 - ROOM/FLOOR/HEAD removed per user specification)
-    const heroValue = isExamPapers ? "EXAM PAPERS" : isHead ? "HEAD" : isRoom ? (content.room || "") : (content.floor || "");
-    let heroSize = isRoom ? 40 : isHead ? 38 : isExamPapers ? 26 : 26;
+    const heroValue = isExamPapers ? "EXAM PAPERS" : isHead ? "HEAD" : isRoom ? `Room: ${content.room || ""}` : (content.floor || "");
+    let heroSize = isRoom ? 30 : isHead ? 28 : isExamPapers ? 26 : 26;
     let heroW = font.widthOfTextAtSize(heroValue, heroSize);
     if (heroW > leftW - 8) {
       heroSize = Math.max(16, ((leftW - 8) / heroW) * heroSize);
@@ -2180,13 +2185,13 @@ function drawQuarterPlacard(params: {
     } else if (isHead) {
       const childFloorsCount = content.childCount || (content.childNames ? content.childNames.length : 0);
       const headSubText = typeof content.totalRooms === "number" && content.totalRooms > 0
-        ? `${childFloorsCount > 0 ? `${childFloorsCount} FLOORS  •  ` : ""}${content.totalRooms} ROOMS`
+        ? `${childFloorsCount > 0 ? `${childFloorsCount} Floors ` : ""}(${content.totalRooms} Rooms)`
         : childFloorsCount > 0
-          ? `${childFloorsCount} FLOORS INCLUDED`
+          ? `${childFloorsCount} Floors`
           : typeof content.totalStudents === "number" && content.totalStudents > 0
-            ? `${content.totalStudents} STUDENTS TOTAL`
+            ? `${content.totalStudents} Students`
             : "HEAD DOSSIER";
-      let totalSize = 12.5;
+      let totalSize = 12;
       let totalW = font.widthOfTextAtSize(headSubText, totalSize);
       if (totalW > leftW - 8) {
         totalSize = Math.max(8.5, ((leftW - 8) / totalW) * totalSize);
@@ -2403,8 +2408,8 @@ function drawQuarterPlacard(params: {
   });
 
   // 1. Room / Floor / Head Hero Section (Badge tag EST 1 - ROOM/FLOOR/HEAD removed per user specification)
-  const heroValue = isExamPapers ? "EXAM PAPERS" : isHead ? "HEAD" : isRoom ? (content.room || "") : (content.floor || "");
-  let heroSize = isRoom ? 38 : isHead ? 40 : isExamPapers ? 26 : 26;
+  const heroValue = isExamPapers ? "EXAM PAPERS" : isHead ? "HEAD" : isRoom ? `Room: ${content.room || ""}` : (content.floor || "");
+  let heroSize = isRoom ? 30 : isHead ? 28 : isExamPapers ? 26 : 26;
   let heroW = font.widthOfTextAtSize(heroValue, heroSize);
   if (heroW > width - 16) {
     heroSize = Math.max(18, ((width - 16) / heroW) * heroSize);
@@ -2841,14 +2846,14 @@ function drawQuarterPlacard(params: {
     const childFloorsCount = content.childCount || (content.childNames ? content.childNames.length : 0);
     const headSubText =
       typeof content.totalRooms === "number" && content.totalRooms > 0
-        ? `${childFloorsCount > 0 ? `${childFloorsCount} FLOORS  •  ` : ""}${content.totalRooms} ROOMS INCLUDED`
+        ? `${childFloorsCount > 0 ? `${childFloorsCount} Floors ` : ""}(${content.totalRooms} Rooms)`
         : childFloorsCount > 0
-          ? `${childFloorsCount} FLOORS INCLUDED`
+          ? `${childFloorsCount} Floors`
           : typeof content.totalStudents === "number" && content.totalStudents > 0
-            ? `${content.totalStudents} STUDENTS TOTAL`
+            ? `${content.totalStudents} Students`
             : "BUILDING HEAD DOSSIER";
 
-    let totalSize = 12.5;
+    let totalSize = 13;
     let totalW = font.widthOfTextAtSize(headSubText, totalSize);
     if (totalW > width - 16) {
       totalSize = Math.max(9, ((width - 16) / totalW) * totalSize);

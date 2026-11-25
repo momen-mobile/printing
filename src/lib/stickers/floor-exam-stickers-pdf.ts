@@ -608,26 +608,7 @@ function drawBuildingHeadBagPlacardPage(params: {
     color: COLOR_BORDER,
   });
 
-  // 2. HEAD DOSSIER TAG (Centered Prominent Banner)
-  const tagText = "BUILDING HEAD DOSSIER & SUPPLIES BAG";
-  const tagSize = 15;
-  const tagW = font.widthOfTextAtSize(tagText, tagSize);
-  const tagY = headerY - 36;
-  page.drawText(tagText, {
-    x: centerX - tagW / 2,
-    y: tagY,
-    size: tagSize,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-  page.drawLine({
-    start: { x: centerX - (tagW + 20) / 2, y: tagY - 4 },
-    end: { x: centerX + (tagW + 20) / 2, y: tagY - 4 },
-    thickness: 1.1,
-    color: COLOR_CHARCOAL,
-  });
-
-  // 3. VERTICALLY STACKED LOCATION & BUILDING SUMMARY DETAILS
+  // 2. VERTICALLY STACKED LOCATION & BUILDING SUMMARY DETAILS
   const { center: cleanCenter, building: cleanBuilding } = splitCenterAndBuilding(
     building.center,
     building.building,
@@ -655,14 +636,13 @@ function drawBuildingHeadBagPlacardPage(params: {
   const statsText = [
     building.totalFloors > 0 ? `${building.totalFloors} Floors` : null,
     building.totalRooms > 0 ? `${building.totalRooms} Rooms` : null,
-    building.totalStudents > 0 ? `${building.totalStudents} Students Total` : null,
   ].filter(Boolean).join("   •   ");
 
   if (statsText) {
     rows.push({ text: statsText, size: 21, underlineThickness: 1.3 });
   }
 
-  const startY = tagY - 38;
+  const startY = headerY - 44;
   const bottomY = cardY + 152;
   const totalSpan = startY - bottomY;
   const stepY = rows.length > 1 ? totalSpan / (rows.length - 1) : 44;
@@ -712,8 +692,8 @@ function drawBuildingHeadBagPlacardPage(params: {
     borderWidth: 1.2,
   });
 
-  const boxTitle = "ENCLOSED BAG DOSSIERS & ADMINISTRATIVE SUPPLIES (COMPLETE ENCLOSURE)";
-  const boxTitleSize = 10.5;
+  const boxTitle = "HEAD DOSSIER & SUPPLIES";
+  const boxTitleSize = 12;
   const boxTitleW = font.widthOfTextAtSize(boxTitle, boxTitleSize);
   page.drawText(boxTitle, {
     x: centerX - boxTitleW / 2,
@@ -731,21 +711,20 @@ function drawBuildingHeadBagPlacardPage(params: {
   });
 
   // 2 Columns of contents WITHOUT checkboxes (bulleted clean list)
-  const col1X = boxX + 28;
+  const col1X = boxX + 32;
   const col2X = centerX + 16;
-  const itemSize = 9.5;
-  const lineSpacing = 20;
+  const itemSize = 10;
+  const lineSpacing = 22;
 
   const col1Items = [
     "• Control Room Register",
-    "• Proctor & Senior Attendance Registers",
+    "• Proctor & Senior Sheets",
     "• Student & Proctor Misconduct Forms",
   ];
 
   const col2Items = [
-    "• Mobile & Valuables Collection Files",
-    "• Room Numbers & Candidate Signage",
-    "• Scratch Paper, Staplers & Supplies",
+    "• Mobile Collection Files, Numbers & IDs",
+    "• Scratch Paper, Staplers & Other Supplies",
   ];
 
   for (let i = 0; i < col1Items.length; i++) {
@@ -921,10 +900,7 @@ function drawFloorSeniorBagPlacardPage(params: {
   }
   rows.push({ text: `Floor: ${floorText}`, size: 30, underlineThickness: 1.5 });
 
-  const statsText = [
-    floorData.totalRooms > 0 ? `${floorData.totalRooms} Rooms` : null,
-    floorData.totalStudents > 0 ? `${floorData.totalStudents} Students Total` : null,
-  ].filter(Boolean).join("   •   ");
+  const statsText = floorData.totalRooms > 0 ? `${floorData.totalRooms} Rooms` : null;
 
   if (statsText) {
     rows.push({ text: statsText, size: 24, underlineThickness: 1.3 });

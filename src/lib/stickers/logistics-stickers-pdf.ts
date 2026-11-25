@@ -561,24 +561,14 @@ export async function renderBuildingCartonPage(
   const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
   const examLabel = options.isCombined ? "EST I & EST II" : isEst2 ? "EST II" : "EST I";
   const sessionText = toEnglishText(options.date) || "DECEMBER 2026";
-  const subtitleText = options.isCombined
-    ? `COMBINED MASTER CARTON — ${sessionText.toUpperCase()}`
-    : `BUILDING MASTER CARTON — ${sessionText.toUpperCase()}`;
+  const fullHeaderTitle = `${examLabel}: ${sessionText}`;
 
-  page.drawText(examLabel, {
+  page.drawText(fullHeaderTitle, {
     x: textStartX,
-    y: headerY + 34,
-    size: options.isCombined ? 19 : 22,
+    y: headerY + (headerH - 20) / 2 + 1,
+    size: 20,
     font,
     color: COLOR_CHARCOAL,
-  });
-
-  page.drawText(subtitleText, {
-    x: textStartX,
-    y: headerY + 16,
-    size: 10,
-    font,
-    color: COLOR_MUTED,
   });
 
   // Divider Line
@@ -589,9 +579,9 @@ export async function renderBuildingCartonPage(
     color: COLOR_BORDER,
   });
 
-  // Location Highlight Ribbon (Governorate - Center - Building)
-  const locRibbonY = headerY - 54;
-  const locRibbonH = 48;
+  // Location Highlight Ribbon (Governorate - Center - Building) - Enlarged per user specification
+  const locRibbonH = 54;
+  const locRibbonY = headerY - locRibbonH - 6;
   const ribbonInnerW = cardW - 24;
 
   page.drawRectangle({
@@ -612,7 +602,7 @@ export async function renderBuildingCartonPage(
 
   if (isCampus && cleanBuilding) {
     // 3-Column Layout: Governorate | Test Center | Building
-    const col1W = 150;
+    const col1W = 160;
     const colRem = ribbonInnerW - col1W;
     const col2W = Math.floor(colRem / 2);
     const col3W = colRem - col2W;
@@ -625,7 +615,7 @@ export async function renderBuildingCartonPage(
     page.drawText("GOVERNORATE", {
       x: c1X + 12,
       y: locRibbonY + locRibbonH - 13,
-      size: 7,
+      size: 7.5,
       font,
       color: COLOR_MUTED,
     });
@@ -634,8 +624,8 @@ export async function renderBuildingCartonPage(
       y: locRibbonY + 4,
       width: col1W - 24,
       height: locRibbonH - 18,
-      baseSize: 13,
-      minSize: 9,
+      baseSize: 16,
+      minSize: 11,
       maxLines: 1,
     });
 
@@ -643,7 +633,7 @@ export async function renderBuildingCartonPage(
     page.drawText("TEST CENTER", {
       x: c2X + 12,
       y: locRibbonY + locRibbonH - 13,
-      size: 7,
+      size: 7.5,
       font,
       color: COLOR_MUTED,
     });
@@ -652,8 +642,8 @@ export async function renderBuildingCartonPage(
       y: locRibbonY + 4,
       width: col2W - 24,
       height: locRibbonH - 18,
-      baseSize: 13,
-      minSize: 8.5,
+      baseSize: 16.5,
+      minSize: 11,
       maxLines: 2,
     });
 
@@ -661,7 +651,7 @@ export async function renderBuildingCartonPage(
     page.drawText("BUILDING", {
       x: c3X + 12,
       y: locRibbonY + locRibbonH - 13,
-      size: 7,
+      size: 7.5,
       font,
       color: COLOR_MUTED,
     });
@@ -670,8 +660,8 @@ export async function renderBuildingCartonPage(
       y: locRibbonY + 4,
       width: col3W - 24,
       height: locRibbonH - 18,
-      baseSize: 13,
-      minSize: 8.5,
+      baseSize: 16.5,
+      minSize: 11,
       maxLines: 2,
     });
 
@@ -690,7 +680,7 @@ export async function renderBuildingCartonPage(
     });
   } else {
     // 2-Column Layout for Single School / Center: Governorate | Examination Center / School
-    const col1W = 160;
+    const col1W = 180;
     const col2W = ribbonInnerW - col1W;
     const c1X = cardX + 12;
     const c2X = c1X + col1W;
@@ -699,7 +689,7 @@ export async function renderBuildingCartonPage(
     page.drawText("GOVERNORATE", {
       x: c1X + 12,
       y: locRibbonY + locRibbonH - 13,
-      size: 7,
+      size: 7.5,
       font,
       color: COLOR_MUTED,
     });
@@ -708,8 +698,8 @@ export async function renderBuildingCartonPage(
       y: locRibbonY + 4,
       width: col1W - 24,
       height: locRibbonH - 18,
-      baseSize: 13,
-      minSize: 9,
+      baseSize: 16,
+      minSize: 11,
       maxLines: 1,
     });
 
@@ -717,7 +707,7 @@ export async function renderBuildingCartonPage(
     page.drawText("TEST CENTER", {
       x: c2X + 14,
       y: locRibbonY + locRibbonH - 13,
-      size: 7,
+      size: 7.5,
       font,
       color: COLOR_MUTED,
     });
@@ -726,8 +716,8 @@ export async function renderBuildingCartonPage(
       y: locRibbonY + 4,
       width: col2W - 28,
       height: locRibbonH - 18,
-      baseSize: 14,
-      minSize: 9.5,
+      baseSize: 17.5,
+      minSize: 12,
       maxLines: 2,
     });
 
