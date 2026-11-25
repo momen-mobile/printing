@@ -505,7 +505,7 @@ function drawA4PlacardPage(params: {
   const isHead = content.level === "building_head" || Boolean(content.isHead);
   const isRoom = !isHead && content.level === "room" && Boolean(content.room);
   const isFloor = !isHead && content.level === "floor" && Boolean(content.floor);
-  const isBuilding = !isHead && content.level === "building" && Boolean(content.building);
+  const isBuilding = !isHead && content.level === "building" && Boolean(content.building || content.center);
   const isCenter = content.level === "center" && Boolean(content.center);
   const isGov = content.level === "governorate" && Boolean(content.governorate);
   const isRoot = content.level === "root";
@@ -947,44 +947,26 @@ function drawA4PlacardPage(params: {
     }
   } else if (isBuilding) {
     // ========================================================
-    // 3. BUILDING LEVEL
-    // Displays total floors inside this building and lists them all
+    // 3. BUILDING LEVEL (Carton Placard for Building)
+    // - Top Cards: City & Test Center only (strictly "Test Center", no floors/rooms cards)
+    // - Bottom Hero: Prominent Building Hero card with ${examTag} – BUILDING
+    // - SubText: Number of floors and floor list in this building
     // ========================================================
     const childFloorsCount = content.childCount || (content.childNames ? content.childNames.length : 0);
 
-    const heroBoxHeight = Math.min(240, availBodyHeight * 0.60);
-    const summaryHeight = availBodyHeight - heroBoxHeight - 16;
-    const summaryY = bodyTop - summaryHeight;
-
-    const isSchool = isSchoolCenter(content.center || content.building);
-    const hasDiffBuilding = Boolean(content.building && content.building !== content.center && !isSchool);
-
+    // Summary cards: City & Test Center only per user specification
     const cards = [
       { label: "City", value: content.governorate || "—" },
+      { label: "Test Center", value: content.center || content.building || "—" },
     ];
-    if (isSchool) {
-      cards.push({ label: "School / Center", value: content.center || content.building || "—" });
-    } else {
-      cards.push({ label: "Test Center", value: content.center || "—" });
-      if (hasDiffBuilding) {
-        cards.push({ label: "Building", value: content.building! });
-      }
-    }
-    cards.push({
-      label: "Total Floors",
-      value: childFloorsCount > 0 ? `${childFloorsCount} Floors` : "Floors Included",
-    });
 
-    if (content.totalRooms && content.totalRooms > 0) {
-      cards.push({
-        label: "Total Rooms",
-        value: `${content.totalRooms} Rooms`,
-      });
-    }
+    const summaryHeight = isLandscape ? 68 : 56;
+    const summaryY = bodyTop - summaryHeight;
+    const heroBoxHeight = availBodyHeight - summaryHeight - 16;
 
-    const colWidth = (bodyWidth - (cards.length - 1) * 12) / cards.length;
+    const colWidth = (bodyWidth - (cards.length - 1) * 14) / cards.length;
     for (let i = 0; i < cards.length; i++) {
-      const cardX = isLandscape ? bodyStartX + i * (colWidth + 12) : bodyStartX;
+      const cardX = isLandscape ? bodyStartX + i * (colWidth + 14) : bodyStartX;
       const cardY = isLandscape ? summaryY : summaryY + (cards.length - 1 - i) * ((summaryHeight - 16) / cards.length + 8);
       const cardW = isLandscape ? colWidth : bodyWidth;
       const cardH = isLandscape ? summaryHeight : (summaryHeight - 16) / cards.length;
@@ -1005,8 +987,10 @@ function drawA4PlacardPage(params: {
       content.childNames && content.childNames.length > 0
         ? `FLOORS (${childFloorsCount}) : ${content.childNames.join("  •  ")}`
         : childFloorsCount > 0
-          ? `TOTAL FLOORS : ${childFloorsCount} FLOORS IN THIS VENUE`
+          ? `TOTAL FLOORS : ${childFloorsCount} FLOORS IN THIS BUILDING`
           : undefined;
+
+    const buildingValue = (content.building && content.building.trim()) || content.center || "Building";
 
     renderHeroCard({
       page,
@@ -1015,8 +999,8 @@ function drawA4PlacardPage(params: {
       y: bodyBottom,
       width: bodyWidth,
       height: heroBoxHeight,
-      badgeText: isSchool ? `${examTag} – TEST CENTER` : `${examTag} – BUILDING`,
-      valueText: isSchool ? (content.center || content.building || "") : (content.building || content.center || ""),
+      badgeText: `${examTag} – BUILDING`,
+      valueText: buildingValue,
       subText,
       accentColor: COLOR_GOLD,
     });

@@ -31,6 +31,7 @@ import {
   generateCleanSkinDispatchLogPdf,
   generateCleanSkinSubjectStickersPdf,
   generateCartonDriverManifestPdf,
+  splitCenterAndBuilding,
   type LogisticsStickerOptions,
   type FloorRoomsData,
   type RoomDetail,
@@ -485,8 +486,9 @@ export async function POST(
     if (type === "building_placards") {
       const centerGroups = new Map<string, EstRoundRow[]>();
       for (const r of targetRows) {
-        const bld = (r as any).building || r.center;
-        const key = `${r.governorate}::${r.center}::${bld}`;
+        const { center: cCenter, building: cBld } = splitCenterAndBuilding(r.center, (r as any).building);
+        const bld = cBld || (r as any).building || r.center;
+        const key = `${r.governorate}::${cCenter || r.center}::${bld}`;
         const existing = centerGroups.get(key) || [];
         existing.push(r);
         centerGroups.set(key, existing);
@@ -495,30 +497,34 @@ export async function POST(
       const buildingContents: StickerContent[] = [];
       for (const [_, rows] of centerGroups.entries()) {
         const first = rows[0];
-        const isSchool = isSchoolCenter(first.center);
+        const { center: cleanCenter, building: cleanBuilding } = splitCenterAndBuilding(
+          first.center,
+          (first as any).building,
+        );
+        const centerName = cleanCenter || first.center;
+        const buildingName = cleanBuilding || (first as any).building || first.center;
         const uniqueFloors = Array.from(new Set(rows.map((r) => r.floor)));
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
-        const isCampus = (first as any).building && (first as any).building.toLowerCase() !== first.center.toLowerCase();
 
         buildingContents.push({
           level: "building",
           lines: [
             round.name,
             `Governorate : ${first.governorate}`,
-            `Test Center : ${first.center}`,
-            isCampus ? `Building : ${(first as any).building}` : null,
+            `Test Center : ${centerName}`,
+            `Building : ${buildingName}`,
             `Total Floors : ${uniqueFloors.length}`,
             `Total Rooms : ${rows.length}`,
           ].filter(Boolean) as string[],
-          rawLines: ["EST", first.governorate, first.center],
-          cleanChain: ["EST", first.governorate, first.center],
+          rawLines: ["EST", first.governorate, centerName],
+          cleanChain: ["EST", first.governorate, centerName],
           examName: round.name || round.examType,
           examType: round.examType as "EST 1" | "EST 2",
           examDate: roundDateStr,
           examDay: roundDayStr,
           governorate: first.governorate,
-          center: first.center,
-          building: (first as any).building || first.center,
+          center: centerName,
+          building: buildingName,
           childCount: uniqueFloors.length,
           childLabel: "Floors",
           childNames: uniqueFloors,
@@ -526,8 +532,8 @@ export async function POST(
           totalStudents,
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Test Center", labelAr: "السنتر", value: first.center },
-            ...(isCampus ? [{ key: "building" as const, label: "Building", labelAr: "المبنى", value: (first as any).building }] : []),
+            { key: "center", label: "Test Center", labelAr: "السنتر", value: centerName },
+            { key: "building" as const, label: "Building", labelAr: "المبنى", value: buildingName },
           ] as StickerFieldItem[],
         });
       }
