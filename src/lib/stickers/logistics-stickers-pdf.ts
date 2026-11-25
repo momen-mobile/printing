@@ -2280,8 +2280,8 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
 
   // 1. Header (Top of sheet)
   const headerTopY = height - margin;
-  const logoH = 32;
-  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 46;
+  const logoH = 28;
+  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 40;
   const logoX = tableX + tableW - logoW;
   const logoY = headerTopY - logoH;
 
@@ -2295,7 +2295,7 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
   }
 
   // Large Prominent Exam Label positioned directly next to the Logo (e.g. EST I  [est])
-  const examTagSize = 22;
+  const examTagSize = 20;
   const examTagW = font.widthOfTextAtSize(examLabel, examTagSize);
   const examTagX = logoX - examTagW - 14;
   const examTagY = logoY + (logoH - examTagSize) / 2 + 1;
@@ -2307,17 +2307,17 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     color: COLOR_CHARCOAL,
   });
 
-  // Page numbering right under logo
+  // Page numbering right under logo - sharp, prominent, and completely clear of the table
   if (totalPages > 1) {
     const pageText = `Page ${pageIndex} of ${totalPages}`;
-    const pSize = 8;
+    const pSize = 8.5;
     const pW = font.widthOfTextAtSize(pageText, pSize);
     page.drawText(pageText, {
       x: logoX + (logoW - pW) / 2,
-      y: logoY - 10,
+      y: logoY - 11,
       size: pSize,
       font,
-      color: COLOR_MUTED,
+      color: COLOR_CHARCOAL,
     });
   }
 
@@ -2425,8 +2425,8 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
     });
   }
 
-  // 3. Table Layout
-  const tableTop = headerTopY - 40;
+  // 3. Table Layout (Placed safely below Page X of Y with clean 7pt top clearance)
+  const tableTop = headerTopY - 48;
   const tableBottomMin = sigY + sigBlockH + 8;
   const thH = 22;
   const thY = tableTop - thH;
@@ -2708,25 +2708,25 @@ export async function drawOfficialMasterBuildingManifestPortraitPage(
   return page;
 }
 
+interface ManifestFloorBlock {
+  floorRow: MasterManifestHierarchyRow;
+  roomRows: MasterManifestHierarchyRow[];
+}
+
 /**
- * Backwards-compatible single/multi-page drawing function.
+ * Builds floor-aware paginated rows for the Master Manifest table.
+ * - Keeps floor headers and their room rows together as complete units.
+ * - Comfortably limits rows per page (target: 18 rows on page 1, 19 on subsequent pages).
+ * - When adding a floor would cause the page to exceed the comfortable limit (and the page
+ *   already has at least one floor), that entire floor is moved to the next page!
  */
-export async function drawMasterBuildingManifestPage(
-  pdfDoc: PDFDocument,
-  font: any,
-  logoImg: any,
+export function buildMasterManifestPages(
   options: LogisticsStickerOptions,
-  pageIndex = 1,
-  totalPages = 1,
-): Promise<any> {
-  const normalizedFloors = normalizeFloorsData(options);
+  normalizedFloors: NormalizedFloor[],
+  subjectCols: { code: string; label: string }[],
+  isEst2: boolean,
+): MasterManifestHierarchyRow[][] {
   const allRooms = normalizedFloors.flatMap((f) => f.rooms);
-
-  const rawExam = options.examName || "EST";
-  const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
-
-  const subjectCols = resolveManifestSubjectColumns(options, allRooms, isEst2);
-
   const buildingTotalRooms = allRooms.length;
   const buildingTotalStudents = allRooms.reduce((s, r) => s + (r.studentCount || 0), 0);
   const buildingSubjectCounts: Record<string, number> = {};
@@ -2751,9 +2751,8 @@ export async function drawMasterBuildingManifestPage(
         : buildingSubjectCounts[s.code] || 0;
   }
 
-  const allRows: MasterManifestHierarchyRow[] = [];
-
-  allRows.push({
+  const headerRows: MasterManifestHierarchyRow[] = [];
+  headerRows.push({
     type: "center",
     name: centerName,
     roomsCount: centerTotalRooms,
@@ -2763,7 +2762,7 @@ export async function drawMasterBuildingManifestPage(
   });
 
   if (buildingName.toLowerCase() !== centerName.toLowerCase()) {
-    allRows.push({
+    headerRows.push({
       type: "building",
       name: buildingName,
       roomsCount: buildingTotalRooms,
@@ -2773,6 +2772,7 @@ export async function drawMasterBuildingManifestPage(
     });
   }
 
+  const floorBlocks: ManifestFloorBlock[] = [];
   for (const fl of normalizedFloors) {
     const flSubjectCounts: Record<string, number> = {};
     for (const s of subjectCols) {
@@ -2782,22 +2782,23 @@ export async function drawMasterBuildingManifestPage(
       );
     }
 
-    allRows.push({
+    const floorRow: MasterManifestHierarchyRow = {
       type: "floor",
       name: fl.floor,
       roomsCount: fl.rooms.length,
       totalStudents: fl.totalStudents,
       subjectCounts: flSubjectCounts,
       hasCheckboxes: false,
-    });
+    };
 
+    const roomRows: MasterManifestHierarchyRow[] = [];
     for (const rm of fl.rooms) {
       const rmSubjectCounts: Record<string, number> = {};
       for (const s of subjectCols) {
         rmSubjectCounts[s.code] = getRoomSubjectCount(rm, s.code, isEst2);
       }
 
-      allRows.push({
+      roomRows.push({
         type: "room",
         name: rm.room,
         roomsCount: 1,
@@ -2806,18 +2807,73 @@ export async function drawMasterBuildingManifestPage(
         hasCheckboxes: true,
       });
     }
+
+    floorBlocks.push({ floorRow, roomRows });
   }
+
+  const MAX_COMFORTABLE_ROWS_PAGE1 = 18;
+  const MAX_COMFORTABLE_ROWS_SUBSEQUENT = 19;
+
+  const pages: MasterManifestHierarchyRow[][] = [];
+  let currentPageRows: MasterManifestHierarchyRow[] = [...headerRows];
+  let floorsOnCurrentPage = 0;
+
+  for (let bIdx = 0; bIdx < floorBlocks.length; bIdx++) {
+    const block = floorBlocks[bIdx];
+    const blockSize = 1 + block.roomRows.length;
+    const pageLimit = pages.length === 0 ? MAX_COMFORTABLE_ROWS_PAGE1 : MAX_COMFORTABLE_ROWS_SUBSEQUENT;
+
+    // If page already has at least one floor and adding this floor pushes it beyond comfortable capacity,
+    // move this floor to start on the next page!
+    if (floorsOnCurrentPage > 0 && currentPageRows.length + blockSize > pageLimit) {
+      pages.push(currentPageRows);
+      currentPageRows = [block.floorRow, ...block.roomRows];
+      floorsOnCurrentPage = 1;
+    } else {
+      currentPageRows.push(block.floorRow, ...block.roomRows);
+      floorsOnCurrentPage++;
+    }
+  }
+
+  if (currentPageRows.length > 0) {
+    pages.push(currentPageRows);
+  }
+
+  return pages;
+}
+
+/**
+ * Backwards-compatible single/multi-page drawing function.
+ */
+export async function drawMasterBuildingManifestPage(
+  pdfDoc: PDFDocument,
+  font: any,
+  logoImg: any,
+  options: LogisticsStickerOptions,
+  pageIndex = 1,
+  totalPages = 1,
+): Promise<any> {
+  const normalizedFloors = normalizeFloorsData(options);
+  const allRooms = normalizedFloors.flatMap((f) => f.rooms);
+
+  const rawExam = options.examName || "EST";
+  const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
+
+  const subjectCols = resolveManifestSubjectColumns(options, allRooms, isEst2);
+  const pages = buildMasterManifestPages(options, normalizedFloors, subjectCols, isEst2);
+  const effectiveTotalPages = Math.max(totalPages, pages.length);
+  const pageRows = pages[pageIndex - 1] || pages[0] || [];
 
   return await drawOfficialMasterBuildingManifestPortraitPage(
     pdfDoc,
     font,
     logoImg,
     options,
-    allRows,
+    pageRows,
     subjectCols,
     isEst2,
     pageIndex,
-    totalPages,
+    effectiveTotalPages,
   );
 }
 
@@ -3145,93 +3201,11 @@ export async function generateMasterBuildingManifestPdf(
   const isEst2 = /EST\s*[-_]?\s*2\b|EST\s*II\b/i.test(rawExam);
 
   const subjectCols = resolveManifestSubjectColumns(options, allRooms, isEst2);
-
-  const buildingTotalRooms = allRooms.length;
-  const buildingTotalStudents = allRooms.reduce((s, r) => s + (r.studentCount || 0), 0);
-  const buildingSubjectCounts: Record<string, number> = {};
-  for (const s of subjectCols) {
-    buildingSubjectCounts[s.code] = allRooms.reduce(
-      (sum, r) => sum + getRoomSubjectCount(r, s.code, isEst2),
-      0,
-    );
-  }
-
-  const centerName = cleanVenueName(options.center || "Test Center", options.governorate || "");
-  const { building: cleanBuilding } = splitCenterAndBuilding(options.center, options.building);
-  const buildingName = cleanBuilding || options.building || centerName;
-
-  const centerTotalRooms = options.centerTotalRooms || options.totalRooms || buildingTotalRooms;
-  const centerTotalStudents = options.centerTotalStudents || options.totalStudents || buildingTotalStudents;
-  const centerSubjectCounts: Record<string, number> = {};
-  for (const s of subjectCols) {
-    centerSubjectCounts[s.code] =
-      options.centerSubjectsMap && typeof options.centerSubjectsMap[s.code] === "number"
-        ? options.centerSubjectsMap[s.code]
-        : buildingSubjectCounts[s.code] || 0;
-  }
-
-  const allRows: MasterManifestHierarchyRow[] = [];
-
-  allRows.push({
-    type: "center",
-    name: centerName,
-    roomsCount: centerTotalRooms,
-    totalStudents: centerTotalStudents,
-    subjectCounts: centerSubjectCounts,
-    hasCheckboxes: false,
-  });
-
-  if (buildingName.toLowerCase() !== centerName.toLowerCase()) {
-    allRows.push({
-      type: "building",
-      name: buildingName,
-      roomsCount: buildingTotalRooms,
-      totalStudents: buildingTotalStudents,
-      subjectCounts: buildingSubjectCounts,
-      hasCheckboxes: false,
-    });
-  }
-
-  for (const fl of normalizedFloors) {
-    const flSubjectCounts: Record<string, number> = {};
-    for (const s of subjectCols) {
-      flSubjectCounts[s.code] = fl.rooms.reduce(
-        (sum, r) => sum + getRoomSubjectCount(r, s.code, isEst2),
-        0,
-      );
-    }
-
-    allRows.push({
-      type: "floor",
-      name: fl.floor,
-      roomsCount: fl.rooms.length,
-      totalStudents: fl.totalStudents,
-      subjectCounts: flSubjectCounts,
-      hasCheckboxes: false,
-    });
-
-    for (const rm of fl.rooms) {
-      const rmSubjectCounts: Record<string, number> = {};
-      for (const s of subjectCols) {
-        rmSubjectCounts[s.code] = getRoomSubjectCount(rm, s.code, isEst2);
-      }
-
-      allRows.push({
-        type: "room",
-        name: rm.room,
-        roomsCount: 1,
-        totalStudents: rm.studentCount || 0,
-        subjectCounts: rmSubjectCounts,
-        hasCheckboxes: true,
-      });
-    }
-  }
-
-  const maxRowsPerPage = 22;
-  const totalPages = Math.max(1, Math.ceil(allRows.length / maxRowsPerPage));
+  const pages = buildMasterManifestPages(options, normalizedFloors, subjectCols, isEst2);
+  const totalPages = Math.max(1, pages.length);
 
   for (let pIdx = 1; pIdx <= totalPages; pIdx++) {
-    const pageRows = allRows.slice((pIdx - 1) * maxRowsPerPage, pIdx * maxRowsPerPage);
+    const pageRows = pages[pIdx - 1];
     await drawOfficialMasterBuildingManifestPortraitPage(
       pdfDoc,
       font,

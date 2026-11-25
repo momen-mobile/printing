@@ -232,6 +232,35 @@ describe("Logistics Stickers PDF Generator", () => {
     expect(page.getHeight()).toBeCloseTo(595.28, 1);
   });
 
+  it("moves last floor to page 2 when page 1 is full (floor-aware pagination)", async () => {
+    // 1st Floor (7 rooms), 2nd Floor (6 rooms), 3rd Floor (4 rooms)
+    // Total rows = Center (1) + Building (1) + Floor1 (8) + Floor2 (7) + Floor3 (5) = 22 rows.
+    // Instead of stuffing 22 rows onto Page 1, it cleanly moves Floor 3 to Page 2!
+    const makeRooms = (count: number, prefix: string) =>
+      Array.from({ length: count }, (_, i) => ({
+        room: `${prefix}${100 + i}`,
+        studentCount: 20,
+        subjectsMap: { LIT: 20, MATH: 20 },
+      }));
+
+    const pdfBytes = await generateMasterBuildingManifestPdf({
+      examName: "EST I",
+      governorate: "Cairo",
+      center: "Arab Academy Sheraton",
+      building: "Engineering Building B",
+      roundDay: "Friday",
+      roundDateStr: "December 11, 2026",
+      floors: [
+        { floor: "1st Floor", rooms: makeRooms(7, "B") },
+        { floor: "2nd Floor", rooms: makeRooms(6, "B") },
+        { floor: "3rd Floor", rooms: makeRooms(4, "B") },
+      ],
+    });
+
+    const doc = await PDFDocument.load(pdfBytes);
+    expect(doc.getPageCount()).toBe(2);
+  });
+
   it("generates standalone Clean Skin Dispatch Log PDF (Strictly 1 Page)", async () => {
     const pdfBytes = await generateCleanSkinDispatchLogPdf(baseData);
     expect(pdfBytes).toBeInstanceOf(Uint8Array);
