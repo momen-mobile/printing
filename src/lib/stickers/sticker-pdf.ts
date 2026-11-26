@@ -1076,7 +1076,7 @@ function drawA4PlacardPage(params: {
       const checklistBoxY = bodyBottom;
 
       const subText = content.totalRooms
-        ? `TOTAL IN BUILDING: ${content.totalRooms} ROOMS${content.totalStudents ? `  •  ${content.totalStudents} CANDIDATES` : ""}`
+        ? `TOTAL IN BUILDING: ${content.totalRooms} ROOMS`
         : undefined;
 
       renderHeroCard({
