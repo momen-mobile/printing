@@ -966,15 +966,46 @@ function drawFloorSeniorBagPlacardPage(params: {
     rows.push({ text: statsText, size: 24, underlineThickness: 1.3 });
   }
 
+  const maxW = 730;
+  let roomLines: string[] = [];
+  let roomFontSize = 18;
   if (floorData.roomNames && floorData.roomNames.length > 0) {
-    const roomsJoined = floorData.roomNames.join(", ");
-    rows.push({ text: `Rooms: ${roomsJoined}`, size: 19, underlineThickness: 1.1 });
+    const wrapSeniorRooms = (sz: number) => {
+      const lines: string[] = [];
+      let cur = "Rooms: ";
+      for (let i = 0; i < floorData.roomNames!.length; i++) {
+        const rm = floorData.roomNames![i];
+        const sep = cur === "Rooms: " ? "" : ", ";
+        const candidate = `${cur}${sep}${rm}`;
+        if (cur !== "Rooms: " && font.widthOfTextAtSize(candidate, sz) > maxW) {
+          lines.push(cur);
+          cur = rm;
+        } else {
+          cur = candidate;
+        }
+      }
+      if (cur) lines.push(cur);
+      return lines;
+    };
+
+    roomLines = wrapSeniorRooms(roomFontSize);
+    if (roomLines.length > 2) {
+      roomFontSize = 15;
+      roomLines = wrapSeniorRooms(roomFontSize);
+    }
+    if (roomLines.length > 4) {
+      roomFontSize = 13;
+      roomLines = wrapSeniorRooms(roomFontSize);
+    }
   }
 
-  const startY = headerY - 56;
-  const bottomY = cardY + 48;
-  const totalSpan = startY - bottomY;
-  const stepY = rows.length > 1 ? totalSpan / (rows.length - 1) : 56;
+  const startY = headerY - 52;
+  const roomLineStep = roomFontSize + 8;
+  const extraRoomH = roomLines.length > 1 ? (roomLines.length - 1) * roomLineStep : 0;
+  const bottomY = cardY + 44 + extraRoomH;
+  const totalRows = rows.length + (roomLines.length > 0 ? 1 : 0);
+  const totalSpan = Math.max(80, startY - bottomY);
+  const stepY = totalRows > 1 ? totalSpan / (totalRows - 1) : 56;
 
   for (let idx = 0; idx < rows.length; idx++) {
     const r = rows[idx];
@@ -982,7 +1013,6 @@ function drawFloorSeniorBagPlacardPage(params: {
 
     let effSize = r.size;
     let textW = font.widthOfTextAtSize(r.text, effSize);
-    const maxW = 730;
     if (textW > maxW) {
       effSize = Math.max(13, (maxW / textW) * effSize);
       textW = font.widthOfTextAtSize(r.text, effSize);
@@ -1003,6 +1033,36 @@ function drawFloorSeniorBagPlacardPage(params: {
       thickness: r.underlineThickness,
       color: COLOR_CHARCOAL,
     });
+  }
+
+  if (roomLines.length > 0) {
+    const firstRoomY = startY - rows.length * stepY;
+    for (let li = 0; li < roomLines.length; li++) {
+      const lineText = roomLines[li];
+      const lineY = firstRoomY - li * roomLineStep;
+      let effSize = roomFontSize;
+      let textW = font.widthOfTextAtSize(lineText, effSize);
+      if (textW > maxW) {
+        effSize = Math.max(10, (maxW / textW) * effSize);
+        textW = font.widthOfTextAtSize(lineText, effSize);
+      }
+
+      page.drawText(lineText, {
+        x: centerX - textW / 2,
+        y: lineY,
+        size: effSize,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+
+      const linePadding = 18;
+      page.drawLine({
+        start: { x: centerX - (textW + linePadding) / 2, y: lineY - 5 },
+        end: { x: centerX + (textW + linePadding) / 2, y: lineY - 5 },
+        thickness: 1.1,
+        color: COLOR_CHARCOAL,
+      });
+    }
   }
 }
 
