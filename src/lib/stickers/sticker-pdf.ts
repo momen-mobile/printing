@@ -1010,21 +1010,20 @@ function drawA4PlacardPage(params: {
   } else if (isBuilding) {
     // ========================================================
     // 3. BUILDING LEVEL (Carton Placard for Building)
-    // - Top Cards: City & Test Center only (strictly "Test Center", no floors/rooms cards)
-    // - Bottom Hero: Prominent Building Hero card with ${examTag} – BUILDING
-    // - SubText: Number of floors and floor list in this building
+    // - Top Cards: City & Center (strictly "Center", no redundant "Test Center")
+    // - Middle Hero: Prominent Building Hero card with ${examTag} – BUILDING
+    // - Bottom Checklist: Checkbox next to each floor in the building
     // ========================================================
     const childFloorsCount = content.childCount || (content.childNames ? content.childNames.length : 0);
 
-    // Summary cards: City & Test Center only per user specification
+    // Summary cards: City & Center
     const cards = [
       { label: "City", value: content.governorate || "—" },
-      { label: "Test Center", value: content.center || content.building || "—" },
+      { label: "Center", value: content.center || content.building || "—" },
     ];
 
-    const summaryHeight = isLandscape ? 68 : 56;
+    const summaryHeight = isLandscape ? 64 : 56;
     const summaryY = bodyTop - summaryHeight;
-    const heroBoxHeight = availBodyHeight - summaryHeight - 16;
 
     const colWidth = (bodyWidth - (cards.length - 1) * 14) / cards.length;
     for (let i = 0; i < cards.length; i++) {
@@ -1045,27 +1044,77 @@ function drawA4PlacardPage(params: {
       });
     }
 
-    const subText =
-      content.childNames && content.childNames.length > 0
-        ? `FLOORS (${childFloorsCount}) : ${content.childNames.join("  •  ")}`
-        : childFloorsCount > 0
-          ? `TOTAL FLOORS : ${childFloorsCount} FLOORS IN THIS BUILDING`
-          : undefined;
-
+    const availLowerH = summaryY - bodyBottom - 14;
     const buildingValue = (content.building && content.building.trim()) || content.center || "Building";
 
-    renderHeroCard({
-      page,
-      font,
-      x: bodyStartX,
-      y: bodyBottom,
-      width: bodyWidth,
-      height: heroBoxHeight,
-      badgeText: `${examTag} – BUILDING`,
-      valueText: buildingValue,
-      subText,
-      accentColor: COLOR_GOLD,
-    });
+    interface FloorItem {
+      name: string;
+      roomCount?: number;
+      studentCount?: number;
+    }
+
+    const floorItems: FloorItem[] = [];
+    if (content.floorDetails && content.floorDetails.length > 0) {
+      for (const fd of content.floorDetails) {
+        floorItems.push({
+          name: fd.floor,
+          roomCount: fd.roomCount,
+          studentCount: fd.studentCount,
+        });
+      }
+    } else if (content.childNames && content.childNames.length > 0) {
+      for (const cn of content.childNames) {
+        floorItems.push({ name: cn });
+      }
+    }
+
+    if (floorItems.length > 0) {
+      // Split available space between Hero Building Card (42%) and Floors Checklist Box (58%)
+      const heroBoxHeight = Math.max(95, Math.min(135, availLowerH * 0.42));
+      const heroBoxY = summaryY - 14 - heroBoxHeight;
+      const checklistBoxHeight = availLowerH - heroBoxHeight - 14;
+      const checklistBoxY = bodyBottom;
+
+      const subText = content.totalRooms
+        ? `TOTAL IN BUILDING: ${content.totalRooms} ROOMS${content.totalStudents ? `  •  ${content.totalStudents} CANDIDATES` : ""}`
+        : undefined;
+
+      renderHeroCard({
+        page,
+        font,
+        x: bodyStartX,
+        y: heroBoxY,
+        width: bodyWidth,
+        height: heroBoxHeight,
+        badgeText: `${examTag} – BUILDING`,
+        valueText: buildingValue,
+        subText,
+        accentColor: COLOR_GOLD,
+      });
+
+      // Render Floors Checklist Box with pen checkboxes
+      renderBuildingFloorsChecklist({
+        page,
+        font,
+        x: bodyStartX,
+        y: checklistBoxY,
+        width: bodyWidth,
+        height: checklistBoxHeight,
+        floors: floorItems,
+      });
+    } else {
+      renderHeroCard({
+        page,
+        font,
+        x: bodyStartX,
+        y: bodyBottom,
+        width: bodyWidth,
+        height: availLowerH,
+        badgeText: `${examTag} – BUILDING`,
+        valueText: buildingValue,
+        accentColor: COLOR_GOLD,
+      });
+    }
   } else if (isCenter) {
     // ========================================================
     // 4. TEST CENTER LEVEL (e.g. Abu Qir)
@@ -1743,6 +1792,152 @@ function renderHeroCard(params: {
         });
       }
     }
+  }
+}
+
+/**
+ * Renders the Enclosed Floors Checklist Box for Building Placards.
+ * Features an empty square checkbox next to each floor in the building
+ * so the logistics/packing team can tick off which floors are enclosed in this carton.
+ */
+function renderBuildingFloorsChecklist(params: {
+  page: any;
+  font: any;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  floors: Array<{ name: string; roomCount?: number; studentCount?: number }>;
+}) {
+  const { page, font, x, y, width, height, floors } = params;
+
+  // Outer Box (crisp charcoal border, zero black fill)
+  page.drawRectangle({
+    x,
+    y,
+    width,
+    height,
+    color: COLOR_WHITE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1.5,
+  });
+
+  // Top Banner
+  const bannerH = Math.max(26, Math.min(32, height * 0.18));
+  const bannerY = y + height - bannerH;
+
+  page.drawRectangle({
+    x: x + 2,
+    y: bannerY,
+    width: width - 4,
+    height: bannerH - 2,
+    color: rgb(0.93, 0.94, 0.96),
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 0.8,
+  });
+
+  const bannerText = "ENCLOSED FLOORS IN THIS CARTON (CHECK APPLICABLE FLOORS)";
+  const bSize = Math.max(9, Math.min(11, bannerH * 0.38));
+  const bWidth = font.widthOfTextAtSize(bannerText, bSize);
+  page.drawText(bannerText, {
+    x: x + (width - bWidth) / 2,
+    y: bannerY + (bannerH - bSize) / 2 - 1,
+    size: bSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  // Content Area
+  const areaTop = bannerY - 8;
+  const areaBottom = y + 8;
+  const availAreaH = areaTop - areaBottom;
+  const availAreaW = width - 24;
+
+  const count = floors.length;
+  let cols = 1;
+  let rows = 1;
+
+  if (count === 1) {
+    cols = 1;
+    rows = 1;
+  } else if (count === 2) {
+    cols = 2;
+    rows = 1;
+  } else if (count === 3) {
+    cols = 3;
+    rows = 1;
+  } else if (count === 4) {
+    cols = 2;
+    rows = 2;
+  } else if (count <= 6) {
+    cols = 3;
+    rows = 2;
+  } else {
+    cols = 4;
+    rows = Math.ceil(count / 4);
+  }
+
+  const gapX = 12;
+  const gapY = 8;
+  const cellW = (availAreaW - (cols - 1) * gapX) / cols;
+  const cellH = Math.min(52, (availAreaH - (rows - 1) * gapY) / rows);
+
+  for (let idx = 0; idx < count; idx++) {
+    const item = floors[idx];
+    const c = idx % cols;
+    const r = Math.floor(idx / cols);
+
+    const cellX = x + 12 + c * (cellW + gapX);
+    const cellY = areaTop - (r + 1) * cellH - r * gapY;
+
+    // Chip card background
+    page.drawRectangle({
+      x: cellX,
+      y: cellY,
+      width: cellW,
+      height: cellH,
+      color: COLOR_LIGHT_BG,
+      borderColor: rgb(0.80, 0.82, 0.86),
+      borderWidth: 1,
+    });
+
+    // Checkbox Square (size: 16x16, empty, high-visibility 1.8pt charcoal border)
+    const boxSize = Math.max(14, Math.min(18, cellH * 0.38));
+    const boxX = cellX + 12;
+    const boxY = cellY + (cellH - boxSize) / 2;
+
+    page.drawRectangle({
+      x: boxX,
+      y: boxY,
+      width: boxSize,
+      height: boxSize,
+      color: COLOR_WHITE,
+      borderColor: COLOR_CHARCOAL,
+      borderWidth: 1.8,
+    });
+
+    // Floor Name Text
+    const textStartX = boxX + boxSize + 10;
+    const cleanFloor = item.name.replace(/\bfloors?\b/gi, "").trim();
+    const floorLabel = cleanFloor ? `${cleanFloor} Floor` : item.name;
+    const roomsText = item.roomCount ? ` (${item.roomCount} Rooms)` : "";
+    const fullText = `${floorLabel}${roomsText}`;
+
+    const maxTextW = cellX + cellW - textStartX - 8;
+    let textSize = count <= 3 ? 15 : 13.5;
+    let textW = font.widthOfTextAtSize(fullText, textSize);
+    if (textW > maxTextW) {
+      textSize = Math.max(9.5, (maxTextW / textW) * textSize);
+      textW = font.widthOfTextAtSize(fullText, textSize);
+    }
+
+    page.drawText(fullText, {
+      x: textStartX,
+      y: cellY + (cellH - textSize) / 2 + 1,
+      size: textSize,
+      font,
+      color: COLOR_CHARCOAL,
+    });
   }
 }
 

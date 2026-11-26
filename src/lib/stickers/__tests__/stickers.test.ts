@@ -275,6 +275,48 @@ describe("generateStickerPdf", () => {
     }
   });
 
+  it("renders Building Placard in A4 Landscape with floor checkboxes checklist", async () => {
+    const buildingContent: StickerContent = {
+      level: "building",
+      lines: ["EST 1", "Governorate : Alexandria", "Center : Arab Academy Abu Qir", "Building : Eng. Building B"],
+      rawLines: ["EST 1", "Alexandria", "Arab Academy Abu Qir", "Eng. Building B"],
+      cleanChain: ["EST 1", "Alexandria", "Arab Academy Abu Qir", "Eng. Building B"],
+      examName: "EST 1",
+      governorate: "Alexandria",
+      center: "Arab Academy Abu Qir",
+      building: "Eng. Building B",
+      childCount: 4,
+      childNames: ["2nd Floor", "3rd Floor", "4th Floor", "5th Floor"],
+      floorDetails: [
+        { floor: "2nd Floor", roomCount: 4, studentCount: 80 },
+        { floor: "3rd Floor", roomCount: 3, studentCount: 60 },
+        { floor: "4th Floor", roomCount: 3, studentCount: 60 },
+        { floor: "5th Floor", roomCount: 2, studentCount: 40 },
+      ],
+      totalRooms: 12,
+      totalStudents: 240,
+      fields: [
+        { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: "Alexandria" },
+        { key: "center", label: "Center", labelAr: "السنتر", value: "Arab Academy Abu Qir" },
+        { key: "building", label: "Building", labelAr: "المبنى", value: "Eng. Building B" },
+      ],
+    };
+
+    const pdfBytes = await generateStickerPdf({
+      content: buildingContent,
+      paperMode: "a4",
+      orientation: "landscape",
+    });
+
+    expect(pdfBytes).toBeInstanceOf(Uint8Array);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    expect(pdfDoc.getPageCount()).toBe(1);
+    const page = pdfDoc.getPage(0);
+    const size = page.getSize();
+    expect(size.width).toBeCloseTo(841.89, 0);
+    expect(size.height).toBeCloseTo(595.28, 0);
+  });
+
   it("Uses live subfolder data for Center sticker child counts", () => {
     const sticker = buildStickerContent(["EST 1", "Alexandria", "Abu Qir"], {
       childLabel: "Buildings",

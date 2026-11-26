@@ -50,6 +50,7 @@ export interface StickerContent {
   childCount?: number;
   childLabel?: string;
   childNames?: string[];
+  floorDetails?: Array<{ floor: string; roomCount: number; studentCount?: number }>;
   totalRooms?: number;
   // Room candidate counts & breakdown (EST 1 & EST 2)
   examType?: "EST 1" | "EST 2" | "EST";

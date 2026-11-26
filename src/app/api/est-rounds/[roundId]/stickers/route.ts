@@ -511,7 +511,30 @@ export async function POST(
         );
         const centerName = cleanCenter || first.center;
         const buildingName = cleanBuilding || (first as any).building || first.center;
-        const uniqueFloors = Array.from(new Set(rows.map((r) => r.floor)));
+        const floorMap = new Map<string, { rooms: number; students: number }>();
+        for (const r of rows) {
+          const fl = r.floor || "1st Floor";
+          if (!floorMap.has(fl)) {
+            floorMap.set(fl, { rooms: 0, students: 0 });
+          }
+          const entry = floorMap.get(fl)!;
+          entry.rooms++;
+          entry.students += r.totalStudents || 0;
+        }
+
+        const uniqueFloors = Array.from(floorMap.keys()).sort(
+          (a, b) => getFloorSortWeight(a) - getFloorSortWeight(b),
+        );
+
+        const floorDetails = uniqueFloors.map((fl) => {
+          const info = floorMap.get(fl)!;
+          return {
+            floor: fl,
+            roomCount: info.rooms,
+            studentCount: info.students,
+          };
+        });
+
         const totalStudents = rows.reduce((sum, r) => sum + r.totalStudents, 0);
 
         buildingContents.push({
@@ -519,7 +542,7 @@ export async function POST(
           lines: [
             round.name,
             `Governorate : ${first.governorate}`,
-            `Test Center : ${centerName}`,
+            `Center : ${centerName}`,
             `Building : ${buildingName}`,
             `Total Floors : ${uniqueFloors.length}`,
             `Total Rooms : ${rows.length}`,
@@ -536,11 +559,12 @@ export async function POST(
           childCount: uniqueFloors.length,
           childLabel: "Floors",
           childNames: uniqueFloors,
+          floorDetails,
           totalRooms: rows.length,
           totalStudents,
           fields: [
             { key: "governorate", label: "Governorate", labelAr: "المحافظة", value: first.governorate },
-            { key: "center", label: "Test Center", labelAr: "السنتر", value: centerName },
+            { key: "center", label: "Center", labelAr: "السنتر", value: centerName },
             { key: "building" as const, label: "Building", labelAr: "المبنى", value: buildingName },
           ] as StickerFieldItem[],
         });
