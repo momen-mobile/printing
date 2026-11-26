@@ -332,7 +332,7 @@ function drawFloorSubjectPlacardPage(params: {
     rows.push({ text: `City: ${govText}`, size: 21, underlineThickness: 1.1 });
   }
   if (cleanCenter) {
-    rows.push({ text: `Test Center: ${cleanCenter}`, size: 22, underlineThickness: 1.2 });
+    rows.push({ text: `Center: ${cleanCenter}`, size: 22, underlineThickness: 1.2 });
   }
   if (bldText) {
     rows.push({ text: `Building: ${bldText}`, size: 21, underlineThickness: 1.1 });
@@ -687,7 +687,7 @@ function drawBuildingHeadBagPlacardPage(params: {
     rows.push({ text: `City: ${govText}`, size: 21, underlineThickness: 1.1 });
   }
   if (cleanCenter) {
-    rows.push({ text: `Test Center: ${cleanCenter}`, size: 22, underlineThickness: 1.2 });
+    rows.push({ text: `Center: ${cleanCenter}`, size: 22, underlineThickness: 1.2 });
   }
   if (bldText) {
     rows.push({ text: `Building: ${bldText}`, size: 21, underlineThickness: 1.1 });
@@ -953,7 +953,7 @@ function drawFloorSeniorBagPlacardPage(params: {
     rows.push({ text: `City: ${govText}`, size: 22, underlineThickness: 1.1 });
   }
   if (cleanCenter) {
-    rows.push({ text: `Test Center: ${cleanCenter}`, size: 24, underlineThickness: 1.2 });
+    rows.push({ text: `Center: ${cleanCenter}`, size: 24, underlineThickness: 1.2 });
   }
   if (bldText) {
     rows.push({ text: `Building: ${bldText}`, size: 22, underlineThickness: 1.1 });
@@ -968,7 +968,7 @@ function drawFloorSeniorBagPlacardPage(params: {
 
   if (floorData.roomNames && floorData.roomNames.length > 0) {
     const roomsJoined = floorData.roomNames.join(", ");
-    rows.push({ text: `Assigned Rooms: ${roomsJoined}`, size: 19, underlineThickness: 1.1 });
+    rows.push({ text: `Rooms: ${roomsJoined}`, size: 19, underlineThickness: 1.1 });
   }
 
   const startY = headerY - 56;
@@ -1143,7 +1143,7 @@ function drawBuildingCleanSkinPlacardPage(params: {
     rows.push({ text: `City: ${govText}`, size: 22, underlineThickness: 1.1 });
   }
   if (cleanCenter) {
-    rows.push({ text: `Test Center: ${cleanCenter}`, size: 23, underlineThickness: 1.2 });
+    rows.push({ text: `Center: ${cleanCenter}`, size: 23, underlineThickness: 1.2 });
   }
   if (bldText) {
     rows.push({ text: `Building: ${bldText}`, size: 22, underlineThickness: 1.1 });
