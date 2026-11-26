@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildStickerContent } from "../sticker-content";
+import { buildStickerContent, type StickerContent } from "../sticker-content";
 import {
   generateStickerPdf,
   generateBatchStickerPdf,

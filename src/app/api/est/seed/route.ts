@@ -13,9 +13,8 @@ import type { drive_v3 } from "googleapis";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export { OFFICIAL_GOVERNORATES };
 
-export const OFFICIAL_CYCLES = [
+const OFFICIAL_CYCLES = [
   "December 2026",
   "January 2027",
   "March 2027",

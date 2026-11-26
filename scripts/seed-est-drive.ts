@@ -5,8 +5,8 @@ import { getDriveContextWithRoot, getConnection } from "../src/lib/auth";
 import {
   OFFICIAL_EST_SCHOOLS,
   OFFICIAL_EST_CENTERS,
+  OFFICIAL_GOVERNORATES,
 } from "../src/lib/stickers/est-reference-data";
-import { OFFICIAL_GOVERNORATES } from "../src/app/api/est/seed/route";
 import { createFolder } from "../src/lib/drive";
 import type { drive_v3 } from "googleapis";
 

@@ -21,6 +21,7 @@ export interface EstRoundRow {
   index: number;
   governorate: string;
   center: string;
+  building?: string;
   floor: string;
   room: string;
   rawRoom: string;
