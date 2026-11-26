@@ -4304,7 +4304,7 @@ function drawQuarterCenterDossierSticker(params: {
       });
     }
 
-    currY -= examBarH + 10;
+    currY -= examBarH + 12;
 
     if (isAct && ex.info.buildings && ex.info.buildings.length > 0) {
       for (const bld of ex.info.buildings) {
@@ -4312,40 +4312,44 @@ function drawQuarterCenterDossierSticker(params: {
         const isRedundant = isSameOrRedundantBuilding(dossier.center, bld.buildingName);
         const dispBldName = isRedundant ? "Main School Building" : bld.buildingName;
 
-        const bldLine = `• Building: ${dispBldName}`;
+        const bldSize = isCompact ? 9 : 10;
+        const bldLine = `Building: ${dispBldName}`;
         const maxBldW = cardW - pad * 2 - 10;
-        const bldLines = wrapTextToLinesLocal(bldLine, font, isCompact ? 8.5 : 9.5, maxBldW);
+        const bldLines = wrapTextToLinesLocal(bldLine, font, bldSize, maxBldW);
         for (const bl of bldLines) {
+          const blW = font.widthOfTextAtSize(bl, bldSize);
           page.drawText(bl, {
-            x: cardX + pad + 6,
+            x: cardX + (cardW - blW) / 2,
             y: currY,
-            size: isCompact ? 8.5 : 9.5,
+            size: bldSize,
             font,
             color: COLOR_CHARCOAL,
           });
-          currY -= isCompact ? 15 : 17;
+          currY -= isCompact ? 14 : 16;
         }
 
         const floorsFormatted = formatDossierFloorList(bld.floors);
         const floorsLine = `Floors: ${floorsFormatted} (${bld.roomCount} Rooms)`;
 
-        const maxFlW = cardW - pad * 2 - 18;
-        const flLines = wrapTextToLinesLocal(floorsLine, font, isCompact ? 8 : 8.5, maxFlW);
+        const flSize = isCompact ? 8.5 : 9;
+        const maxFlW = cardW - pad * 2 - 12;
+        const flLines = wrapTextToLinesLocal(floorsLine, font, flSize, maxFlW);
         for (const fl of flLines) {
+          const flW = font.widthOfTextAtSize(fl, flSize);
           page.drawText(fl, {
-            x: cardX + pad + 14,
+            x: cardX + (cardW - flW) / 2,
             y: currY,
-            size: isCompact ? 8 : 8.5,
+            size: flSize,
             font,
-            color: rgb(0.25, 0.25, 0.25),
+            color: rgb(0.28, 0.28, 0.28),
           });
           currY -= isCompact ? 13 : 14;
         }
-        currY -= isCompact ? 5 : 6;
+        currY -= isCompact ? 6 : 8;
       }
     }
 
-    currY -= isCompact ? 6 : 7;
+    currY -= isCompact ? 6 : 10;
   }
 }
 
