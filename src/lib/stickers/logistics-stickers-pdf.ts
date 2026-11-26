@@ -4086,7 +4086,7 @@ function drawQuarterCenterDossierSticker(params: {
 }) {
   const { page, font, logoImg, dossier, slotX, slotY, slotWidth, slotHeight } = params;
 
-  const margin = 7;
+  const margin = 12;
   const cardX = slotX + margin;
   const cardY = slotY + margin;
   const cardW = slotWidth - margin * 2;
@@ -4103,7 +4103,7 @@ function drawQuarterCenterDossierSticker(params: {
     borderWidth: 1.2,
   });
 
-  const pad = 9;
+  const pad = 12;
   const topY = cardY + cardH - pad;
 
   // 2. TOP HEADER: Official Logo + Title + Exam Status Pill
@@ -4118,11 +4118,11 @@ function drawQuarterCenterDossierSticker(params: {
     });
   }
 
-  const titleX = cardX + pad + logoW + 7;
+  const titleX = cardX + pad + logoW + 8;
   page.drawText("EST TEST CENTER FILE", {
     x: titleX,
-    y: topY - 10,
-    size: 11.5,
+    y: topY - 11,
+    size: 10.5,
     font,
     color: COLOR_CHARCOAL,
   });
@@ -4143,11 +4143,11 @@ function drawQuarterCenterDossierSticker(params: {
   if (hasEst1 && !hasEst2) badgeText = "EST 1 ONLY";
   else if (!hasEst1 && hasEst2) badgeText = "EST 2 ONLY";
 
-  const badgeSize = 8;
-  const badgeW = font.widthOfTextAtSize(badgeText, badgeSize) + 10;
-  const badgeH = 16;
+  const badgeSize = 8.5;
+  const badgeW = font.widthOfTextAtSize(badgeText, badgeSize) + 12;
+  const badgeH = 18;
   const badgeX = cardX + cardW - pad - badgeW;
-  const badgeY = topY - 20;
+  const badgeY = topY - 22;
 
   page.drawRectangle({
     x: badgeX,
@@ -4159,24 +4159,24 @@ function drawQuarterCenterDossierSticker(params: {
     borderWidth: 1,
   });
   page.drawText(badgeText, {
-    x: badgeX + 5,
-    y: badgeY + 4,
+    x: badgeX + (badgeW - font.widthOfTextAtSize(badgeText, badgeSize)) / 2,
+    y: badgeY + (badgeH - badgeSize) / 2,
     size: badgeSize,
     font,
     color: COLOR_WHITE,
   });
 
   // Header Divider
-  const div1Y = topY - 30;
+  const div1Y = topY - 35;
   page.drawLine({
-    start: { x: cardX + 5, y: div1Y },
-    end: { x: cardX + cardW - 5, y: div1Y },
+    start: { x: cardX + pad, y: div1Y },
+    end: { x: cardX + cardW - pad, y: div1Y },
     thickness: 1,
     color: COLOR_CHARCOAL,
   });
 
   // 3. LOCATION BANNER (City & Center)
-  let currY = div1Y - 13;
+  let currY = div1Y - 16;
   const cityText = `City: ${toEnglishText(dossier.governorate) || "Cairo"}`;
   page.drawText(cityText, {
     x: cardX + pad,
@@ -4186,7 +4186,7 @@ function drawQuarterCenterDossierSticker(params: {
     color: COLOR_MUTED,
   });
 
-  currY -= 15;
+  currY -= 19;
   const centerLabel = `Center: ${toEnglishText(dossier.center)}`;
   const maxCenterW = cardW - pad * 2;
   let centerLines = wrapTextToLinesLocal(centerLabel, font, 13, maxCenterW);
@@ -4201,7 +4201,7 @@ function drawQuarterCenterDossierSticker(params: {
       font,
       color: COLOR_CHARCOAL,
     });
-    currY -= 14;
+    currY -= 17;
   }
 
   // Summary Pill Bar
@@ -4213,8 +4213,8 @@ function drawQuarterCenterDossierSticker(params: {
     1
   );
 
-  currY -= 3;
-  const barH = 17;
+  currY -= 5;
+  const barH = 20;
   page.drawRectangle({
     x: cardX + pad,
     y: currY - barH + 2,
@@ -4226,22 +4226,24 @@ function drawQuarterCenterDossierSticker(params: {
   });
 
   const summaryText = `Total Enclosed: ${totRooms} Rooms • ${totStud} Students • ${totBldgs} ${totBldgs > 1 ? "Buildings" : "Building"}`;
+  const summarySize = 8.5;
+  const summaryW = font.widthOfTextAtSize(summaryText, summarySize);
   page.drawText(summaryText, {
-    x: cardX + pad + 6,
-    y: currY - barH + 5.5,
-    size: 8.5,
+    x: cardX + (cardW - summaryW) / 2,
+    y: currY - barH + (barH - summarySize) / 2,
+    size: summarySize,
     font,
     color: COLOR_CHARCOAL,
   });
 
-  currY -= barH + 7;
+  currY -= barH + 11;
   page.drawLine({
-    start: { x: cardX + 5, y: currY },
-    end: { x: cardX + cardW - 5, y: currY },
+    start: { x: cardX + pad, y: currY },
+    end: { x: cardX + cardW - pad, y: currY },
     thickness: 0.6,
     color: COLOR_BORDER,
   });
-  currY -= 8;
+  currY -= 12;
 
   // 5. MID-SECTION: EXAM BREAKDOWNS (EST 1 & EST 2)
   const exams = [
@@ -4256,7 +4258,19 @@ function drawQuarterCenterDossierSticker(params: {
   for (const ex of exams) {
     const isAct = Boolean(ex.info?.isActive && ex.info.totalRooms > 0);
     const dayStr = ex.info?.dayAndDate || ex.defaultDay;
-    const examBarH = isCompact ? 15 : 17;
+    const bCnt = ex.info?.totalBuildings || ex.info?.buildings?.length || 1;
+    const headerSize = isCompact ? 8.5 : 9.5;
+    const headerLineH = isCompact ? 11 : 12;
+    const headerStr = isAct
+      ? `● ${ex.examTitle} (${dayStr}): ${bCnt} ${bCnt > 1 ? "Bldgs" : "Bldg"} • ${ex.info.totalRooms} Rooms • ${ex.info.totalStudents} Stud.`
+      : `○ ${ex.examTitle} (${dayStr}): Not Scheduled at this Center`;
+    const headerLines = wrapTextToLinesLocal(
+      headerStr,
+      font,
+      headerSize,
+      cardW - pad * 2 - 10,
+    );
+    const examBarH = Math.max(isCompact ? 18 : 20, headerLines.length * headerLineH + 8);
     const examBarY = currY - examBarH + 2;
 
     // Exam section header pill
@@ -4270,32 +4284,18 @@ function drawQuarterCenterDossierSticker(params: {
       borderWidth: 0.8,
     });
 
-    if (isAct) {
-      const bCnt = ex.info.totalBuildings || ex.info.buildings?.length || 1;
-      const bWord = bCnt > 1 ? "Bldgs" : "Bldg";
-      const headerStr = `● ${ex.examTitle} (${dayStr}): ${bCnt} ${bWord} • ${ex.info.totalRooms} Rooms • ${ex.info.totalStudents} Stud.`;
-      const maxHeaderW = cardW - pad * 2 - 10;
-      const headerLines = wrapTextToLinesLocal(headerStr, font, isCompact ? 8 : 9, maxHeaderW);
-      for (let hi = 0; hi < headerLines.length; hi++) {
-        page.drawText(headerLines[hi], {
-          x: cardX + pad + 6,
-          y: examBarY + examBarH - 11 - hi * 10,
-          size: isCompact ? 8 : 9,
-          font,
-          color: COLOR_CHARCOAL,
-        });
-      }
-    } else {
-      page.drawText(`○ ${ex.examTitle} (${dayStr}): Not Scheduled at this Center`, {
-        x: cardX + pad + 6,
-        y: examBarY + (examBarH - 9) / 2,
-        size: isCompact ? 8 : 8.5,
+    for (let hi = 0; hi < headerLines.length; hi++) {
+      const lineW = font.widthOfTextAtSize(headerLines[hi], headerSize);
+      page.drawText(headerLines[hi], {
+        x: cardX + (cardW - lineW) / 2,
+        y: examBarY + examBarH - 5 - (hi + 1) * headerLineH,
+        size: headerSize,
         font,
-        color: rgb(0.48, 0.48, 0.48),
+        color: isAct ? COLOR_CHARCOAL : rgb(0.48, 0.48, 0.48),
       });
     }
 
-    currY -= examBarH + (isCompact ? 4 : 5);
+    currY -= examBarH + 8;
 
     if (isAct && ex.info.buildings && ex.info.buildings.length > 0) {
       for (const bld of ex.info.buildings) {
@@ -4314,7 +4314,7 @@ function drawQuarterCenterDossierSticker(params: {
             font,
             color: COLOR_CHARCOAL,
           });
-          currY -= isCompact ? 10 : 12;
+          currY -= isCompact ? 13 : 15;
         }
 
         const floorsFormatted = formatDossierFloorList(bld.floors);
@@ -4331,12 +4331,13 @@ function drawQuarterCenterDossierSticker(params: {
             font,
             color: rgb(0.25, 0.25, 0.25),
           });
-          currY -= isCompact ? 8.5 : 9.5;
+          currY -= isCompact ? 11 : 12;
         }
+        currY -= isCompact ? 3 : 4;
       }
     }
 
-    currY -= isCompact ? 2 : 3.5;
+    currY -= isCompact ? 4 : 5;
   }
 }
 
