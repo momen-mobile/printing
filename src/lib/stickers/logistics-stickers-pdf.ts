@@ -4221,9 +4221,10 @@ function drawQuarterCenterDossierSticker(params: {
 
   currY -= 6;
   const barH = 22;
+  const barY = currY - barH + 2;
   page.drawRectangle({
     x: cardX + pad,
-    y: currY - barH + 2,
+    y: barY,
     width: cardW - pad * 2,
     height: barH,
     color: rgb(0.93, 0.94, 0.96),
@@ -4231,12 +4232,12 @@ function drawQuarterCenterDossierSticker(params: {
     borderWidth: 0.5,
   });
 
-  const summaryText = `Total Enclosed: ${totRooms} Rooms • ${totBldgs} ${totBldgs > 1 ? "Buildings" : "Building"}`;
+  const summaryText = `Total: ${totRooms} Rooms • ${totBldgs} ${totBldgs > 1 ? "Buildings" : "Building"}`;
   const summarySize = 8.5;
   const summaryW = font.widthOfTextAtSize(summaryText, summarySize);
   page.drawText(summaryText, {
     x: cardX + (cardW - summaryW) / 2,
-    y: currY - barH + (barH - summarySize) / 2,
+    y: barY + (barH - summarySize * 0.72) / 2,
     size: summarySize,
     font,
     color: COLOR_CHARCOAL,
@@ -4265,16 +4266,16 @@ function drawQuarterCenterDossierSticker(params: {
     const isAct = Boolean(ex.info?.isActive && ex.info.totalRooms > 0);
     const dayStr = ex.info?.dayAndDate || ex.defaultDay;
     const bCnt = ex.info?.totalBuildings || ex.info?.buildings?.length || 1;
-    const headerSize = isCompact ? 8.5 : 9.5;
+    const headerSize = isCompact ? 8.5 : 9.2;
     const headerLineH = isCompact ? 12 : 13;
     const headerStr = isAct
-      ? `● ${ex.examTitle} (${dayStr}): ${bCnt} ${bCnt > 1 ? "Bldgs" : "Bldg"} • ${ex.info.totalRooms} Rooms`
-      : `○ ${ex.examTitle} (${dayStr}): Not Scheduled at this Center`;
+      ? `${ex.examTitle} (${dayStr}): ${bCnt} ${bCnt > 1 ? "Buildings" : "Building"} • ${ex.info.totalRooms} Rooms`
+      : `${ex.examTitle} (${dayStr}): Not Scheduled`;
     const headerLines = wrapTextToLinesLocal(
       headerStr,
       font,
       headerSize,
-      cardW - pad * 2 - 10,
+      cardW - pad * 2 - 12,
     );
     const examBarH = Math.max(isCompact ? 20 : 22, headerLines.length * headerLineH + 10);
     const examBarY = currY - examBarH + 2;
@@ -4290,11 +4291,13 @@ function drawQuarterCenterDossierSticker(params: {
       borderWidth: 0.8,
     });
 
+    const totalTextH = headerLines.length * headerLineH;
+    const firstLineY = examBarY + (examBarH + totalTextH) / 2 - headerLineH + (headerLineH - headerSize * 0.72) / 2;
     for (let hi = 0; hi < headerLines.length; hi++) {
       const lineW = font.widthOfTextAtSize(headerLines[hi], headerSize);
       page.drawText(headerLines[hi], {
         x: cardX + (cardW - lineW) / 2,
-        y: examBarY + examBarH - 5 - (hi + 1) * headerLineH,
+        y: firstLineY - hi * headerLineH,
         size: headerSize,
         font,
         color: isAct ? COLOR_CHARCOAL : rgb(0.48, 0.48, 0.48),
