@@ -2474,14 +2474,36 @@ function drawQuarterPlacard(params: {
       const fhSize = 8;
       const fhW = font.widthOfTextAtSize(floorHeader, fhSize);
 
-      const chunks: string[] = [];
-      if (rooms.length > 0) {
-        for (let i = 0; i < rooms.length; i += 4) {
-          chunks.push(rooms.slice(i, i + 4).join("  •  "));
+      const maxRoomW = leftW - 14;
+      let roomFontSize = 9.5;
+      let step = 14;
+      const wrapRooms = (sz: number) => {
+        const lines: string[] = [];
+        let cur = "";
+        for (const r of rooms) {
+          const candidate = cur ? `${cur}  •  ${r}` : r;
+          if (cur && font.widthOfTextAtSize(candidate, sz) > maxRoomW) {
+            lines.push(cur);
+            cur = r;
+          } else {
+            cur = candidate;
+          }
         }
+        if (cur) lines.push(cur);
+        return lines;
+      };
+      let chunks = rooms.length > 0 ? wrapRooms(roomFontSize) : [];
+      if (chunks.length > 5) {
+        roomFontSize = 8.5;
+        step = 12;
+        chunks = wrapRooms(roomFontSize);
+      }
+      if (chunks.length > 7) {
+        roomFontSize = 7.5;
+        step = 10.5;
+        chunks = wrapRooms(roomFontSize);
       }
       const lineCount = chunks.length;
-      const step = 14;
 
       const availH = bodyTop - (bodyBottom + 6);
       const visualHeroH = heroSize * 0.75;
@@ -2504,10 +2526,10 @@ function drawQuarterPlacard(params: {
         const startY = hdrY - gapAfterFh - 9.5 * 0.75;
         for (let cIdx = 0; cIdx < lineCount; cIdx++) {
           const chunkText = chunks[cIdx];
-          let cSize = 9.5;
+          let cSize = roomFontSize;
           let cW = font.widthOfTextAtSize(chunkText, cSize);
-          if (cW > leftW - 10) {
-            cSize = Math.max(7.5, ((leftW - 10) / cW) * cSize);
+          if (cW > maxRoomW) {
+            cSize = Math.max(6.5, (maxRoomW / cW) * cSize);
             cW = font.widthOfTextAtSize(chunkText, cSize);
           }
           page.drawText(chunkText, {
@@ -3194,14 +3216,36 @@ function drawQuarterPlacard(params: {
     const fhSize = 8.5;
     const fhW = font.widthOfTextAtSize(floorHdr, fhSize);
 
-    const chunks: string[] = [];
-    if (rooms.length > 0) {
-      for (let i = 0; i < rooms.length; i += 4) {
-        chunks.push(rooms.slice(i, i + 4).join("   •   "));
+    const maxRoomW = width - 20;
+    let roomFontSize = 9.5;
+    let step = 15;
+    const wrapRooms = (sz: number) => {
+      const lines: string[] = [];
+      let cur = "";
+      for (const r of rooms) {
+        const candidate = cur ? `${cur}   •   ${r}` : r;
+        if (cur && font.widthOfTextAtSize(candidate, sz) > maxRoomW) {
+          lines.push(cur);
+          cur = r;
+        } else {
+          cur = candidate;
+        }
       }
+      if (cur) lines.push(cur);
+      return lines;
+    };
+    let chunks = rooms.length > 0 ? wrapRooms(roomFontSize) : [];
+    if (chunks.length > 5) {
+      roomFontSize = 8.5;
+      step = 13;
+      chunks = wrapRooms(roomFontSize);
+    }
+    if (chunks.length > 7) {
+      roomFontSize = 7.5;
+      step = 11;
+      chunks = wrapRooms(roomFontSize);
     }
     const lineCount = chunks.length;
-    const step = 15;
 
     const availFloorH = divider2Y - chkDividerY;
     const visualHeroH = heroSize * 0.75;
@@ -3233,10 +3277,10 @@ function drawQuarterPlacard(params: {
       const startY = startHdrY - gapAfterFh - 9.5 * 0.75;
       for (let cIdx = 0; cIdx < lineCount; cIdx++) {
         const chunkText = chunks[cIdx];
-        let cSize = 9.5;
+        let cSize = roomFontSize;
         let cW = font.widthOfTextAtSize(chunkText, cSize);
-        if (cW > width - 16) {
-          cSize = Math.max(7.5, ((width - 16) / cW) * cSize);
+        if (cW > maxRoomW) {
+          cSize = Math.max(6.5, (maxRoomW / cW) * cSize);
           cW = font.widthOfTextAtSize(chunkText, cSize);
         }
         page.drawText(chunkText, {
