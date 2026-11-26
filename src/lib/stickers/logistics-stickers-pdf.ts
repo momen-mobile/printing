@@ -4106,37 +4106,7 @@ function drawQuarterCenterDossierSticker(params: {
   const pad = 12;
   const topY = cardY + cardH - pad;
 
-  // 2. TOP HEADER: Official Logo + Title + Exam Status Pill
-  const logoH = 26;
-  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 36;
-  if (logoImg) {
-    page.drawImage(logoImg, {
-      x: cardX + pad,
-      y: topY - logoH,
-      width: logoW,
-      height: logoH,
-    });
-  }
-
-  const titleX = cardX + pad + logoW + 8;
-  page.drawText("EST TEST CENTER FILE", {
-    x: titleX,
-    y: topY - 11,
-    size: 10.5,
-    font,
-    color: COLOR_CHARCOAL,
-  });
-
-  const cycleStr = (dossier.cycleName || "DECEMBER 2026").toUpperCase();
-  page.drawText(`CYCLE: ${cycleStr}`, {
-    x: titleX,
-    y: topY - 22,
-    size: 8.5,
-    font,
-    color: COLOR_MUTED,
-  });
-
-  // Status Badge on top-right (EST 1 + EST 2 / EST 1 ONLY / EST 2 ONLY)
+  // 2. TOP HEADER: centered status badge above a centered logo/title/cycle group
   const hasEst1 = Boolean(dossier.est1?.isActive && dossier.est1.totalRooms > 0);
   const hasEst2 = Boolean(dossier.est2?.isActive && dossier.est2.totalRooms > 0);
   let badgeText = "EST 1 + EST 2";
@@ -4144,30 +4114,67 @@ function drawQuarterCenterDossierSticker(params: {
   else if (!hasEst1 && hasEst2) badgeText = "EST 2 ONLY";
 
   const badgeSize = 8.5;
-  const badgeW = font.widthOfTextAtSize(badgeText, badgeSize) + 12;
+  const badgeTextW = font.widthOfTextAtSize(badgeText, badgeSize);
+  const badgeW = badgeTextW + 14;
   const badgeH = 18;
-  const badgeX = cardX + cardW - pad - badgeW;
-  const badgeY = topY - 22;
+  const badgeX = cardX + (cardW - badgeW) / 2;
+  const badgeY = topY - 18;
 
   page.drawRectangle({
     x: badgeX,
     y: badgeY,
     width: badgeW,
     height: badgeH,
-    color: COLOR_CHARCOAL,
-    borderColor: COLOR_CHARCOAL,
-    borderWidth: 1,
+    color: rgb(0.93, 0.94, 0.96),
+    borderColor: rgb(0.72, 0.77, 0.88),
+    borderWidth: 0.8,
   });
   page.drawText(badgeText, {
-    x: badgeX + (badgeW - font.widthOfTextAtSize(badgeText, badgeSize)) / 2,
-    y: badgeY + (badgeH - badgeSize) / 2,
+    x: badgeX + (badgeW - badgeTextW) / 2,
+    y: badgeY + (badgeH - badgeSize) / 2 - 1.5,
     size: badgeSize,
     font,
-    color: COLOR_WHITE,
+    color: COLOR_CHARCOAL,
+  });
+
+  const titleText = "EST TEST CENTER FILE";
+  const titleSize = 10.5;
+  const logoH = 26;
+  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 36;
+  const headerBlockW = logoW + 8 + font.widthOfTextAtSize(titleText, titleSize);
+  const headerX = cardX + (cardW - headerBlockW) / 2;
+  const logoY = badgeY - 34;
+
+  if (logoImg) {
+    page.drawImage(logoImg, {
+      x: headerX,
+      y: logoY,
+      width: logoW,
+      height: logoH,
+    });
+  }
+  page.drawText(titleText, {
+    x: headerX + logoW + 8,
+    y: logoY + 8,
+    size: titleSize,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  const cycleStr = (dossier.cycleName || "DECEMBER 2026").toUpperCase();
+  const cycleSize = 8.5;
+  const cycleText = `CYCLE: ${cycleStr}`;
+  const cycleW = font.widthOfTextAtSize(cycleText, cycleSize);
+  page.drawText(cycleText, {
+    x: cardX + (cardW - cycleW) / 2,
+    y: logoY - 12,
+    size: cycleSize,
+    font,
+    color: COLOR_MUTED,
   });
 
   // Header Divider
-  const div1Y = topY - 35;
+  const div1Y = logoY - 24;
   page.drawLine({
     start: { x: cardX + pad, y: div1Y },
     end: { x: cardX + cardW - pad, y: div1Y },
