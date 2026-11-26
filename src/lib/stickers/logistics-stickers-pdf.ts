@@ -4193,7 +4193,7 @@ function drawQuarterCenterDossierSticker(params: {
     color: COLOR_MUTED,
   });
 
-  currY -= 19;
+  currY -= 21;
   const centerLabel = `Center: ${toEnglishText(dossier.center)}`;
   const maxCenterW = cardW - pad * 2;
   let centerLines = wrapTextToLinesLocal(centerLabel, font, 13, maxCenterW);
@@ -4208,20 +4208,19 @@ function drawQuarterCenterDossierSticker(params: {
       font,
       color: COLOR_CHARCOAL,
     });
-    currY -= 17;
+    currY -= 19;
   }
 
   // Summary Pill Bar
   const totRooms = (dossier.est1?.totalRooms || 0) + (dossier.est2?.totalRooms || 0);
-  const totStud = (dossier.est1?.totalStudents || 0) + (dossier.est2?.totalStudents || 0);
   const totBldgs = Math.max(
     (dossier.est1?.totalBuildings || 0),
     (dossier.est2?.totalBuildings || 0),
     1
   );
 
-  currY -= 5;
-  const barH = 20;
+  currY -= 6;
+  const barH = 22;
   page.drawRectangle({
     x: cardX + pad,
     y: currY - barH + 2,
@@ -4232,7 +4231,7 @@ function drawQuarterCenterDossierSticker(params: {
     borderWidth: 0.5,
   });
 
-  const summaryText = `Total Enclosed: ${totRooms} Rooms • ${totStud} Students • ${totBldgs} ${totBldgs > 1 ? "Buildings" : "Building"}`;
+  const summaryText = `Total Enclosed: ${totRooms} Rooms • ${totBldgs} ${totBldgs > 1 ? "Buildings" : "Building"}`;
   const summarySize = 8.5;
   const summaryW = font.widthOfTextAtSize(summaryText, summarySize);
   page.drawText(summaryText, {
@@ -4243,7 +4242,7 @@ function drawQuarterCenterDossierSticker(params: {
     color: COLOR_CHARCOAL,
   });
 
-  currY -= barH + 11;
+  currY -= barH + 14;
   page.drawLine({
     start: { x: cardX + pad, y: currY },
     end: { x: cardX + cardW - pad, y: currY },
@@ -4267,9 +4266,9 @@ function drawQuarterCenterDossierSticker(params: {
     const dayStr = ex.info?.dayAndDate || ex.defaultDay;
     const bCnt = ex.info?.totalBuildings || ex.info?.buildings?.length || 1;
     const headerSize = isCompact ? 8.5 : 9.5;
-    const headerLineH = isCompact ? 11 : 12;
+    const headerLineH = isCompact ? 12 : 13;
     const headerStr = isAct
-      ? `● ${ex.examTitle} (${dayStr}): ${bCnt} ${bCnt > 1 ? "Bldgs" : "Bldg"} • ${ex.info.totalRooms} Rooms • ${ex.info.totalStudents} Stud.`
+      ? `● ${ex.examTitle} (${dayStr}): ${bCnt} ${bCnt > 1 ? "Bldgs" : "Bldg"} • ${ex.info.totalRooms} Rooms`
       : `○ ${ex.examTitle} (${dayStr}): Not Scheduled at this Center`;
     const headerLines = wrapTextToLinesLocal(
       headerStr,
@@ -4277,7 +4276,7 @@ function drawQuarterCenterDossierSticker(params: {
       headerSize,
       cardW - pad * 2 - 10,
     );
-    const examBarH = Math.max(isCompact ? 18 : 20, headerLines.length * headerLineH + 8);
+    const examBarH = Math.max(isCompact ? 20 : 22, headerLines.length * headerLineH + 10);
     const examBarY = currY - examBarH + 2;
 
     // Exam section header pill
@@ -4302,7 +4301,7 @@ function drawQuarterCenterDossierSticker(params: {
       });
     }
 
-    currY -= examBarH + 8;
+    currY -= examBarH + 10;
 
     if (isAct && ex.info.buildings && ex.info.buildings.length > 0) {
       for (const bld of ex.info.buildings) {
@@ -4321,12 +4320,11 @@ function drawQuarterCenterDossierSticker(params: {
             font,
             color: COLOR_CHARCOAL,
           });
-          currY -= isCompact ? 13 : 15;
+          currY -= isCompact ? 15 : 17;
         }
 
         const floorsFormatted = formatDossierFloorList(bld.floors);
-        const studStr = bld.studentCount ? `, ${bld.studentCount} Stud.` : "";
-        const floorsLine = `Floors: ${floorsFormatted} (${bld.roomCount} Rooms${studStr})`;
+        const floorsLine = `Floors: ${floorsFormatted} (${bld.roomCount} Rooms)`;
 
         const maxFlW = cardW - pad * 2 - 18;
         const flLines = wrapTextToLinesLocal(floorsLine, font, isCompact ? 8 : 8.5, maxFlW);
@@ -4338,13 +4336,13 @@ function drawQuarterCenterDossierSticker(params: {
             font,
             color: rgb(0.25, 0.25, 0.25),
           });
-          currY -= isCompact ? 11 : 12;
+          currY -= isCompact ? 13 : 14;
         }
-        currY -= isCompact ? 3 : 4;
+        currY -= isCompact ? 5 : 6;
       }
     }
 
-    currY -= isCompact ? 4 : 5;
+    currY -= isCompact ? 6 : 7;
   }
 }
 
