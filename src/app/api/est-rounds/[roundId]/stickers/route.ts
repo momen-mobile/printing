@@ -32,10 +32,14 @@ import {
   generateCleanSkinDispatchLogPdf,
   generateCleanSkinSubjectStickersPdf,
   generateCartonDriverManifestPdf,
+  generateCenterDossierStickersPdf,
   splitCenterAndBuilding,
   type LogisticsStickerOptions,
   type FloorRoomsData,
   type RoomDetail,
+  type CenterDossierStickerOption,
+  type CenterDossierBuildingDetail,
+  type CenterDossierExamDetail,
 } from "@/lib/stickers/logistics-stickers-pdf";
 import { getFloorSortWeight } from "@/lib/stickers/est-reference-data";
 import type { StickerContent, StickerFieldItem } from "@/lib/stickers/sticker-content";
@@ -1002,6 +1006,208 @@ export async function POST(
       });
 
       const safeFilename = `EST_Combined_Driver_Delivery_Manifest_${round.cycleName?.replace(/[^a-zA-Z0-9_-]/g, "_") || "Dec_2026"}_${combinedCartons.length}_Cartons.pdf`;
+
+      return new NextResponse(Buffer.from(pdfBytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${safeFilename}"`,
+          "Content-Length": String(pdfBytes.length),
+          "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        },
+      });
+    }
+
+    // Helper to build Center Dossier Options across both EST 1 and EST 2 in this cycle
+    const buildCenterDossierOptions = async (): Promise<CenterDossierStickerOption[]> => {
+      const cycleRounds = await prisma.estExamRound.findMany({
+        where: {
+          OR: [
+            { cycleName: round.cycleName || "December 2026" },
+            { name: { contains: "December 2026", mode: "insensitive" } },
+          ],
+        },
+      });
+
+      const est1Rounds = cycleRounds.filter(
+        (cr) =>
+          cr.examType === "EST 1" ||
+          /EST\s*1\b|EST\s*I\b/i.test(cr.name || "") ||
+          cr.roundDay === "Friday",
+      );
+      const est2Rounds = cycleRounds.filter(
+        (cr) =>
+          cr.examType === "EST 2" ||
+          /EST\s*2\b|EST\s*II\b/i.test(cr.name || "") ||
+          cr.roundDay === "Saturday",
+      );
+
+      const est1AllRows: EstRoundRow[] = [];
+      est1Rounds.forEach((cr) => {
+        if (Array.isArray(cr.sheetData)) {
+          est1AllRows.push(...(cr.sheetData as unknown as EstRoundRow[]));
+        }
+      });
+
+      const est2AllRows: EstRoundRow[] = [];
+      est2Rounds.forEach((cr) => {
+        if (Array.isArray(cr.sheetData)) {
+          est2AllRows.push(...(cr.sheetData as unknown as EstRoundRow[]));
+        }
+      });
+
+      // Fallback: If cycleRounds didn't have both rounds, use current round
+      if (
+        est1AllRows.length === 0 &&
+        (round.examType === "EST 1" || /EST\s*1\b|EST\s*I\b/i.test(round.name))
+      ) {
+        est1AllRows.push(...allRows);
+      }
+      if (
+        est2AllRows.length === 0 &&
+        (round.examType === "EST 2" || /EST\s*2\b|EST\s*II\b/i.test(round.name))
+      ) {
+        est2AllRows.push(...allRows);
+      }
+
+      // Collect target centers
+      const targetCenterNames = selectedIds
+        ? Array.from(new Set(targetRows.map((r) => r.center).filter(Boolean)))
+        : Array.from(
+            new Set(
+              [
+                ...allRows.map((r) => r.center),
+                ...est1AllRows.map((r) => r.center),
+                ...est2AllRows.map((r) => r.center),
+              ].filter(Boolean),
+            ),
+          );
+
+      const dossierList: CenterDossierStickerOption[] = [];
+
+      for (const centerName of targetCenterNames) {
+        const sampleRow =
+          targetRows.find((r) => r.center === centerName) ||
+          est1AllRows.find((r) => r.center === centerName) ||
+          est2AllRows.find((r) => r.center === centerName);
+
+        const gov = sampleRow?.governorate || "Cairo";
+
+        // Group EST 1 rows for this center
+        const e1Rows = est1AllRows.filter((r) => r.center === centerName);
+        const e1BuildingMap = new Map<
+          string,
+          { floors: Set<string>; rooms: number; students: number }
+        >();
+        for (const r of e1Rows) {
+          const bld = r.building || r.center;
+          if (!e1BuildingMap.has(bld)) {
+            e1BuildingMap.set(bld, { floors: new Set(), rooms: 0, students: 0 });
+          }
+          const entry = e1BuildingMap.get(bld)!;
+          if (r.floor) entry.floors.add(r.floor);
+          entry.rooms++;
+          entry.students += r.totalStudents || 0;
+        }
+
+        const e1Buildings: CenterDossierBuildingDetail[] = Array.from(
+          e1BuildingMap.entries(),
+        ).map(([bldName, info]) => {
+          const sortedFloors = Array.from(info.floors).sort(
+            (a, b) => getFloorSortWeight(a) - getFloorSortWeight(b),
+          );
+          return {
+            buildingName: bldName,
+            floors: sortedFloors,
+            roomCount: info.rooms,
+            studentCount: info.students,
+          };
+        });
+
+        const e1TotalRooms = e1Buildings.reduce((sum, b) => sum + b.roomCount, 0);
+        const e1TotalStudents = e1Buildings.reduce(
+          (sum, b) => sum + (b.studentCount || 0),
+          0,
+        );
+
+        // Group EST 2 rows for this center
+        const e2Rows = est2AllRows.filter((r) => r.center === centerName);
+        const e2BuildingMap = new Map<
+          string,
+          { floors: Set<string>; rooms: number; students: number }
+        >();
+        for (const r of e2Rows) {
+          const bld = r.building || r.center;
+          if (!e2BuildingMap.has(bld)) {
+            e2BuildingMap.set(bld, { floors: new Set(), rooms: 0, students: 0 });
+          }
+          const entry = e2BuildingMap.get(bld)!;
+          if (r.floor) entry.floors.add(r.floor);
+          entry.rooms++;
+          entry.students += r.totalStudents || 0;
+        }
+
+        const e2Buildings: CenterDossierBuildingDetail[] = Array.from(
+          e2BuildingMap.entries(),
+        ).map(([bldName, info]) => {
+          const sortedFloors = Array.from(info.floors).sort(
+            (a, b) => getFloorSortWeight(a) - getFloorSortWeight(b),
+          );
+          return {
+            buildingName: bldName,
+            floors: sortedFloors,
+            roomCount: info.rooms,
+            studentCount: info.students,
+          };
+        });
+
+        const e2TotalRooms = e2Buildings.reduce((sum, b) => sum + b.roomCount, 0);
+        const e2TotalStudents = e2Buildings.reduce(
+          (sum, b) => sum + (b.studentCount || 0),
+          0,
+        );
+
+        dossierList.push({
+          center: centerName,
+          governorate: gov,
+          cycleName: round.cycleName || "December 2026",
+          est1: {
+            isActive: e1Rows.length > 0,
+            examTitle: "EST 1",
+            dayAndDate: "Friday, Dec 11",
+            totalBuildings: e1Buildings.length,
+            totalRooms: e1TotalRooms,
+            totalStudents: e1TotalStudents,
+            buildings: e1Buildings,
+          },
+          est2: {
+            isActive: e2Rows.length > 0,
+            examTitle: "EST 2",
+            dayAndDate: "Saturday, Dec 12",
+            totalBuildings: e2Buildings.length,
+            totalRooms: e2TotalRooms,
+            totalStudents: e2TotalStudents,
+            buildings: e2Buildings,
+          },
+        });
+      }
+
+      // Sort by governorate, then center
+      dossierList.sort((a, b) => {
+        const govCompare = a.governorate.localeCompare(b.governorate);
+        if (govCompare !== 0) return govCompare;
+        return a.center.localeCompare(b.center);
+      });
+
+      return dossierList;
+    };
+
+    // 6e. CENTER DOSSIER STICKERS (QUARTER A4 - EST 1 + EST 2 SUMMARY FOR CAIRO SHIPPING FILES)
+    if (type === "center_dossier") {
+      const dossiers = await buildCenterDossierOptions();
+      const pdfBytes = await generateCenterDossierStickersPdf(dossiers);
+
+      const safeFilename = `EST_Center_Dossier_Stickers_${round.cycleName?.replace(/[^a-zA-Z0-9_-]/g, "_") || "Dec_2026"}_${dossiers.length}_Centers.pdf`;
 
       return new NextResponse(Buffer.from(pdfBytes), {
         status: 200,

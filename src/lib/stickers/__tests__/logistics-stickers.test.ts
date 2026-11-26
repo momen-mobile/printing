@@ -9,6 +9,7 @@ import {
   generateCleanSkinDispatchLogPdf,
   generateCleanSkinSubjectStickersPdf,
   generateCompleteLogisticsBundlePdf,
+  generateCenterDossierStickersPdf,
   normalizeFloorsData,
   splitCenterAndBuilding,
 } from "../logistics-stickers-pdf";
@@ -390,6 +391,137 @@ describe("extractLogisticsHierarchy", () => {
     expect(result.center).toBe("Taymour English School (Alexandria)");
     expect(result.building).toBe("Taymour English School (Alexandria)");
     expect(result.buildingFolderId).toBe("sch-1");
+  });
+
+  it("generates Quarter A4 Center Dossier Stickers with EST 1 + EST 2 combined summary", async () => {
+    const mockDossiers = [
+      {
+        center: "Taymour English School",
+        governorate: "Alexandria",
+        cycleName: "December 2026",
+        est1: {
+          isActive: true,
+          examTitle: "EST 1",
+          dayAndDate: "Friday, Dec 11",
+          totalBuildings: 1,
+          totalRooms: 11,
+          totalStudents: 164,
+          buildings: [
+            {
+              buildingName: "Taymour English School",
+              floors: ["1st floor", "3rd Floor", "4th Floor"],
+              roomCount: 11,
+              studentCount: 164,
+            },
+          ],
+        },
+        est2: {
+          isActive: true,
+          examTitle: "EST 2",
+          dayAndDate: "Saturday, Dec 12",
+          totalBuildings: 1,
+          totalRooms: 7,
+          totalStudents: 178,
+          buildings: [
+            {
+              buildingName: "Taymour English School",
+              floors: ["3rd Floor", "4th Floor"],
+              roomCount: 7,
+              studentCount: 178,
+            },
+          ],
+        },
+      },
+      {
+        center: "Arab Academy Abu Qir",
+        governorate: "Alexandria",
+        cycleName: "December 2026",
+        est1: {
+          isActive: true,
+          examTitle: "EST 1",
+          dayAndDate: "Friday, Dec 11",
+          totalBuildings: 2,
+          totalRooms: 20,
+          totalStudents: 391,
+          buildings: [
+            {
+              buildingName: "Eng. Building B",
+              floors: ["2nd Floor", "3rd Floor", "4th Floor", "5th Floor"],
+              roomCount: 12,
+              studentCount: 240,
+            },
+            {
+              buildingName: "Pharmacy",
+              floors: ["2nd Floor", "3rd Floor"],
+              roomCount: 8,
+              studentCount: 151,
+            },
+          ],
+        },
+        est2: {
+          isActive: false,
+          examTitle: "EST 2",
+          dayAndDate: "Saturday, Dec 12",
+          totalBuildings: 0,
+          totalRooms: 0,
+          totalStudents: 0,
+          buildings: [],
+        },
+      },
+    ];
+
+    const pdfBytes = await generateCenterDossierStickersPdf(mockDossiers);
+    const doc = await PDFDocument.load(pdfBytes);
+
+    // 2 dossiers fit in 1 page (4 quadrants per page)
+    expect(doc.getPageCount()).toBe(1);
+    const page = doc.getPage(0);
+    const { width, height } = page.getSize();
+    expect(width).toBeCloseTo(595.28, 1);
+    expect(height).toBeCloseTo(841.89, 1);
+  });
+
+  it("handles 5 dossiers across 2 pages with 4 per page chunking", async () => {
+    const mockSingle = {
+      center: "Center A",
+      governorate: "Cairo",
+      cycleName: "December 2026",
+      est1: {
+        isActive: true,
+        examTitle: "EST 1",
+        totalBuildings: 1,
+        totalRooms: 5,
+        totalStudents: 100,
+        buildings: [
+          {
+            buildingName: "Main Building",
+            floors: ["1st Floor"],
+            roomCount: 5,
+            studentCount: 100,
+          },
+        ],
+      },
+      est2: {
+        isActive: false,
+        examTitle: "EST 2",
+        totalBuildings: 0,
+        totalRooms: 0,
+        totalStudents: 0,
+        buildings: [],
+      },
+    };
+
+    const pdfBytes = await generateCenterDossierStickersPdf([
+      { ...mockSingle, center: "Center 1" },
+      { ...mockSingle, center: "Center 2" },
+      { ...mockSingle, center: "Center 3" },
+      { ...mockSingle, center: "Center 4" },
+      { ...mockSingle, center: "Center 5" },
+    ]);
+
+    const doc = await PDFDocument.load(pdfBytes);
+    // 5 dossiers chunked 4 per page -> 2 pages
+    expect(doc.getPageCount()).toBe(2);
   });
 });
 

@@ -3985,3 +3985,456 @@ export async function generateCartonDriverManifestPdf(
   return await pdfDoc.save();
 }
 
+/**
+ * Details for a single building within a center dossier.
+ */
+export interface CenterDossierBuildingDetail {
+  buildingName: string;
+  floors: string[];
+  roomCount: number;
+  studentCount?: number;
+}
+
+/**
+ * Details for an exam (EST 1 or EST 2) within a center dossier.
+ */
+export interface CenterDossierExamDetail {
+  isActive: boolean;
+  examTitle: string; // e.g. "EST 1" or "EST 2"
+  dayAndDate?: string; // e.g. "Friday, December 11, 2026"
+  totalBuildings: number;
+  totalRooms: number;
+  totalStudents: number;
+  buildings: CenterDossierBuildingDetail[];
+}
+
+/**
+ * Input data option for a Quarter-A4 Center Dossier Sticker.
+ */
+export interface CenterDossierStickerOption {
+  center: string;
+  governorate: string;
+  cycleName?: string;
+  est1: CenterDossierExamDetail;
+  est2: CenterDossierExamDetail;
+}
+
+/**
+ * Helper to wrap text cleanly into lines according to maxWidth.
+ */
+function wrapTextToLinesLocal(
+  text: string,
+  font: any,
+  fontSize: number,
+  maxWidth: number,
+): string[] {
+  if (!text) return [];
+  const clean = text.trim();
+  if (!clean) return [];
+
+  const words = clean.split(/\s+/);
+  if (words.length <= 1) {
+    return [clean];
+  }
+
+  const lines: string[] = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const testLine = `${currentLine} ${word}`;
+    const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+    if (testWidth <= maxWidth) {
+      currentLine = testLine;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  lines.push(currentLine);
+  return lines;
+}
+
+/**
+ * Formats a list of floor strings into a clean English summary.
+ * e.g. ["1st floor", "2nd Floor", "3rd Floor"] -> "1st, 2nd, 3rd Floors"
+ */
+function formatDossierFloorList(floors: string[]): string {
+  if (!floors || floors.length === 0) return "All Floors";
+  const cleaned = floors
+    .map((f) => toEnglishText(f).replace(/\bfloors?\b/gi, "").trim())
+    .filter(Boolean);
+  if (cleaned.length === 0) return "All Floors";
+  if (cleaned.length === 1) return `${cleaned[0]} Floor`;
+  return `${cleaned.join(", ")} Floors`;
+}
+
+/**
+ * Draws a single Quarter A4 Center Dossier Sticker (105 x 148 mm)
+ * to be placed on the Manila/plastic dossier folder that contains all printed
+ * stickers for that center traveling to Cairo for logistics & exam delivery.
+ */
+function drawQuarterCenterDossierSticker(params: {
+  page: any;
+  font: any;
+  logoImg: any;
+  dossier: CenterDossierStickerOption;
+  slotX: number;
+  slotY: number;
+  slotWidth: number;
+  slotHeight: number;
+}) {
+  const { page, font, logoImg, dossier, slotX, slotY, slotWidth, slotHeight } = params;
+
+  const margin = 7;
+  const cardX = slotX + margin;
+  const cardY = slotY + margin;
+  const cardW = slotWidth - margin * 2;
+  const cardH = slotHeight - margin * 2;
+
+  // 1. Clean Outer Card Border
+  page.drawRectangle({
+    x: cardX,
+    y: cardY,
+    width: cardW,
+    height: cardH,
+    color: COLOR_WHITE,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1.2,
+  });
+
+  const pad = 7;
+  const topY = cardY + cardH - pad;
+
+  // 2. TOP HEADER: Official Logo + Title + Exam Status Pill
+  const logoH = 22;
+  const logoW = logoImg ? logoH * (logoImg.width / logoImg.height) : 32;
+  if (logoImg) {
+    page.drawImage(logoImg, {
+      x: cardX + pad,
+      y: topY - logoH,
+      width: logoW,
+      height: logoH,
+    });
+  }
+
+  const titleX = cardX + pad + logoW + 6;
+  page.drawText("EST TEST CENTER FILE", {
+    x: titleX,
+    y: topY - 9,
+    size: 10,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  const cycleStr = (dossier.cycleName || "DECEMBER 2026").toUpperCase();
+  page.drawText(`CYCLE: ${cycleStr}`, {
+    x: titleX,
+    y: topY - 19,
+    size: 7.5,
+    font,
+    color: COLOR_MUTED,
+  });
+
+  // Status Badge on top-right (EST 1 + EST 2 / EST 1 ONLY / EST 2 ONLY)
+  const hasEst1 = Boolean(dossier.est1?.isActive && dossier.est1.totalRooms > 0);
+  const hasEst2 = Boolean(dossier.est2?.isActive && dossier.est2.totalRooms > 0);
+  let badgeText = "EST 1 + EST 2";
+  if (hasEst1 && !hasEst2) badgeText = "EST 1 ONLY";
+  else if (!hasEst1 && hasEst2) badgeText = "EST 2 ONLY";
+
+  const badgeSize = 7.5;
+  const badgeW = font.widthOfTextAtSize(badgeText, badgeSize) + 8;
+  const badgeH = 14;
+  const badgeX = cardX + cardW - pad - badgeW;
+  const badgeY = topY - 17;
+
+  page.drawRectangle({
+    x: badgeX,
+    y: badgeY,
+    width: badgeW,
+    height: badgeH,
+    color: COLOR_CHARCOAL,
+    borderColor: COLOR_CHARCOAL,
+    borderWidth: 1,
+  });
+  page.drawText(badgeText, {
+    x: badgeX + 4,
+    y: badgeY + 3.5,
+    size: badgeSize,
+    font,
+    color: COLOR_WHITE,
+  });
+
+  // Header Divider
+  const div1Y = topY - 25;
+  page.drawLine({
+    start: { x: cardX + 5, y: div1Y },
+    end: { x: cardX + cardW - 5, y: div1Y },
+    thickness: 1,
+    color: COLOR_CHARCOAL,
+  });
+
+  // 3. LOCATION BANNER (City & Center)
+  let currY = div1Y - 11;
+  const cityText = `City: ${toEnglishText(dossier.governorate) || "Cairo"}`;
+  page.drawText(cityText, {
+    x: cardX + pad,
+    y: currY,
+    size: 9.5,
+    font,
+    color: COLOR_MUTED,
+  });
+
+  currY -= 13;
+  const centerLabel = `Center: ${toEnglishText(dossier.center)}`;
+  const maxCenterW = cardW - pad * 2;
+  let centerLines = wrapTextToLinesLocal(centerLabel, font, 11, maxCenterW);
+  if (centerLines.length > 2) {
+    centerLines = wrapTextToLinesLocal(centerLabel, font, 10, maxCenterW);
+  }
+  for (const line of centerLines) {
+    page.drawText(line, {
+      x: cardX + pad,
+      y: currY,
+      size: centerLines.length > 2 ? 10 : 11,
+      font,
+      color: COLOR_CHARCOAL,
+    });
+    currY -= 12;
+  }
+
+  // Summary Pill Bar
+  const totRooms = (dossier.est1?.totalRooms || 0) + (dossier.est2?.totalRooms || 0);
+  const totStud = (dossier.est1?.totalStudents || 0) + (dossier.est2?.totalStudents || 0);
+  const totBldgs = Math.max(
+    (dossier.est1?.totalBuildings || 0),
+    (dossier.est2?.totalBuildings || 0),
+    1
+  );
+
+  currY -= 2;
+  const barH = 15;
+  page.drawRectangle({
+    x: cardX + pad,
+    y: currY - barH + 2,
+    width: cardW - pad * 2,
+    height: barH,
+    color: rgb(0.93, 0.94, 0.96),
+    borderColor: rgb(0.82, 0.84, 0.88),
+    borderWidth: 0.5,
+  });
+
+  const summaryText = `Total Enclosed: ${totRooms} Rooms • ${totStud} Students • ${totBldgs} ${totBldgs > 1 ? "Buildings" : "Building"}`;
+  page.drawText(summaryText, {
+    x: cardX + pad + 6,
+    y: currY - barH + 5.5,
+    size: 7.8,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  currY -= barH + 5;
+  page.drawLine({
+    start: { x: cardX + 5, y: currY },
+    end: { x: cardX + cardW - 5, y: currY },
+    thickness: 0.6,
+    color: COLOR_BORDER,
+  });
+  currY -= 6;
+
+  // 4. BOTTOM CAIRO LOGISTICS FILE VERIFICATION BOX
+  const checkH = 46;
+  const checkY = cardY + 7;
+  const checkW = cardW - pad * 2;
+  const checkX = cardX + pad;
+
+  page.drawRectangle({
+    x: checkX,
+    y: checkY,
+    width: checkW,
+    height: checkH,
+    color: rgb(0.965, 0.97, 0.98),
+    borderColor: rgb(0.72, 0.75, 0.8),
+    borderWidth: 0.8,
+  });
+
+  page.drawText("CAIRO DOSSIER CONTENTS & DISPATCH VERIFICATION", {
+    x: checkX + 6,
+    y: checkY + checkH - 10,
+    size: 6.8,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  page.drawText("[ ] Room Stickers    [ ] Floor Dossiers    [ ] Master Manifests", {
+    x: checkX + 6,
+    y: checkY + checkH - 22,
+    size: 7.2,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  page.drawText("Packed By: ____________________    Date: ____ / ____ / 2026", {
+    x: checkX + 6,
+    y: checkY + 7,
+    size: 7.2,
+    font,
+    color: COLOR_CHARCOAL,
+  });
+
+  // 5. MID-SECTION: EXAM BREAKDOWNS (EST 1 & EST 2)
+  const exams = [
+    { info: dossier.est1, examTitle: "EST 1", defaultDay: "Friday, Dec 11" },
+    { info: dossier.est2, examTitle: "EST 2", defaultDay: "Saturday, Dec 12" },
+  ];
+
+  const totalBldgsAcross =
+    (dossier.est1?.buildings?.length || 0) + (dossier.est2?.buildings?.length || 0);
+  const isCompact = totalBldgsAcross >= 3;
+
+  for (const ex of exams) {
+    const isAct = Boolean(ex.info?.isActive && ex.info.totalRooms > 0);
+    const dayStr = ex.info?.dayAndDate || ex.defaultDay;
+    const examBarH = 14.5;
+    const examBarY = currY - examBarH + 2;
+
+    // Exam section header pill
+    page.drawRectangle({
+      x: cardX + pad,
+      y: examBarY,
+      width: cardW - pad * 2,
+      height: examBarH,
+      color: isAct ? rgb(0.88, 0.91, 0.96) : rgb(0.96, 0.96, 0.96),
+      borderColor: isAct ? rgb(0.72, 0.77, 0.88) : rgb(0.88, 0.88, 0.88),
+      borderWidth: 0.8,
+    });
+
+    if (isAct) {
+      const bCnt = ex.info.totalBuildings || ex.info.buildings?.length || 1;
+      const bWord = bCnt > 1 ? "Bldgs" : "Bldg";
+      const headerStr = `● ${ex.examTitle} (${dayStr}): ${bCnt} ${bWord} • ${ex.info.totalRooms} Rooms • ${ex.info.totalStudents} Stud.`;
+      page.drawText(headerStr, {
+        x: cardX + pad + 6,
+        y: examBarY + 3.8,
+        size: 7.8,
+        font,
+        color: COLOR_CHARCOAL,
+      });
+    } else {
+      page.drawText(`○ ${ex.examTitle} (${dayStr}): Not Scheduled at this Center`, {
+        x: cardX + pad + 6,
+        y: examBarY + 3.8,
+        size: 7.5,
+        font,
+        color: rgb(0.48, 0.48, 0.48),
+      });
+    }
+
+    currY -= examBarH + 3.5;
+
+    if (isAct && ex.info.buildings && ex.info.buildings.length > 0) {
+      for (const bld of ex.info.buildings) {
+        // Redundancy check: if building is same as center, label as Main School Building
+        const isRedundant = isSameOrRedundantBuilding(dossier.center, bld.buildingName);
+        const dispBldName = isRedundant ? "Main School Building" : bld.buildingName;
+
+        const bldLine = `• Building: ${dispBldName}`;
+        page.drawText(bldLine, {
+          x: cardX + pad + 6,
+          y: currY,
+          size: isCompact ? 7.5 : 8,
+          font,
+          color: COLOR_CHARCOAL,
+        });
+        currY -= isCompact ? 9 : 10;
+
+        const floorsFormatted = formatDossierFloorList(bld.floors);
+        const studStr = bld.studentCount ? `, ${bld.studentCount} Stud.` : "";
+        const floorsLine = `Floors: ${floorsFormatted} (${bld.roomCount} Rooms${studStr})`;
+
+        const maxFlW = cardW - pad * 2 - 16;
+        const flLines = wrapTextToLinesLocal(floorsLine, font, 7.2, maxFlW);
+        for (const fl of flLines) {
+          page.drawText(fl, {
+            x: cardX + pad + 14,
+            y: currY,
+            size: 7.2,
+            font,
+            color: rgb(0.25, 0.25, 0.25),
+          });
+          currY -= isCompact ? 8.5 : 9.5;
+        }
+      }
+    }
+
+    currY -= isCompact ? 2 : 3.5;
+  }
+}
+
+/**
+ * Generates an A4 PDF containing Quarter-A4 Center Dossier Stickers (4 per page)
+ * summarizing each center's city, buildings, and floors for both EST 1 and EST 2.
+ */
+export async function generateCenterDossierStickersPdf(
+  dossiers: CenterDossierStickerOption[],
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+
+  const font = await loadStickerFont(pdfDoc);
+  const logoImg = await loadLogoImage(pdfDoc);
+
+  // A4 Portrait: 595.28 x 841.89 pt
+  const a4Width = 595.28;
+  const a4Height = 841.89;
+  const midX = a4Width / 2;
+  const midY = a4Height / 2;
+
+  const quadrants = [
+    { x: 0, y: midY, width: midX, height: midY },    // Top-Left
+    { x: midX, y: midY, width: midX, height: midY }, // Top-Right
+    { x: 0, y: 0, width: midX, height: midY },       // Bottom-Left
+    { x: midX, y: 0, width: midX, height: midY },    // Bottom-Right
+  ];
+
+  for (let i = 0; i < dossiers.length; i += 4) {
+    const pageItems = dossiers.slice(i, i + 4);
+    const page = pdfDoc.addPage([a4Width, a4Height]);
+
+    // Cutting guide dashed lines
+    page.drawLine({
+      start: { x: midX, y: 0 },
+      end: { x: midX, y: a4Height },
+      thickness: 0.5,
+      color: COLOR_BORDER,
+      dashArray: [4, 4],
+    });
+    page.drawLine({
+      start: { x: 0, y: midY },
+      end: { x: a4Width, y: midY },
+      thickness: 0.5,
+      color: COLOR_BORDER,
+      dashArray: [4, 4],
+    });
+
+    for (let qIdx = 0; qIdx < pageItems.length; qIdx++) {
+      const q = quadrants[qIdx];
+      const dossier = pageItems[qIdx];
+      drawQuarterCenterDossierSticker({
+        page,
+        font,
+        logoImg,
+        dossier,
+        slotX: q.x,
+        slotY: q.y,
+        slotWidth: q.width,
+        slotHeight: q.height,
+      });
+    }
+  }
+
+  return await pdfDoc.save();
+}
+
+
