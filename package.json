@@ -15,7 +15,7 @@
     "db:generate": "prisma generate",
     "cf:build": "npx @opennextjs/cloudflare build",
     "cf:preview": "npx @opennextjs/cloudflare preview",
-    "cf:deploy": "npx @opennextjs/cloudflare deploy",
+    "cf:deploy": "npx @opennextjs/cloudflare deploy; code=$?; if [ \"$code\" -ne 0 ]; then node scripts/report-worker-startup-profile.mjs; fi; exit $code",
     "cf:typegen": "npx wrangler types"
   },
   "dependencies": {
