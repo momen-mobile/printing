@@ -1,0 +1,28 @@
+# Cloudflare Workers local secrets template (wrangler dev / OpenNext preview).
+# Copy to `.dev.vars` (git-ignored) and fill in REAL values locally.
+# NEVER commit `.dev.vars`. NEVER put real values in this file.
+# On Cloudflare Workers, set these as Worker Secrets (dashboard) or via `wrangler secret put`.
+# NEXT_PUBLIC_* are read at BUILD time for the client bundle AND at runtime on the server.
+
+# Database (Neon PostgreSQL). DATABASE_URL = pooled; DIRECT_URL = direct (migrations only).
+DATABASE_URL=
+DIRECT_URL=
+
+# Session signing (>=24 chars; use 48 random bytes base64url). Required at runtime.
+SESSION_SECRET=
+
+# AES-256-GCM key for encrypting stored Google tokens. Exactly 32 bytes as 64 hex chars. Required at runtime.
+ENCRYPTION_KEY=
+
+# Google OAuth + Drive. Required for auth + Drive features at runtime.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=
+GOOGLE_ACCOUNT_EMAIL=
+GOOGLE_DRIVE_ROOT_FOLDER_ID=
+
+# Public app origin, no trailing slash. Required at build time + runtime.
+NEXT_PUBLIC_APP_URL=
+
+# "1" or "true" to show demo data when Drive is not connected. Optional.
+DEMO_MODE=0
