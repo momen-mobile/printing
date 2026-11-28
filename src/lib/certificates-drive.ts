@@ -50,10 +50,6 @@ export async function ensureCertificateBatchTable(): Promise<void> {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CertificateStickerBatch_sourceKey_idx" ON "CertificateStickerBatch"("sourceKey");`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CertificateStickerBatch_batchType_idx" ON "CertificateStickerBatch"("batchType");`);
     tableEnsured = true;
-  } catch (err) {
-    tableEnsured = false;
-    throw err;
-  }
 }
 
 async function findFolderByName(drive: drive_v3.Drive, parentId: string, name: string): Promise<string | null> {

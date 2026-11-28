@@ -95,10 +95,6 @@ export async function ensureEstExamRoundTable(): Promise<void> {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "EstExamRound_examType_idx" ON "EstExamRound"("examType");`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "EstExamRound_status_idx" ON "EstExamRound"("status");`);
     tableEnsured = true;
-  } catch (err) {
-    tableEnsured = false;
-    throw err;
-  }
 }
 
 /**
