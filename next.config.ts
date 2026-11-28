@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     "*": [
       "node_modules/.prisma/client/libquery_engine-debian-*",
       "node_modules/@prisma/engines/**",
+      "node_modules/pdfjs-dist/**",
       "public/pdf.worker.min.mjs",
     ],
   },
