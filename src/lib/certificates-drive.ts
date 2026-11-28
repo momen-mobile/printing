@@ -5,16 +5,16 @@ import { createFolder } from "./drive";
 export const CERTIFICATES_FOLDER_NAME = "Certificate Stickers";
 export const CERTIFICATES_FOLDER_SETTING_KEY = "certificates.rootFolderId";
 
-let ensureTablePromise: Promise<void> | null = null;
+let tableEnsured = false;
 
 export async function ensureCertificateBatchTable(): Promise<void> {
-  if (ensureTablePromise) return ensureTablePromise;
-  ensureTablePromise = (async () => {
-    try {
-      // Fast path: table exists and Prisma can query it
-      await prisma.certificateStickerBatch.findFirst({ select: { id: true } });
-      return;
-    } catch (error: any) {
+  if (tableEnsured) return;
+  try {
+    // Fast path: table exists and Prisma can query it
+    await prisma.certificateStickerBatch.findFirst({ select: { id: true } });
+    tableEnsured = true;
+    return;
+  } catch (error: any) {
       const code = String(error?.code || "");
       const msg = String(error?.message || "").toLowerCase();
       const missing =
@@ -49,12 +49,11 @@ export async function ensureCertificateBatchTable(): Promise<void> {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CertificateStickerBatch_driveFileId_idx" ON "CertificateStickerBatch"("driveFileId");`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CertificateStickerBatch_sourceKey_idx" ON "CertificateStickerBatch"("sourceKey");`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "CertificateStickerBatch_batchType_idx" ON "CertificateStickerBatch"("batchType");`);
-  })().catch((err) => {
-    ensureTablePromise = null;
+    tableEnsured = true;
+  } catch (err) {
+    tableEnsured = false;
     throw err;
-  });
-
-  return ensureTablePromise;
+  }
 }
 
 async function findFolderByName(drive: drive_v3.Drive, parentId: string, name: string): Promise<string | null> {

@@ -48,18 +48,18 @@ export interface ParsedEstRoundResult {
   stats: EstRoundSummaryStats;
 }
 
-let ensureTablePromise: Promise<void> | null = null;
+let tableEnsured = false;
 
 /**
  * Ensures the EstExamRound table exists in PostgreSQL.
  */
 export async function ensureEstExamRoundTable(): Promise<void> {
-  if (ensureTablePromise) return ensureTablePromise;
-  ensureTablePromise = (async () => {
-    try {
-      // Test if table exists by querying 1 row
-      await prisma.estExamRound.findFirst({ select: { id: true } });
-      return;
+  if (tableEnsured) return;
+  try {
+    // Test if table exists by querying 1 row
+    await prisma.estExamRound.findFirst({ select: { id: true } });
+    tableEnsured = true;
+    return;
     } catch (error: any) {
       const code = String(error?.code || "");
       const msg = String(error?.message || "").toLowerCase();
@@ -94,12 +94,11 @@ export async function ensureEstExamRoundTable(): Promise<void> {
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "EstExamRound_userId_idx" ON "EstExamRound"("userId");`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "EstExamRound_examType_idx" ON "EstExamRound"("examType");`);
     await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "EstExamRound_status_idx" ON "EstExamRound"("status");`);
-  })().catch((err) => {
-    ensureTablePromise = null;
+    tableEnsured = true;
+  } catch (err) {
+    tableEnsured = false;
     throw err;
-  });
-
-  return ensureTablePromise;
+  }
 }
 
 /**
