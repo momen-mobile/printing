@@ -514,7 +514,9 @@ export default function EstRoundsPage() {
         | "clean_skin_log"
         | "clean_skin_subjects"
         | "clean_skin_bags"
-        | "center_dossier",
+        | "center_dossier"
+        | "center_dossier_est1"
+        | "center_dossier_est2",
     ) => {
       if (!activeRoundId) return;
 
@@ -565,6 +567,8 @@ export default function EstRoundsPage() {
         else if (type === "clean_skin_subjects") typeLabel = isAr ? "ستيكرات الكلين سكين" : "Clean Skin Stickers";
         else if (type === "clean_skin_bags") typeLabel = isAr ? "أكياس الكلين سكين للمبنى (A4 بالعرض)" : "Building Clean Skin Bag Placards";
         else if (type === "center_dossier") typeLabel = isAr ? "ستيكرات ملفات السناتر (ربع A4)" : "Center Dossier Stickers";
+        else if (type === "center_dossier_est1") typeLabel = isAr ? "ستيكر ملف السنتر EST 1 (ربع A4)" : "Center Dossier (EST 1)";
+        else if (type === "center_dossier_est2") typeLabel = isAr ? "ستيكر ملف السنتر EST 2 (ربع A4)" : "Center Dossier (EST 2)";
 
         setPreviewTitle(
           `${activeRound?.name || "EST"} - ${typeLabel} (${targetRowIds.length} ${isAr ? "قاعة" : "rooms"})`,
@@ -1529,17 +1533,17 @@ export default function EstRoundsPage() {
                       </div>
                     </button>
 
-                    {/* 6. Center Dossier Stickers (Quarter A4) */}
+                    {/* 6. Center Dossier Stickers - EST 1 (Quarter A4) */}
                     <button
                       type="button"
-                      onClick={() => void handleGeneratePdf("center_dossier")}
+                      onClick={() => void handleGeneratePdf("center_dossier_est1")}
                       disabled={isGenerating}
                       className="flex flex-col items-start justify-between p-3 rounded-xl border border-indigo-500/40 bg-indigo-500/5 hover:bg-indigo-500/10 hover:border-indigo-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
-                      title={isAr ? "ستيكر ربع A4 يوضع على فايل السنتر المتجه للقاهرة، يوضح ملخص مباني وأدوار EST 1 و EST 2 مع بيان المحتويات" : "Quarter-A4 Center Dossier Sticker for Cairo File (EST 1 & EST 2 Buildings & Floors Summary)"}
+                      title={isAr ? "ستيكر ربع A4 يوضع على فايل السنتر لـ EST 1 فقط" : "Quarter-A4 Center Dossier Sticker for EST 1"}
                     >
                       <div className="flex items-center justify-between w-full mb-2">
                         <span className="size-8 rounded-lg bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 flex items-center justify-center font-bold">
-                          {isGenerating && activeActionType === "center_dossier" ? <Loader2 className="size-4 animate-spin" /> : <FolderArchive className="size-4" />}
+                          {isGenerating && activeActionType === "center_dossier_est1" ? <Loader2 className="size-4 animate-spin" /> : <FolderArchive className="size-4" />}
                         </span>
                         <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-800 dark:text-indigo-200 font-mono">
                           1/4 A4
@@ -1547,10 +1551,36 @@ export default function EstRoundsPage() {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-indigo-950 dark:text-indigo-200 group-hover:text-indigo-600 transition-colors">
-                          {isAr ? "استيكر ملف السنتر" : "Center Dossier"}
+                          {isAr ? "ملف السنتر (EST 1)" : "Center Dossier (EST 1)"}
                         </div>
                         <div className="text-[10px] text-muted mt-0.5">
-                          {isAr ? "ملخص المباني والأدوار" : "EST 1+2 Buildings & Floors"}
+                          {isAr ? "ملخص المباني والأدوار لـ EST 1" : "EST 1 Buildings & Floors"}
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* 7. Center Dossier Stickers - EST 2 (Quarter A4) */}
+                    <button
+                      type="button"
+                      onClick={() => void handleGeneratePdf("center_dossier_est2")}
+                      disabled={isGenerating}
+                      className="flex flex-col items-start justify-between p-3 rounded-xl border border-violet-500/40 bg-violet-500/5 hover:bg-violet-500/10 hover:border-violet-500 hover:shadow-xs transition-all cursor-pointer text-start group disabled:opacity-50"
+                      title={isAr ? "ستيكر ربع A4 يوضع على فايل السنتر لـ EST 2 فقط" : "Quarter-A4 Center Dossier Sticker for EST 2"}
+                    >
+                      <div className="flex items-center justify-between w-full mb-2">
+                        <span className="size-8 rounded-lg bg-violet-500/20 text-violet-700 dark:text-violet-300 flex items-center justify-center font-bold">
+                          {isGenerating && activeActionType === "center_dossier_est2" ? <Loader2 className="size-4 animate-spin" /> : <FolderArchive className="size-4" />}
+                        </span>
+                        <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-800 dark:text-violet-200 font-mono">
+                          1/4 A4
+                        </span>
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-violet-950 dark:text-violet-200 group-hover:text-violet-600 transition-colors">
+                          {isAr ? "ملف السنتر (EST 2)" : "Center Dossier (EST 2)"}
+                        </div>
+                        <div className="text-[10px] text-muted mt-0.5">
+                          {isAr ? "ملخص المباني والأدوار لـ EST 2" : "EST 2 Buildings & Floors"}
                         </div>
                       </div>
                     </button>

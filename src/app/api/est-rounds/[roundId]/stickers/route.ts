@@ -1226,12 +1226,50 @@ export async function POST(
       return dossierList;
     };
 
-    // 6e. CENTER DOSSIER STICKERS (QUARTER A4 - EST 1 + EST 2 SUMMARY FOR CAIRO SHIPPING FILES)
-    if (type === "center_dossier") {
-      const dossiers = await buildCenterDossierOptions();
+    // 6e. CENTER DOSSIER STICKERS (QUARTER A4 - EST 1 / EST 2 SUMMARY FOR CAIRO SHIPPING FILES)
+    if (
+      type === "center_dossier" ||
+      type === "center_dossier_est1" ||
+      type === "center_dossier_est2"
+    ) {
+      let dossiers = await buildCenterDossierOptions();
+      let examTag = "EST_1_2";
+
+      if (type === "center_dossier_est1") {
+        examTag = "EST_1";
+        dossiers = dossiers
+          .filter((d) => d.est1?.isActive && d.est1.totalRooms > 0)
+          .map((d) => ({
+            ...d,
+            est2: {
+              ...d.est2,
+              isActive: false,
+              totalBuildings: 0,
+              totalRooms: 0,
+              totalStudents: 0,
+              buildings: [],
+            },
+          }));
+      } else if (type === "center_dossier_est2") {
+        examTag = "EST_2";
+        dossiers = dossiers
+          .filter((d) => d.est2?.isActive && d.est2.totalRooms > 0)
+          .map((d) => ({
+            ...d,
+            est1: {
+              ...d.est1,
+              isActive: false,
+              totalBuildings: 0,
+              totalRooms: 0,
+              totalStudents: 0,
+              buildings: [],
+            },
+          }));
+      }
+
       const pdfBytes = await generateCenterDossierStickersPdf(dossiers);
 
-      const safeFilename = `EST_Center_Dossier_Stickers_${round.cycleName?.replace(/[^a-zA-Z0-9_-]/g, "_") || "Dec_2026"}_${dossiers.length}_Centers.pdf`;
+      const safeFilename = `EST_Center_Dossier_${examTag}_${round.cycleName?.replace(/[^a-zA-Z0-9_-]/g, "_") || "Dec_2026"}_${dossiers.length}_Centers.pdf`;
 
       return new NextResponse(Buffer.from(pdfBytes), {
         status: 200,
