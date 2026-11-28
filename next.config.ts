@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: false,
-  serverExternalPackages: ["googleapis", "mammoth", "xlsx"],
+  serverExternalPackages: ["mammoth", "xlsx"],
   outputFileTracingExcludes: {
     "*": [
       "node_modules/.prisma/client/libquery_engine-debian-*",
