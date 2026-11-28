@@ -36,7 +36,16 @@ export function assertGoogleConfigured(): void {
 export function createOAuthClient(): OAuth2Client {
   assertGoogleConfigured();
   const config = getGoogleConfig();
-  return new google.auth.OAuth2(config.clientId, config.clientSecret, config.redirectUri);
+  google.options({ headers: { "Accept-Encoding": "identity" } });
+  const client = new google.auth.OAuth2(config.clientId, config.clientSecret, config.redirectUri);
+  client.transporter.defaults = {
+    ...client.transporter.defaults,
+    headers: {
+      ...(client.transporter.defaults?.headers as Record<string, string> | undefined),
+      "Accept-Encoding": "identity",
+    },
+  };
+  return client;
 }
 
 export function buildConsentUrl(state: string): string {
