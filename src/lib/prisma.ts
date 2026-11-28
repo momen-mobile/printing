@@ -8,8 +8,9 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const isCloudflareWorker =
-  typeof navigator !== "undefined" &&
-  navigator.userAgent?.includes("Cloudflare-Workers");
+  typeof (globalThis as Record<string, unknown>).WebSocketPair !== "undefined" ||
+  (typeof navigator !== "undefined" &&
+    navigator.userAgent?.includes("Cloudflare-Workers"));
 
 function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL;
