@@ -73,6 +73,8 @@ async function loadLogoImage(pdfDoc: PDFDocument): Promise<any> {
   }
 }
 
+import { getArialBoldBytes } from "./arial-bold-base64";
+
 async function loadStickerFont(pdfDoc: PDFDocument): Promise<any> {
   const fontPaths = [
     path.join(process.cwd(), "src", "assets", "fonts", "Arial-Bold.ttf"),
@@ -80,13 +82,17 @@ async function loadStickerFont(pdfDoc: PDFDocument): Promise<any> {
   ];
 
   for (const fp of fontPaths) {
-    if (fs.existsSync(/*turbopackIgnore: true*/ fp)) {
-      try {
+    try {
+      if (fs.existsSync(/*turbopackIgnore: true*/ fp)) {
         const fontBytes = fs.readFileSync(/*turbopackIgnore: true*/ fp);
         return await pdfDoc.embedFont(fontBytes, { subset: false });
-      } catch {}
-    }
+      }
+    } catch {}
   }
+
+  try {
+    return await pdfDoc.embedFont(getArialBoldBytes(), { subset: false });
+  } catch {}
 
   return await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 }
