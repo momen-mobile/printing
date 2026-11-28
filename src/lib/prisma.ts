@@ -7,6 +7,10 @@ const globalForPrisma = globalThis as unknown as {
   pgPool?: Pool;
 };
 
+const isCloudflareWorker =
+  typeof navigator !== "undefined" &&
+  navigator.userAgent?.includes("Cloudflare-Workers");
+
 function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -15,14 +19,20 @@ function createPrismaClient(): PrismaClient {
     });
   }
 
-  const pool =
-    globalForPrisma.pgPool ??
-    new Pool({
-      connectionString,
-      max: 5,
-    });
+  // On Cloudflare Workers, I/O objects (TCP sockets) cannot be shared across requests.
+  // Creating a lightweight Pool (max: 1) per client/request avoids cross-request I/O errors.
+  const pool = isCloudflareWorker
+    ? new Pool({
+        connectionString,
+        max: 1,
+      })
+    : (globalForPrisma.pgPool ??
+        new Pool({
+          connectionString,
+          max: 5,
+        }));
 
-  if (process.env.NODE_ENV !== "production") {
+  if (!isCloudflareWorker && process.env.NODE_ENV !== "production") {
     globalForPrisma.pgPool = pool;
   }
 
@@ -33,8 +43,10 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+export const prisma = isCloudflareWorker
+  ? createPrismaClient()
+  : (globalForPrisma.prisma ?? createPrismaClient());
 
-if (process.env.NODE_ENV !== "production") {
+if (!isCloudflareWorker && process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
