@@ -196,9 +196,10 @@ export function toErrorResponse(error: unknown): { status: number; body: { error
   }
 
   if (isDatabaseError(error)) {
+    const dbMsg = error instanceof Error ? error.message : String(error);
     return {
       status: 503,
-      body: { error: "db", message: "The database is currently unavailable. Try again in a moment." },
+      body: { error: "db", message: dbMsg || "The database is currently unavailable. Try again in a moment." },
     };
   }
 
