@@ -202,6 +202,13 @@ export function toErrorResponse(error: unknown): { status: number; body: { error
     };
   }
 
-  console.error("[api] unexpected error", error instanceof Error ? error.message : error);
-  return { status: 500, body: { error: "generic", message: "Unexpected server error. Please try again." } };
+  const errMsg = error instanceof Error ? error.message : String(error);
+  console.error("[api] unexpected error", errMsg);
+  return {
+    status: 500,
+    body: {
+      error: "generic",
+      message: errMsg || "Unexpected server error. Please try again.",
+    },
+  };
 }
