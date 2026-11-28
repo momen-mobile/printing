@@ -3,6 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: false,
   serverExternalPackages: ["googleapis", "mammoth", "xlsx"],
+  outputFileTracingExcludes: {
+    "*": [
+      "node_modules/.prisma/client/libquery_engine-debian-*",
+      "node_modules/@prisma/engines/**",
+      "public/pdf.worker.min.mjs",
+    ],
+  },
   async headers() {
     return [
       {
