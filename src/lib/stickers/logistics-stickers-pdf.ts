@@ -4178,7 +4178,7 @@ function drawQuarterCenterDossierSticker(params: {
     currY -= 20;
   }
 
-  // Summary Pill Bar
+  // Single clean summary pill: Buildings first, then Rooms (no duplicate boxes)
   const totRooms = (dossier.est1?.totalRooms || 0) + (dossier.est2?.totalRooms || 0);
   const totBldgs = Math.max(
     (dossier.est1?.totalBuildings || 0),
@@ -4187,20 +4187,20 @@ function drawQuarterCenterDossierSticker(params: {
   );
 
   currY -= 6;
-  const barH = 22;
+  const barH = 26;
   const barY = currY - barH + 2;
   page.drawRectangle({
     x: cardX + pad,
     y: barY,
     width: cardW - pad * 2,
     height: barH,
-    color: rgb(0.93, 0.94, 0.96),
-    borderColor: rgb(0.82, 0.84, 0.88),
-    borderWidth: 0.5,
+    color: rgb(0.88, 0.91, 0.96),
+    borderColor: rgb(0.72, 0.77, 0.88),
+    borderWidth: 0.8,
   });
 
-  const summaryText = `Total: ${totRooms} Rooms • ${totBldgs} ${totBldgs > 1 ? "Buildings" : "Building"}`;
-  const summarySize = 9.5;
+  const summaryText = `${totBldgs} ${totBldgs > 1 ? "Buildings" : "Building"}   •   ${totRooms} ${totRooms === 1 ? "Room" : "Rooms"}`;
+  const summarySize = 11;
   const summaryW = font.widthOfTextAtSize(summaryText, summarySize);
   page.drawText(summaryText, {
     x: cardX + (cardW - summaryW) / 2,
@@ -4210,78 +4210,41 @@ function drawQuarterCenterDossierSticker(params: {
     color: COLOR_CHARCOAL,
   });
 
-  currY -= barH + 14;
-  page.drawLine({
-    start: { x: cardX + pad, y: currY },
-    end: { x: cardX + cardW - pad, y: currY },
-    thickness: 0.6,
-    color: COLOR_BORDER,
-  });
-  currY -= 12;
+  currY -= barH + 18;
 
-  // 5. MID-SECTION: EXAM BREAKDOWNS (EST 1 & EST 2)
+  // 4. MID-SECTION: BUILDINGS & FLOORS BREAKDOWN
   const exams = [
     { info: dossier.est1, examTitle: "EST 1", defaultDay: "Friday, Dec 11" },
     { info: dossier.est2, examTitle: "EST 2", defaultDay: "Saturday, Dec 12" },
   ];
 
-  const totalBldgsAcross =
-    (dossier.est1?.buildings?.length || 0) + (dossier.est2?.buildings?.length || 0);
+  const activeExams = exams.filter((ex) => Boolean(ex.info?.isActive && ex.info.totalRooms > 0));
+  const totalBldgsAcross = activeExams.reduce((sum, ex) => sum + (ex.info?.buildings?.length || 0), 0);
   const isCompact = totalBldgsAcross >= 3;
 
-  for (const ex of exams) {
-    const isAct = Boolean(ex.info?.isActive && ex.info.totalRooms > 0);
-    if (!isAct) continue;
-    const dayStr = ex.info?.dayAndDate || ex.defaultDay;
-    const bCnt = ex.info?.totalBuildings || ex.info?.buildings?.length || 1;
-    const headerSize = isCompact ? 9 : 10;
-    const headerLineH = isCompact ? 12 : 14;
-    const headerStr = `${ex.examTitle} (${dayStr}): ${bCnt} ${bCnt > 1 ? "Buildings" : "Building"} • ${ex.info.totalRooms} Rooms`;
-    const headerLines = wrapTextToLinesLocal(
-      headerStr,
-      font,
-      headerSize,
-      cardW - pad * 2 - 12,
-    );
-    const examBarH = Math.max(isCompact ? 20 : 22, headerLines.length * headerLineH + 10);
-    const examBarY = currY - examBarH + 2;
-
-    // Exam section header pill
-    page.drawRectangle({
-      x: cardX + pad,
-      y: examBarY,
-      width: cardW - pad * 2,
-      height: examBarH,
-      color: isAct ? rgb(0.88, 0.91, 0.96) : rgb(0.96, 0.96, 0.96),
-      borderColor: isAct ? rgb(0.72, 0.77, 0.88) : rgb(0.88, 0.88, 0.88),
-      borderWidth: 0.8,
-    });
-
-    const totalTextH = headerLines.length * headerLineH;
-    const firstLineY = examBarY + (examBarH + totalTextH) / 2 - headerLineH + (headerLineH - headerSize * 0.72) / 2;
-    for (let hi = 0; hi < headerLines.length; hi++) {
-      const lineW = font.widthOfTextAtSize(headerLines[hi], headerSize);
-      page.drawText(headerLines[hi], {
-        x: cardX + (cardW - lineW) / 2,
-        y: firstLineY - hi * headerLineH,
-        size: headerSize,
+  for (const ex of activeExams) {
+    if (activeExams.length > 1) {
+      const exLabel = `${ex.examTitle} (${ex.info?.dayAndDate || ex.defaultDay})`;
+      const exSize = 9.5;
+      const exW = font.widthOfTextAtSize(exLabel, exSize);
+      page.drawText(exLabel, {
+        x: cardX + (cardW - exW) / 2,
+        y: currY,
+        size: exSize,
         font,
-        color: isAct ? COLOR_CHARCOAL : rgb(0.48, 0.48, 0.48),
+        color: COLOR_MUTED,
       });
+      currY -= 16;
     }
 
-    currY -= examBarH + 12;
-
-    if (isAct && ex.info.buildings && ex.info.buildings.length > 0) {
+    if (ex.info.buildings && ex.info.buildings.length > 0) {
       for (const bld of ex.info.buildings) {
-        // Redundancy check: if building is same as center, label as Main School Building
         const isRedundant = isSameOrRedundantBuilding(dossier.center, bld.buildingName);
         const dispBldName = isRedundant ? "Main School Building" : bld.buildingName;
 
-        const bldSize = isCompact ? 9.5 : 10.5;
-        const bldLine = `Building: ${dispBldName}`;
+        const bldSize = isCompact ? 10 : 11.5;
         const maxBldW = cardW - pad * 2 - 10;
-        const bldLines = wrapTextToLinesLocal(bldLine, font, bldSize, maxBldW);
+        const bldLines = wrapTextToLinesLocal(dispBldName, font, bldSize, maxBldW);
         for (const bl of bldLines) {
           const blW = font.widthOfTextAtSize(bl, bldSize);
           page.drawText(bl, {
@@ -4291,13 +4254,13 @@ function drawQuarterCenterDossierSticker(params: {
             font,
             color: COLOR_CHARCOAL,
           });
-          currY -= isCompact ? 14 : 16;
+          currY -= isCompact ? 15 : 17;
         }
 
         const floorsFormatted = formatDossierFloorList(bld.floors);
-        const floorsLine = `Floors: ${floorsFormatted} (${bld.roomCount} Rooms)`;
+        const floorsLine = `${floorsFormatted} (${bld.roomCount} ${bld.roomCount === 1 ? "Room" : "Rooms"})`;
 
-        const flSize = isCompact ? 8.5 : 9.5;
+        const flSize = isCompact ? 9 : 10;
         const maxFlW = cardW - pad * 2 - 12;
         const flLines = wrapTextToLinesLocal(floorsLine, font, flSize, maxFlW);
         for (const fl of flLines) {
@@ -4307,15 +4270,13 @@ function drawQuarterCenterDossierSticker(params: {
             y: currY,
             size: flSize,
             font,
-            color: rgb(0.28, 0.28, 0.28),
+            color: rgb(0.32, 0.32, 0.32),
           });
-          currY -= isCompact ? 13 : 14;
+          currY -= isCompact ? 14 : 15;
         }
-        currY -= isCompact ? 6 : 8;
+        currY -= isCompact ? 10 : 14;
       }
     }
-
-    currY -= isCompact ? 6 : 10;
   }
 }
 
