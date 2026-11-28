@@ -44,8 +44,14 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
-export const prisma = isCloudflareWorker
-  ? createPrismaClient()
+export const prisma: PrismaClient = isCloudflareWorker
+  ? new Proxy({} as PrismaClient, {
+      get(_target, prop) {
+        const client = createPrismaClient();
+        const value = Reflect.get(client, prop, client);
+        return typeof value === "function" ? value.bind(client) : value;
+      },
+    })
   : (globalForPrisma.prisma ?? createPrismaClient());
 
 if (!isCloudflareWorker && process.env.NODE_ENV !== "production") {
